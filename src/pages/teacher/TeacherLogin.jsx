@@ -182,7 +182,7 @@ const TeacherLogin = () => {
                                     type="text"
                                     required
                                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                    placeholder="请输入同济大学工号"
+                                    placeholder="请输入工号或用户 ID"
                                     value={formData.employeeId}
                                     onChange={(e) => setFormData({...formData, employeeId: e.target.value})}
                                 />
@@ -225,7 +225,7 @@ const TeacherLogin = () => {
                                         required
                                         maxLength={4}
                                         className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm tracking-widest uppercase"
-                                        placeholder="请输入右侧字符"
+                                        placeholder="请输入右侧验证码"
                                         value={formData.captchaInput}
                                         onChange={(e) => setFormData({...formData, captchaInput: e.target.value})}
                                     />
@@ -250,7 +250,7 @@ const TeacherLogin = () => {
                             disabled={loading}
                             className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 安全登录</span>}
+                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录</span>}
                         </button>
                     </form>
 
