@@ -1,7 +1,7 @@
 // 文件路径: src/pages/Login.jsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { GraduationCap, School, ChevronRight, BookOpen } from 'lucide-react';
+import {useNavigate} from 'react-router-dom';
+import {GraduationCap, School, ChevronRight, BookOpen} from 'lucide-react';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -13,7 +13,7 @@ const Login = () => {
             {/* 顶部标题区 */}
             <div className="text-center mb-10 space-y-2">
                 <div className="flex items-center justify-center gap-2 text-blue-800 mb-2">
-                    <School size={28} />
+                    <School size={28}/>
                     <span className="font-bold tracking-widest text-sm uppercase">Tongji University</span>
                 </div>
                 <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
@@ -27,7 +27,7 @@ const Login = () => {
             {/* 核心卡片容器 */}
             <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl w-full max-w-md p-8 border border-white/50">
                 <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-                    <BookOpen className="text-blue-600" size={20} />
+                    <BookOpen className="text-blue-600" size={20}/>
                     请选择您的身份 / Bitte wählen
                 </h2>
 
@@ -40,33 +40,33 @@ const Login = () => {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-600 transition-colors duration-300">
-                                    <GraduationCap className="text-blue-600 group-hover:text-white" size={24} />
+                                    <GraduationCap className="text-blue-600 group-hover:text-white" size={24}/>
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-gray-800">我是学生</h3>
                                     <p className="text-sm text-gray-500">Student / Schüler</p>
                                 </div>
                             </div>
-                            <ChevronRight className="text-gray-300 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all" />
+                            <ChevronRight className="text-gray-300 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all"/>
                         </div>
                     </button>
 
                     {/* 教师入口按钮 */}
                     <button
-                        onClick={() => navigate('/teacher')}
+                        onClick={() => navigate('/teacher/login')}  // 修改这里：指向 /teacher/login
                         className="group w-full relative overflow-hidden bg-white border-2 border-indigo-100 hover:border-indigo-500 rounded-xl p-4 transition-all duration-300 text-left hover:shadow-lg"
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="bg-indigo-100 p-3 rounded-lg group-hover:bg-indigo-600 transition-colors duration-300">
-                                    <School className="text-indigo-600 group-hover:text-white" size={24} />
+                                    <School className="text-indigo-600 group-hover:text-white" size={24}/>
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-gray-800">我是教师</h3>
                                     <p className="text-sm text-gray-500">Lehrer / Dozent</p>
                                 </div>
                             </div>
-                            <ChevronRight className="text-gray-300 group-hover:text-indigo-600 transform group-hover:translate-x-1 transition-all" />
+                            <ChevronRight className="text-gray-300 group-hover:text-indigo-600 transform group-hover:translate-x-1 transition-all"/>
                         </div>
                     </button>
                 </div>

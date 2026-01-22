@@ -1,21 +1,26 @@
 // 文件路径: src/App.jsx
 import React from 'react';
-// 1. 修改这里：把 BrowserRouter 改为 HashRouter
 import { HashRouter, Routes, Route } from 'react-router-dom';
 
+// 引入页面组件
 import Login from './pages/Login';
-
-const StudentHome = () => <div className="p-10 text-2xl">🚧 学生端开发中...</div>;
-const TeacherDashboard = () => <div className="p-10 text-2xl">🚧 教师端开发中...</div>;
+import StudentHome from './pages/student/StudentHome';
+import TeacherLogin from './pages/teacher/TeacherLogin'; // 新增
+import TeacherDashboard from './pages/teacher/TeacherDashboard';
 
 function App() {
     return (
-        // 2. 修改这里：使用 HashRouter 包裹
         <HashRouter>
             <Routes>
+                {/* 1. 首页：角色选择 */}
                 <Route path="/" element={<Login />} />
+
+                {/* 2. 学生端 */}
                 <Route path="/student" element={<StudentHome />} />
-                <Route path="/teacher" element={<TeacherDashboard />} />
+
+                {/* 3. 教师端流程 */}
+                <Route path="/teacher/login" element={<TeacherLogin />} /> {/* 登录页 */}
+                <Route path="/teacher/dashboard" element={<TeacherDashboard />} /> {/* 仪表盘 */}
             </Routes>
         </HashRouter>
     );
