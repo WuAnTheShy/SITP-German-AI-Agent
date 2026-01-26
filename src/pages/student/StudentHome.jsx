@@ -3,11 +3,29 @@ import React, { useState } from 'react';
 import { Send, Bot, User, BookOpen, Mic, Image as ImageIcon } from 'lucide-react';
 
 const StudentHome = () => {
+    // 新增：德语功能提示词模板
+const promptTemplates = [
+  {
+    name: "德语发音",
+    text: "请帮我分析这个德语句子的发音规则，并标注每个单词的音标：[请输入德语句子]"
+  },
+  {
+    name: "德语语法",
+    text: "请解析这个德语句子的语法结构，包括时态、格位和从句类型：[请输入德语句子]"
+  },
+  {
+    name: "德语词汇",
+    text: "请帮我扩展这个德语单词的同义词、反义词和常用搭配：[请输入德语单词]"
+  }
+];
     const [messages, setMessages] = useState([
         { id: 1, sender: 'ai', text: 'Hallo! Ich bin dein KI-Tutor. Wie kann ich dir heute helfen? (你好！我是你的AI导师。今天我能为你做什么？)' }
     ]);
     const [input, setInput] = useState('');
-
+    // 新增：点击模板填充到输入框
+const handleTemplateClick = (templateText) => {
+  setInput(templateText);
+};
     // 模拟发送消息
     const handleSend = () => {
         if (!input.trim()) return;
@@ -77,7 +95,21 @@ const StudentHome = () => {
                         </div>
                     ))}
                 </div>
-
+                {/* 新增：提示词模板选择区 */}
+<div className="p-4 bg-gray-50 border-b border-gray-200">
+  <h3 className="text-sm font-medium text-gray-700 mb-2">📋 选择提示词模板</h3>
+  <div className="flex flex-wrap gap-2">
+    {promptTemplates.map((template, index) => (
+      <button
+        key={index}
+        onClick={() => handleTemplateClick(template.text)}
+        className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-xs transition-colors"
+      >
+        {template.name}
+      </button>
+    ))}
+  </div>
+</div>
                 {/* 输入框区域 */}
                 <div className="p-4 bg-white border-t border-gray-200">
                     <div className="max-w-4xl mx-auto relative">
