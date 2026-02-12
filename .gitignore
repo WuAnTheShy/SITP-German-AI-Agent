@@ -1,3 +1,4 @@
+# --- 你原本的前端内容 ---
 # Logs
 logs
 *.log
@@ -22,3 +23,24 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# --- 🚀 新增：保护你的后端和敏感信息 ---
+
+# 1. 忽略所有环境配置文件（保护 API Key）
+.env
+.env.local
+server/.env
+
+# 2. 忽略 Python 运行产生的垃圾文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 3. 忽略 Python 虚拟环境
+venv/
+.venv/
+env/
+
+# 4. 忽略后端可能生成的其他文件
+server/requirements_windows.txt
+*.db
