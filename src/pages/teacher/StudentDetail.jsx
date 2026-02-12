@@ -403,10 +403,6 @@ const StudentDetail = () => {
                             <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">综合评分 {info.score}</span>
                         </div>
                     </div>
-                    <div className="flex gap-3">
-                        <button className="p-3 border rounded-xl hover:bg-gray-50 text-gray-600" title="发送邮件"><Mail size={20}/></button>
-                        <button className="p-3 border rounded-xl hover:bg-gray-50 text-gray-600" title="即时通讯"><MessageCircle size={20}/></button>
-                    </div>
                 </div>
 
                 {/* 2. 能力雷达 & AI 诊断 */}
