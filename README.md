@@ -59,7 +59,7 @@ Ensure you have Node.js installed.
 
 ```bash
 # Clone the repository
-git clone [your-repo-link]
+git clone https://github.com/WuAnTheShy/SITP-German-AI-Agent.git
 
 # Install dependencies
 npm install
