@@ -272,7 +272,25 @@ const StudentDetail = () => {
 
     useEffect(() => {
         const initData = async () => {
-            setLoading(true);
+            // 1. 🟢 优化：先使用路由传参(State)的缓存数据渲染界面，实现“秒开”
+            // 这样即使用户点击“李娜”，API 还没返回时，也能先看到“李娜”的名字
+            if (state?.student) {
+                const fallbackData = {
+                    info: {
+                        name: state.student.name || '加载中...',
+                        uid: state.student.uid,
+                        class: state.student.class || '软件工程',
+                        active: state.student.active || 0,
+                        score: state.student.score || 0
+                    },
+                    ability: { listening: 0, speaking: 0, reading: 0, writing: 0 }, // 初始占位
+                    aiDiagnosis: "正在分析最新学情...",
+                    homeworks: []
+                };
+                setStudentData(fallbackData); // 先设置一次数据
+            }
+
+            setLoading(true); // 保持 loading 状态（或者是小 loading）
 
             // 1. 尝试从 API 获取数据
             const apiData = await fetchStudentDetail(id);
