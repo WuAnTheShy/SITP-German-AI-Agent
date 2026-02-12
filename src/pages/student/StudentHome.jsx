@@ -48,7 +48,7 @@ const StudentHome = () => {
 
         try {
             // (2) 发送给 Python 后端
-            const response = await fetch('http://localhost:8000/api/chat', {
+            const response = await fetch('https://sitp-german-ai-agent-1.onrender.com', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

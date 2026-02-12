@@ -17,7 +17,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 # 2. 定义模型和人设
 model = genai.GenerativeModel(
     'gemini-2.5-flash',
-    system_instruction="你是一个同济大学SITP项目的AI德语助教。请用德语回答，并指出用户的语法错误。如果用户说中文，请引导通过德语表达。"
+    system_instruction="你是一个同济大学SITP项目的AI德语助教。请用德语回答，括号内给出中文解释，并指出用户的语法错误。如果用户说中文，请引导通过德语表达。"
 )
 chat = model.start_chat(history=[])
 
