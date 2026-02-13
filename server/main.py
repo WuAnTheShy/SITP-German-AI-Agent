@@ -48,5 +48,9 @@ async def chat_endpoint(request: ChatRequest):
         print(f"Gemini调用失败: {e}")
         return {"reply": "Entschuldigung, ich habe ein Problem. (AI出错了)"}
 
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "SITP German Agent 后端正在运行中! 🚀"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

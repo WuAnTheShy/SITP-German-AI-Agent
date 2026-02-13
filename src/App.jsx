@@ -1,6 +1,6 @@
 // 文件路径: src/App.jsx
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import {HashRouter, Routes, Route} from 'react-router-dom';
 
 // 引入原有页面
 import Login from './pages/Login';
@@ -18,19 +18,19 @@ function App() {
         <HashRouter>
             <Routes>
                 {/* 1. 首页 */}
-                <Route path="/" element={<Login />} />
+                <Route path="/" element={<Login/>}/>
 
                 {/* 2. 学生端 */}
-                <Route path="/student" element={<StudentHome />} />
+                <Route path="/student" element={<StudentHome/>}/>
 
                 {/* 3. 教师端核心流程 */}
-                <Route path="/teacher/login" element={<TeacherLogin />} />
-                <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+                <Route path="/teacher/login" element={<TeacherLogin/>}/>
+                <Route path="/teacher/dashboard" element={<TeacherDashboard/>}/>
 
                 {/* 4. 教师端子功能页面 */}
-                <Route path="/teacher/scenario" element={<ScenarioLaunch />} />
-                <Route path="/teacher/exam" element={<ExamGenerator />} />
-                <Route path="/teacher/student/:id" element={<StudentDetail />} />
+                <Route path="/teacher/scenario" element={<ScenarioLaunch/>}/>
+                <Route path="/teacher/exam" element={<ExamGenerator/>}/>
+                <Route path="/teacher/student/:id" element={<StudentDetail/>}/>
             </Routes>
         </HashRouter>
     );
