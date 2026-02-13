@@ -65,6 +65,7 @@
 │   └── requirements.txt # Python 依赖列表
 ├── docker-compose.yml   # 容器编排文件 (一键启动)
 ├── .github/             # GitHub Actions 自动化部署配置
+├── README.md            # 项目 README 文档
 └── .env                 # 环境变量配置文件 (需手动创建)
 ```
 
