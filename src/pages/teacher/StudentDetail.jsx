@@ -283,7 +283,7 @@ const StudentDetail = () => {
                         active: state.student.active || 0,
                         score: state.student.score || 0
                     },
-                    ability: { listening: 0, speaking: 0, reading: 0, writing: 0 }, // 初始占位
+                    ability: {listening: 0, speaking: 0, reading: 0, writing: 0}, // 初始占位
                     aiDiagnosis: "正在分析最新学情...",
                     homeworks: []
                 };

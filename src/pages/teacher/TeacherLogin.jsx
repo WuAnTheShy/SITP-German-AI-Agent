@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, {useState, useEffect, useRef} from 'react';
+import {useNavigate} from 'react-router-dom';
 import axios from 'axios';
-import { School, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
+import {School, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw} from 'lucide-react';
 
 // ----------------------------------------------------------------------
 // 🔧 配置区域
@@ -17,7 +17,7 @@ const TeacherLogin = () => {
     const [error, setError] = useState('');
 
     // 🔐 验证码状态
-    const [captcha, setCaptcha] = useState({ code: '', dataUrl: '' });
+    const [captcha, setCaptcha] = useState({code: '', dataUrl: ''});
 
     const [formData, setFormData] = useState({
         employeeId: '',
@@ -39,7 +39,7 @@ const TeacherLogin = () => {
         const ctx = canvas.getContext('2d');
 
         // 1. 绘制背景
-        ctx.fillStyle = '#f3f4f6'; // 浅灰色背景
+        ctx.fillStyle = '#F3F4F6'; // 浅灰色背景
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // 2. 绘制干扰线
@@ -70,7 +70,7 @@ const TeacherLogin = () => {
             ctx.restore();
         }
 
-        setCaptcha({ code: code, dataUrl: canvas.toDataURL() });
+        setCaptcha({code: code, dataUrl: canvas.toDataURL()});
     };
 
     // 初始化时生成验证码
@@ -88,7 +88,7 @@ const TeacherLogin = () => {
             setError('验证码错误，请重新输入');
             setLoading(false);
             refreshCaptcha(); // 输错后自动刷新
-            setFormData(prev => ({ ...prev, captchaInput: '' })); // 清空输入框
+            setFormData(prev => ({...prev, captchaInput: ''})); // 清空输入框
             return;
         }
 
@@ -127,7 +127,7 @@ const TeacherLogin = () => {
             console.error('🔴 登录错误:', err);
             // 登录失败也要刷新验证码，防止重放
             refreshCaptcha();
-            setFormData(prev => ({ ...prev, captchaInput: '' }));
+            setFormData(prev => ({...prev, captchaInput: ''}));
 
             if (err.response) {
                 setError(`登录失败: ${err.response.data.message || '服务器拒绝'}`);
@@ -148,14 +148,14 @@ const TeacherLogin = () => {
                     onClick={() => navigate('/')}
                     className="flex items-center text-gray-500 hover:text-indigo-600 transition-colors text-sm font-medium"
                 >
-                    <ArrowLeft size={16} className="mr-1" /> 返回首页
+                    <ArrowLeft size={16} className="mr-1"/> 返回首页
                 </button>
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center">
                     <div className="h-16 w-16 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg transform rotate-3">
-                        <School className="text-white h-8 w-8" />
+                        <School className="text-white h-8 w-8"/>
                     </div>
                 </div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">教师端登录</h2>
@@ -165,7 +165,7 @@ const TeacherLogin = () => {
                 <div className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10 border border-gray-100">
                     {error && (
                         <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-start">
-                            <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+                            <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5"/>
                             <p className="text-sm text-red-700">{error}</p>
                         </div>
                     )}
@@ -176,7 +176,7 @@ const TeacherLogin = () => {
                             <label className="block text-sm font-medium text-gray-700">工号 / Employee ID</label>
                             <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User className="h-5 w-5 text-gray-400" />
+                                    <User className="h-5 w-5 text-gray-400"/>
                                 </div>
                                 <input
                                     type="text"
@@ -194,7 +194,7 @@ const TeacherLogin = () => {
                             <label className="block text-sm font-medium text-gray-700">密码 / Password</label>
                             <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock className="h-5 w-5 text-gray-400" />
+                                    <Lock className="h-5 w-5 text-gray-400"/>
                                 </div>
                                 <input
                                     type={showPassword ? "text" : "password"}
@@ -206,7 +206,7 @@ const TeacherLogin = () => {
                                 />
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-500">
-                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                        {showPassword ? <EyeOff className="h-5 w-5"/> : <Eye className="h-5 w-5"/>}
                                     </button>
                                 </div>
                             </div>
@@ -218,7 +218,7 @@ const TeacherLogin = () => {
                             <div className="mt-1 flex gap-3">
                                 <div className="relative rounded-md shadow-sm flex-1">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <ShieldCheck className="h-5 w-5 text-gray-400" />
+                                        <ShieldCheck className="h-5 w-5 text-gray-400"/>
                                     </div>
                                     <input
                                         type="text"
@@ -233,13 +233,13 @@ const TeacherLogin = () => {
                                 {/* 验证码图片与刷新按钮 */}
                                 <div className="relative group cursor-pointer" onClick={refreshCaptcha}>
                                     <img
-                                        src={captcha.dataUrl}
+                                        src={captcha.dataUrl || null}
                                         alt="Captcha"
                                         className="h-[46px] w-[120px] rounded-lg border border-gray-200 object-cover"
                                     />
                                     {/* 悬停时显示刷新图标 */}
                                     <div className="absolute inset-0 bg-black/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <RefreshCw className="text-indigo-600 font-bold" size={20} />
+                                        <RefreshCw className="text-indigo-600 font-bold" size={20}/>
                                     </div>
                                 </div>
                             </div>
@@ -250,7 +250,7 @@ const TeacherLogin = () => {
                             disabled={loading}
                             className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录</span>}
+                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5"/> 登录</span>}
                         </button>
                     </form>
 
