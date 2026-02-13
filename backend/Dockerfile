@@ -1,7 +1,7 @@
 # server/Dockerfile
 
-# 使用 Python 3.10 作为基础镜像
-FROM python:3.10-slim
+# 使用 Python 3.13 作为基础镜像
+FROM python:3.13-slim
 
 # 设置工作目录
 WORKDIR /app
