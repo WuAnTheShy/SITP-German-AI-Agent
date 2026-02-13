@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, BookOpen, Mic, Image as ImageIcon, Loader2 } from 'lucide-react';
+import React, {useState, useRef, useEffect} from 'react';
+import {Send, Bot, User, BookOpen, Mic, Image as ImageIcon, Loader2} from 'lucide-react';
 
 const StudentHome = () => {
     // 1. 状态管理
     const [messages, setMessages] = useState([
-        { id: 1, sender: 'ai', text: 'Hallo! Ich bin dein KI-Tutor. Wie kann ich dir heute helfen? (你好！我是你的AI导师。今天我能为你做什么？)' }
+        {id: 1, sender: 'ai', text: 'Hallo! Ich bin dein KI-Tutor. Wie kann ich dir heute helfen? (你好！我是你的AI导师。今天我能为你做什么？)'}
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false); // 新增：加载状态
@@ -32,28 +32,32 @@ const StudentHome = () => {
 
     // 3. 自动滚动到底部
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
     }, [messages, loading]);
 
     // 4. 发送消息 (核心修改部分)
     const handleSend = async () => {
-        if (!input.trim() || loading) return;
+        if (!input.trim() || loading) {
+            return;
+        }
 
         // (1) 立即显示用户消息
         const userText = input;
-        const newMsg = { id: Date.now(), sender: 'user', text: userText };
+        const newMsg = {id: Date.now(), sender: 'user', text: userText};
         setMessages(prev => [...prev, newMsg]);
         setInput('');
         setLoading(true);
 
         try {
             // (2) 发送给 Python 后端
-            const response = await fetch('http://localhost:8000/api/chat', {
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/chat';
+
+            const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message: userText }),
+                body: JSON.stringify({message: userText})
             });
 
             // (3) 解析后端返回的数据
@@ -89,15 +93,15 @@ const StudentHome = () => {
             <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
                 <div className="p-6 border-b border-gray-100">
                     <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                        <Bot size={24} /> AI-Tutor
+                        <Bot size={24}/> AI-Tutor
                     </h2>
                 </div>
                 <nav className="flex-1 p-4 space-y-2">
                     <button className="w-full text-left px-4 py-3 bg-blue-50 text-blue-700 rounded-lg font-medium flex items-center gap-3">
-                        <Bot size={18} /> 智能对话
+                        <Bot size={18}/> 智能对话
                     </button>
                     <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
-                        <BookOpen size={18} /> 学习路径
+                        <BookOpen size={18}/> 学习路径
                     </button>
                 </nav>
                 <div className="p-4 border-t border-gray-100">
@@ -121,7 +125,7 @@ const StudentHome = () => {
                         <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`flex items-start gap-3 max-w-2xl ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.sender === 'user' ? 'bg-blue-600' : 'bg-green-600'}`}>
-                                    {msg.sender === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
+                                    {msg.sender === 'user' ? <User size={16} className="text-white"/> : <Bot size={16} className="text-white"/>}
                                 </div>
                                 <div className={`p-4 rounded-2xl whitespace-pre-wrap ${
                                     msg.sender === 'user'
@@ -133,22 +137,22 @@ const StudentHome = () => {
                             </div>
                         </div>
                     ))}
-                    
+
                     {/* 加载中动画 */}
                     {loading && (
                         <div className="flex justify-start">
                             <div className="flex items-start gap-3">
                                 <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-                                    <Bot size={16} className="text-white" />
+                                    <Bot size={16} className="text-white"/>
                                 </div>
                                 <div className="p-4 bg-white border border-gray-200 shadow-sm rounded-2xl rounded-tl-none text-gray-500 flex items-center gap-2">
-                                    <Loader2 className="animate-spin" size={16} />
+                                    <Loader2 className="animate-spin" size={16}/>
                                     AI 正在思考...
                                 </div>
                             </div>
                         </div>
                     )}
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef}/>
                 </div>
 
                 {/* 提示词模板选择区 */}
@@ -182,10 +186,10 @@ const StudentHome = () => {
                         />
                         <div className="absolute right-2 top-2 bottom-2 flex items-center gap-1">
                             <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                <ImageIcon size={20} />
+                                <ImageIcon size={20}/>
                             </button>
                             <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                <Mic size={20} />
+                                <Mic size={20}/>
                             </button>
                             <button
                                 onClick={handleSend}
@@ -194,7 +198,7 @@ const StudentHome = () => {
                                     loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'
                                 }`}
                             >
-                                {loading ? <Loader2 size={18} className="animate-spin text-white"/> : <Send size={18} />}
+                                {loading ? <Loader2 size={18} className="animate-spin text-white"/> : <Send size={18}/>}
                             </button>
                         </div>
                     </div>
