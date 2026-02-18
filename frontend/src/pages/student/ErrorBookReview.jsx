@@ -1,130 +1,250 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// 接口基础配置：和上一个文件完全统一，后续只改这里就行
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// 错题本相关接口地址（和上面的规范完全一致，绝对不能改）
+const API_ERROR_CATEGORIES = `${API_BASE_URL}/api/student/error-book/categories`;
+const API_ERROR_LIST = `${API_BASE_URL}/api/student/error-book/list`;
+const API_START_REVIEW = `${API_BASE_URL}/api/student/error-book/start-review`;
+const API_MARK_MASTERED = `${API_BASE_URL}/api/student/error-book/mark-mastered`;
+const API_DELETE_ERROR = `${API_BASE_URL}/api/student/error-book/delete`;
 
 const ErrorBookReview = () => {
-  // 模拟错题分类（按题型）
-  const [errorCategories, setErrorCategories] = useState([
-    { id: 1, name: "词汇题", count: 8 },
-    { id: 2, name: "语法题", count: 12 },
-    { id: 3, name: "翻译题", count: 5 },
-    { id: 4, name: "听力题", count: 7 },
-  ]);
-  // 当前选中的错题分类、对应错题列表
+  // 1. 状态管理
+  const [errorCategories, setErrorCategories] = useState([]);
   const [selectedCate, setSelectedCate] = useState(null);
-  const [errorList, setErrorList] = useState([
-    {
-      id: 101,
-      question: "选择正确的介词：Ich gehe ____ Schule.",
-      userAnswer: "in",
-      correctAnswer: "zur",
-      analysis: "固定搭配：gehen zur Schule（去上学），Schule为阴性名词，zur=zu+der",
-      source: "语法专题练习-介词搭配"
-    },
-    {
-      id: 102,
-      question: "翻译：我喜欢读德语书。",
-      userAnswer: "Ich mag lese deutsche Bücher.",
-      correctAnswer: "Ich mag es, deutsche Bücher zu lesen.",
-      analysis: "德语中mag后接带zu的不定式，需加形式宾语es",
-      source: "AI写作辅助-翻译练习"
-    },
-    {
-      id: 103,
-      question: "写出fahren的第一人称单数现在时",
-      userAnswer: "fahr",
-      correctAnswer: "fahre",
-      analysis: "强变化动词fahren，第一人称单数变位为fahre，需加词尾e",
-      source: "语法专题练习-动词变位"
-    }
-  ]);
-  // 复习模式切换
-  const [reviewMode, setReviewMode] = useState('browse'); // browse-浏览错题  review-开始复习
+  const [errorList, setErrorList] = useState([]);
+  const [reviewMode, setReviewMode] = useState('browse');
+  const [loading, setLoading] = useState({
+    page: false,
+    list: false,
+    review: false,
+    operate: false
+  });
 
-  // 选择错题分类
-  const handleSelectCate = (cate) => {
-    setSelectedCate(cate);
-    setReviewMode('browse'); // 切换分类重置为浏览模式
+  // 2. 页面加载时，自动获取错题分类列表
+  useEffect(() => {
+    getErrorCategories();
+  }, []);
+
+  // 3. 接口方法封装
+  const getErrorCategories = async () => {
+    setLoading(prev => ({ ...prev, page: true }));
+    try {
+      const response = await fetch(API_ERROR_CATEGORIES, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+
+      if (data.code === 200) {
+        setErrorCategories(data.data);
+      } else {
+        throw new Error(data.message || '获取错题分类失败');
+      }
+    } catch (error) {
+      console.error('获取错题分类失败：', error);
+      alert(`❌ ${error.message}`);
+    } finally {
+      setLoading(prev => ({ ...prev, page: false }));
+    }
   };
 
-  // 开始针对性复习
-  const handleStartReview = () => {
+  const getErrorList = async (categoryId) => {
+    if (!categoryId) return;
+    setLoading(prev => ({ ...prev, list: true }));
+    try {
+      const response = await fetch(`${API_ERROR_LIST}?categoryId=${categoryId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+
+      if (data.code === 200) {
+        setErrorList(data.data);
+      } else {
+        throw new Error(data.message || '获取错题列表失败');
+      }
+    } catch (error) {
+      console.error('获取错题列表失败：', error);
+      alert(`❌ ${error.message}`);
+    } finally {
+      setLoading(prev => ({ ...prev, list: false }));
+    }
+  };
+
+  // 4. 页面交互方法
+  const handleSelectCate = (cate) => {
+    setSelectedCate(cate);
+    setReviewMode('browse');
+    getErrorList(cate.id);
+  };
+
+  const handleStartReview = async () => {
     if (!selectedCate) {
       alert("请先选择一个错题分类再开始复习！");
       return;
     }
-    setReviewMode('review');
-    alert(`已开启【${selectedCate.name}】针对性复习，AI将生成同类练习题！`);
+    setLoading(prev => ({ ...prev, review: true }));
+    try {
+      const requestData = {
+        categoryId: selectedCate.id,
+        categoryName: selectedCate.name
+      };
+
+      const response = await fetch(API_START_REVIEW, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+      const data = await response.json();
+
+      if (data.code === 200) {
+        setReviewMode('review');
+        alert(data.data.reviewTip || `已开启【${selectedCate.name}】针对性复习，AI将生成同类练习题！`);
+      } else {
+        throw new Error(data.message || '开启复习失败');
+      }
+    } catch (error) {
+      console.error('开启复习失败：', error);
+      alert(`❌ ${error.message}`);
+    } finally {
+      setLoading(prev => ({ ...prev, review: false }));
+    }
   };
 
-  // 移除错题
-  const handleRemoveError = (id) => {
-    setErrorList(prev => prev.filter(item => item.id !== id));
-    // 模拟分类数量减少
-    setErrorCategories(prev => prev.map(cate => 
-      cate.id === selectedCate.id ? { ...cate, count: cate.count - 1 } : cate
-    ));
+  const handleRemoveError = async (id, isMastered = false) => {
+    if (!selectedCate) return;
+    setLoading(prev => ({ ...prev, operate: true }));
+    try {
+      let response;
+      if (isMastered) {
+        const requestData = {
+          errorId: id,
+          categoryId: selectedCate.id
+        };
+        response = await fetch(API_MARK_MASTERED, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestData)
+        });
+      } else {
+        response = await fetch(`${API_DELETE_ERROR}/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+
+      const data = await response.json();
+      if (data.code === 200) {
+        setErrorList(prev => prev.filter(item => item.id !== id));
+        setErrorCategories(prev => prev.map(cate => 
+          cate.id === selectedCate.id ? { ...cate, count: Math.max(0, cate.count - 1) } : cate
+        ));
+        if (isMastered) {
+          alert("已标记为掌握，错题已移除！");
+        }
+      } else {
+        throw new Error(data.message || '操作失败');
+      }
+    } catch (error) {
+      console.error('操作失败：', error);
+      alert(`❌ ${error.message}`);
+    } finally {
+      setLoading(prev => ({ ...prev, operate: false }));
+    }
   };
 
-  // 标记已掌握
   const handleMastered = (id) => {
-    handleRemoveError(id);
-    alert("已标记为掌握，错题已移除！");
+    handleRemoveError(id, true);
+  };
+
+  const handleDeleteError = (id) => {
+    if (window.confirm("确定要删除这条错题吗？删除后无法恢复！")) {
+      handleRemoveError(id, false);
+    }
   };
 
   return (
     <div className="error-book-review-page">
       <div className="page-header">
         <h1>德语错题本与复习</h1>
-        <p>收集所有错题，AI针对性生成复习计划，精准补漏</p >
+        <p>收集所有错题，AI针对性生成复习计划，精准补漏</p>
       </div>
 
-      {/* 错题分类选择区 */}
       <div className="error-cate-selector">
-        {errorCategories.map(cate => (
-          <button
-            key={cate.id}
-            className={selectedCate?.id === cate.id ? 'active' : ''}
-            onClick={() => handleSelectCate(cate)}
-          >
-            {cate.name}
-            <span className="error-count">({cate.count}道)</span>
-          </button>
-        ))}
+        {loading.page ? (
+          <div className="loading-tip">正在加载错题分类...</div>
+        ) : (
+          errorCategories.map(cate => (
+            <button
+              key={cate.id}
+              className={selectedCate?.id === cate.id ? 'active' : ''}
+              onClick={() => handleSelectCate(cate)}
+              disabled={loading.operate}
+            >
+              {cate.name}
+              <span className="error-count">({cate.count}道)</span>
+            </button>
+          ))
+        )}
       </div>
 
-      {/* 错题操作区 */}
       {selectedCate && (
         <div className="error-action">
           <button 
             className="review-btn" 
             onClick={handleStartReview}
-            disabled={reviewMode === 'review'}
+            disabled={reviewMode === 'review' || loading.review || loading.operate}
           >
-            🤖 开始AI针对性复习
+            {loading.review ? '正在开启复习...' : '🤖 开始AI针对性复习'}
           </button>
-          <p className="mode-tip">当前模式：{reviewMode === 'browse' ? '错题浏览' : '专项复习'}</p >
+          <p className="mode-tip">当前模式：{reviewMode === 'browse' ? '错题浏览' : '专项复习'}</p>
         </div>
       )}
 
-      {/* 错题列表区 */}
       {selectedCate ? (
         <div className="error-list-section">
           <h2>【{selectedCate.name}】错题列表</h2>
-          {errorList.length === 0 ? (
+          {loading.list ? (
+            <div className="loading-tip">正在加载错题列表...</div>
+          ) : errorList.length === 0 ? (
             <div className="no-error-tip">该分类暂无错题，继续保持！🎉</div>
           ) : (
             <div className="error-list">
               {errorList.map(error => (
                 <div key={error.id} className="error-item">
                   <div className="error-source">{error.source}</div>
-                  <p className="error-question">{error.question}</p >
+                  <p className="error-question">{error.question}</p>
                   <div className="answer-group">
-                    <p><span className="label">你的答案：</span>{error.userAnswer}</p >
-                    <p><span className="label correct">正确答案：</span>{error.correctAnswer}</p >
+                    <p><span className="label">你的答案：</span>{error.userAnswer}</p>
+                    <p><span className="label correct">正确答案：</span>{error.correctAnswer}</p>
                   </div>
-                  <p className="error-analysis"><span className="label">解析：</span>{error.analysis}</p >
+                  <p className="error-analysis"><span className="label">解析：</span>{error.analysis}</p>
                   <div className="error-btns">
-                    <button onClick={() => handleMastered(error.id)}>标记已掌握</button>
-                    <button onClick={() => handleRemoveError(error.id)} className="remove-btn">删除错题</button>
+                    <button 
+                      onClick={() => handleMastered(error.id)}
+                      disabled={loading.operate}
+                    >
+                      {loading.operate ? '操作中...' : '标记已掌握'}
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteError(error.id)} 
+                      className="remove-btn"
+                      disabled={loading.operate}
+                    >
+                      删除错题
+                    </button>
                   </div>
                 </div>
               ))}
