@@ -34,7 +34,7 @@ const Login = () => {
                 <div className="space-y-4">
                     {/* 学生入口按钮 */}
                     <button
-                        onClick={() => navigate('/student')}
+                        onClick={() => navigate('/student/login')}
                         className="group w-full relative overflow-hidden bg-white border-2 border-blue-100 hover:border-blue-500 rounded-xl p-4 transition-all duration-300 text-left hover:shadow-lg"
                     >
                         <div className="flex items-center justify-between">
