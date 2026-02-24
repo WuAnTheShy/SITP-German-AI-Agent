@@ -1,17 +1,13 @@
-import React, {useState} from 'react';
-import {useNavigate} from 'react-router-dom';
-import axios from 'axios';
-import {FileText, ArrowLeft, Brain, Wand2, MessageSquare, Loader2, Send, Zap} from 'lucide-react';
-
-// ----------------------------------------------------------------------
-// 🔧 配置区域
-// ----------------------------------------------------------------------
-// ⚠️ 请确保此地址与您 Apifox 中的 Mock 地址一致
-const MOCK_SERVER_BASE = 'https://m1.apifoxmock.com/m1/7746497-7491372-default';
-const API_EXAM_GENERATE = `${MOCK_SERVER_BASE}/api/exam/generate`;
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import request from '../../api/request';
+import { FileText, ArrowLeft, Brain, Wand2, MessageSquare, Loader2, Send, Zap } from 'lucide-react';
+import { API_EXAM_GENERATE } from '../../api/config';
+import { useToast } from '../../components/Toast';
 
 const ExamGenerator = () => {
     const navigate = useNavigate();
+    const toast = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
 
     // 🟢 1. 状态管理：全量捕获配置
@@ -37,20 +33,20 @@ const ExamGenerator = () => {
         console.log('[Client] 正在请求生成试卷:', payload);
 
         try {
-            // 发送 POST 请求
-            const response = await axios.post(API_EXAM_GENERATE, payload);
+            const response = await request.post(API_EXAM_GENERATE, payload);
 
             if (response.data.code === 200) {
-                const {examId, studentCount} = response.data.data || {};
-                alert(`🎉 试卷生成完毕！\n\n试卷ID: ${examId || 'N/A'}\n已分发给 ${studentCount || 0} 名学生\n策略: ${strategy === 'personalized' ? '千人千面 (差异化)' : '统一标准'}`);
-                navigate('/teacher/dashboard');
+                const { examId, studentCount } = response.data.data || {};
+                const strategyLabel = strategy === 'personalized' ? '千人千面 (差异化)' : '统一标准';
+                toast.success(`试卷生成完毕！ID: ${examId || 'N/A'}，已分发 ${studentCount || 0} 名学生，策略: ${strategyLabel}`);
+                setTimeout(() => navigate('/teacher/dashboard'), 1500);
             } else {
                 throw new Error(response.data.message || '生成失败');
             }
         } catch (err) {
             console.error('生成出错:', err);
             const errMsg = err.response?.data?.message || err.message || '网络连接超时';
-            alert(`❌ 生成失败: ${errMsg}`);
+            toast.error(`生成失败: ${errMsg}`);
         } finally {
             setIsProcessing(false);
         }
@@ -62,11 +58,11 @@ const ExamGenerator = () => {
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 flex items-center gap-4">
                     <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
-                        <ArrowLeft size={20}/>
+                        <ArrowLeft size={20} />
                     </button>
                     <div>
                         <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <Wand2 className="text-blue-600"/> 智能试卷生成引擎
+                            <Wand2 className="text-blue-600" /> 智能试卷生成引擎
                         </h1>
                         <p className="text-sm text-gray-500">基于学情数据的差异化出题系统</p>
                     </div>
@@ -76,7 +72,7 @@ const ExamGenerator = () => {
                     {/* AI 建议 */}
                     <div className="bg-indigo-50 p-5 rounded-xl flex gap-4 items-start border border-indigo-100">
                         <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-600">
-                            <Brain size={24}/>
+                            <Brain size={24} />
                         </div>
                         <div>
                             <h3 className="font-bold text-indigo-900 mb-1">AI 诊断建议</h3>
@@ -93,7 +89,7 @@ const ExamGenerator = () => {
                             {/* 语法填空 */}
                             <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition-colors bg-white group">
                                 <div className="flex items-center gap-4">
-                                    <div className="bg-blue-100 p-3 rounded-lg text-blue-600"><FileText size={20}/></div>
+                                    <div className="bg-blue-100 p-3 rounded-lg text-blue-600"><FileText size={20} /></div>
                                     <div>
                                         <div className="font-bold text-gray-800">语法填空 (Grammatik)</div>
                                         <div className="text-xs text-gray-500">侧重变格与动词变位</div>
@@ -113,7 +109,7 @@ const ExamGenerator = () => {
                             {/* 情景改写 */}
                             <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-purple-300 transition-colors bg-white group">
                                 <div className="flex items-center gap-4">
-                                    <div className="bg-purple-100 p-3 rounded-lg text-purple-600"><MessageSquare size={20}/></div>
+                                    <div className="bg-purple-100 p-3 rounded-lg text-purple-600"><MessageSquare size={20} /></div>
                                     <div>
                                         <div className="font-bold text-gray-800">情景改写 (Schreiben)</div>
                                         <div className="text-xs text-gray-500">侧重句子重构能力</div>
@@ -139,14 +135,12 @@ const ExamGenerator = () => {
                             {/* 选项 1: 千人千面 */}
                             <div
                                 onClick={() => setStrategy('personalized')}
-                                className={`relative border-2 p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-all hover:scale-[1.01] ${
-                                    strategy === 'personalized' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
-                                }`}
+                                className={`relative border-2 p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-all hover:scale-[1.01] ${strategy === 'personalized' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                                    }`}
                             >
-                                <div className={`mt-1 w-4 h-4 rounded-full border flex items-center justify-center ${
-                                    strategy === 'personalized' ? 'border-blue-600' : 'border-gray-400'
-                                }`}>
-                                    {strategy === 'personalized' && <div className="w-2 h-2 rounded-full bg-blue-600"/>}
+                                <div className={`mt-1 w-4 h-4 rounded-full border flex items-center justify-center ${strategy === 'personalized' ? 'border-blue-600' : 'border-gray-400'
+                                    }`}>
+                                    {strategy === 'personalized' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
                                 </div>
                                 <div>
                                     <div className={`font-bold ${strategy === 'personalized' ? 'text-blue-900' : 'text-gray-700'}`}>千人千面 (推荐)</div>
@@ -156,7 +150,7 @@ const ExamGenerator = () => {
                                 </div>
                                 {strategy === 'personalized' && (
                                     <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-bl-lg rounded-tr-lg flex items-center gap-1">
-                                        <Zap size={10} fill="white"/> AI 推荐
+                                        <Zap size={10} fill="white" /> AI 推荐
                                     </div>
                                 )}
                             </div>
@@ -164,14 +158,12 @@ const ExamGenerator = () => {
                             {/* 选项 2: 统一试卷 */}
                             <div
                                 onClick={() => setStrategy('unified')}
-                                className={`border p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-colors ${
-                                    strategy === 'unified' ? 'border-gray-600 bg-gray-100' : 'border-gray-200 hover:bg-gray-50'
-                                }`}
+                                className={`border p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-colors ${strategy === 'unified' ? 'border-gray-600 bg-gray-100' : 'border-gray-200 hover:bg-gray-50'
+                                    }`}
                             >
-                                <div className={`mt-1 w-4 h-4 rounded-full border flex items-center justify-center ${
-                                    strategy === 'unified' ? 'border-gray-800' : 'border-gray-400'
-                                }`}>
-                                    {strategy === 'unified' && <div className="w-2 h-2 rounded-full bg-gray-800"/>}
+                                <div className={`mt-1 w-4 h-4 rounded-full border flex items-center justify-center ${strategy === 'unified' ? 'border-gray-800' : 'border-gray-400'
+                                    }`}>
+                                    {strategy === 'unified' && <div className="w-2 h-2 rounded-full bg-gray-800" />}
                                 </div>
                                 <div>
                                     <div className="font-bold text-gray-700">统一试卷</div>
@@ -197,10 +189,10 @@ const ExamGenerator = () => {
                         className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? (
-                            <><Loader2 size={20} className="animate-spin"/> 生成中...</>
+                            <><Loader2 size={20} className="animate-spin" /> 生成中...</>
                         ) : (
-                             <><Send size={20}/> 开始生成试卷</>
-                         )}
+                            <><Send size={20} /> 开始生成试卷</>
+                        )}
                     </button>
                 </div>
             </div>
