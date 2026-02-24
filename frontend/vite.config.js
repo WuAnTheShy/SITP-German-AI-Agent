@@ -13,7 +13,7 @@ export default defineConfig({
     proxy: {
       // 开发模式下，将所有 /api 开头的请求代理到后端
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:9000',
         changeOrigin: true,
       }
     }

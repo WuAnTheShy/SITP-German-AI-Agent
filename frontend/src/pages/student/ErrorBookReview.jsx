@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 // 接口基础配置：和上一个文件完全统一，后续只改这里就行
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000';
 // 错题本相关接口地址（和上面的规范完全一致，绝对不能改）
 const API_ERROR_CATEGORIES = `${API_BASE_URL}/api/student/error-book/categories`;
 const API_ERROR_LIST = `${API_BASE_URL}/api/student/error-book/list`;
@@ -148,7 +148,7 @@ const ErrorBookReview = () => {
       const data = await response.json();
       if (data.code === 200) {
         setErrorList(prev => prev.filter(item => item.id !== id));
-        setErrorCategories(prev => prev.map(cate => 
+        setErrorCategories(prev => prev.map(cate =>
           cate.id === selectedCate.id ? { ...cate, count: Math.max(0, cate.count - 1) } : cate
         ));
         if (isMastered) {
@@ -202,8 +202,8 @@ const ErrorBookReview = () => {
 
       {selectedCate && (
         <div className="error-action">
-          <button 
-            className="review-btn" 
+          <button
+            className="review-btn"
             onClick={handleStartReview}
             disabled={reviewMode === 'review' || loading.review || loading.operate}
           >
@@ -232,14 +232,14 @@ const ErrorBookReview = () => {
                   </div>
                   <p className="error-analysis"><span className="label">解析：</span>{error.analysis}</p>
                   <div className="error-btns">
-                    <button 
+                    <button
                       onClick={() => handleMastered(error.id)}
                       disabled={loading.operate}
                     >
                       {loading.operate ? '操作中...' : '标记已掌握'}
                     </button>
-                    <button 
-                      onClick={() => handleDeleteError(error.id)} 
+                    <button
+                      onClick={() => handleDeleteError(error.id)}
                       className="remove-btn"
                       disabled={loading.operate}
                     >
