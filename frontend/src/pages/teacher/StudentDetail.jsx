@@ -1,24 +1,14 @@
-import React, {useState, useEffect} from 'react';
-import {useNavigate, useLocation, useParams} from 'react-router-dom';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import request from '../../api/request';
 import {
     ArrowLeft, Brain, CheckCircle, BarChart3,
     Mail, MessageCircle, FileText, Clock, AlertCircle,
     X, Download, FileAudio, FileType, Loader2, PenTool,
     GraduationCap, Save, Mic, Send
 } from 'lucide-react';
-
-// ----------------------------------------------------------------------
-// 🔧 配置区域
-// ----------------------------------------------------------------------
-// ⚠️ 请务必将下方地址替换为您在 Apifox 中创建的云端 Mock 地址
-const MOCK_SERVER_BASE = 'https://m1.apifoxmock.com/m1/7746497-7491372-default';
-
-// 接口地址定义
-const API_HOMEWORK_DETAIL = `${MOCK_SERVER_BASE}/api/homework/detail`;
-const API_HOMEWORK_SAVE = `${MOCK_SERVER_BASE}/api/homework/save`;
-const API_STUDENT_DETAIL = `${MOCK_SERVER_BASE}/api/student/detail`;
-const API_PUSH_SCHEME = `${MOCK_SERVER_BASE}/api/student/push-scheme`;
+import { API_HOMEWORK_DETAIL, API_HOMEWORK_SAVE, API_STUDENT_DETAIL, API_PUSH_SCHEME } from '../../api/config';
+import { useToast } from '../../components/Toast';
 
 // ----------------------------------------------------------------------
 // 📡 API 请求函数
@@ -27,7 +17,7 @@ const API_PUSH_SCHEME = `${MOCK_SERVER_BASE}/api/student/push-scheme`;
 // 1. 获取作业详情
 const fetchHomeworkContent = async (homeworkId) => {
     try {
-        const response = await axios.get(API_HOMEWORK_DETAIL, {params: {id: homeworkId}});
+        const response = await request.get(API_HOMEWORK_DETAIL, { params: { id: homeworkId } });
         return response.data.code === 200 ? response.data.data : null;
     } catch (err) {
         console.error("请求作业详情失败:", err);
@@ -39,7 +29,7 @@ const fetchHomeworkContent = async (homeworkId) => {
 const fetchStudentDetail = async (studentId) => {
     console.log(`[Client] 正在获取学生画像 ID: ${studentId}...`);
     try {
-        const response = await axios.get(API_STUDENT_DETAIL, {params: {id: studentId}});
+        const response = await request.get(API_STUDENT_DETAIL, { params: { id: studentId } });
         if (response.data.code === 200) {
             return response.data.data;
         } else {
@@ -48,7 +38,7 @@ const fetchStudentDetail = async (studentId) => {
         }
     } catch (err) {
         // 捕获 404 等网络错误
-        console.warn("[Client] 请求学生信息网络错误 (可能是接口未配置):", err.message);
+        console.warn("[Client] 请求学生信息网络错误:", err.message);
         return null;
     }
 };
@@ -56,7 +46,7 @@ const fetchStudentDetail = async (studentId) => {
 // ----------------------------------------------------------------------
 // 🧩 组件：作业详情模态框
 // ----------------------------------------------------------------------
-const HomeworkModal = ({isOpen, onClose, homework}) => {
+const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
@@ -93,7 +83,7 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
         const fileName = data?.meta?.fileName || 'download_file';
 
         if (!fileUrl) {
-            alert('❌ 无法下载：后端未返回有效的文件链接 (fileUrl)');
+            toast.error('无法下载：后端未返回有效的文件链接');
             return;
         }
 
@@ -107,20 +97,20 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
             document.body.removeChild(link);
         } catch (err) {
             console.error("下载触发失败:", err);
-            alert('下载触发失败，请检查浏览器拦截设置。');
+            toast.error('下载触发失败，请检查浏览器拦截设置');
         }
     };
 
     // 🟢 功能：保存评分
     const handleSave = async () => {
         if (manualScore === '' || isNaN(Number(manualScore)) || Number(manualScore) < 0 || Number(manualScore) > 100) {
-            alert('⚠️ 请输入有效的 0-100 分数');
+            toast.error('请输入有效的 0-100 分数');
             return;
         }
 
         setIsSaving(true);
         try {
-            const response = await axios.post(API_HOMEWORK_SAVE, {
+            const response = await request.post(API_HOMEWORK_SAVE, {
                 homeworkId: homework.id,
                 score: Number(manualScore),
                 feedback: manualFeedback,
@@ -128,14 +118,14 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
             });
 
             if (response.data.code === 200) {
-                alert(`🎉 评分保存成功！\n\n最终得分: ${manualScore}\n指导意见已更新。`);
+                toast.success(`评分保存成功！最终得分: ${manualScore}`);
                 onClose();
             } else {
                 throw new Error(response.data.message || '后端业务处理失败');
             }
         } catch (err) {
             const errMsg = err.response?.data?.message || err.message || '网络连接超时';
-            alert(`❌ 保存失败: ${errMsg}`);
+            toast.error(`保存失败: ${errMsg}`);
         } finally {
             setIsSaving(false);
         }
@@ -154,27 +144,27 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
                 <div className="p-6 border-b border-gray-100 flex justify-between items-start">
                     <div>
                         <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <FileText className="text-indigo-600"/>{homework.title}
+                            <FileText className="text-indigo-600" />{homework.title}
                         </h3>
                         <div className="flex gap-3 text-sm text-gray-500 mt-1">
-                            <span className="flex items-center gap-1"><Clock size={14}/> 提交于: {homework.date}</span>
+                            <span className="flex items-center gap-1"><Clock size={14} /> 提交于: {homework.date}</span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-lg"><X size={24}/></button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-lg"><X size={24} /></button>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                     {loading && (
                         <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                            <Loader2 size={40} className="text-indigo-600 animate-spin"/>
+                            <Loader2 size={40} className="text-indigo-600 animate-spin" />
                             <p className="text-sm text-gray-500">正在获取作业数据...</p>
                         </div>
                     )}
 
                     {!loading && error && (
                         <div className="flex flex-col items-center justify-center py-8 text-red-500 bg-red-50 rounded-xl">
-                            <AlertCircle size={32} className="mb-2"/><p>{error}</p>
+                            <AlertCircle size={32} className="mb-2" /><p>{error}</p>
                         </div>
                     )}
 
@@ -183,12 +173,12 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
                             {/* 文件下载 */}
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                    <Download size={16}/> 作业文件下载
+                                    <Download size={16} /> 作业文件下载
                                 </label>
                                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-200 transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className={`p-3 rounded-lg ${isAudio ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            {isAudio ? <FileAudio size={24}/> : <FileType size={24}/>}
+                                            {isAudio ? <FileAudio size={24} /> : <FileType size={24} />}
                                         </div>
                                         <div>
                                             <div className="font-bold text-gray-800 text-sm">{data.meta?.fileName || '未命名文件'}</div>
@@ -196,7 +186,7 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
                                         </div>
                                     </div>
                                     <button onClick={handleDownload} className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 p-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold">
-                                        <Download size={18}/> 下载
+                                        <Download size={18} /> 下载
                                     </button>
                                 </div>
                             </div>
@@ -204,15 +194,15 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
                             {/* AI 点评 */}
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                    <Brain size={16} className="text-purple-600"/> AI 智能评分
+                                    <Brain size={16} className="text-purple-600" /> AI 智能评分
                                 </label>
                                 <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-xl border border-indigo-100 relative overflow-hidden">
                                     <div className="flex gap-4">
-                                        <div className="bg-white/80 p-2 rounded-lg h-fit text-indigo-600 shadow-sm shrink-0 backdrop-blur-sm"><Brain size={24}/></div>
+                                        <div className="bg-white/80 p-2 rounded-lg h-fit text-indigo-600 shadow-sm shrink-0 backdrop-blur-sm"><Brain size={24} /></div>
                                         <div>
                                             <div className="font-bold text-indigo-900 text-sm mb-2 flex items-center justify-between">
                                                 <span>AI 助教点评</span>
-                                                <span className="bg-white/50 px-2 py-0.5 rounded text-xs text-indigo-700 border border-indigo-100 flex items-center gap-1"><CheckCircle size={10}/> 自动批改完成</span>
+                                                <span className="bg-white/50 px-2 py-0.5 rounded text-xs text-indigo-700 border border-indigo-100 flex items-center gap-1"><CheckCircle size={10} /> 自动批改完成</span>
                                             </div>
                                             <p className="text-sm text-indigo-800 leading-relaxed text-justify whitespace-pre-wrap">{data.aiComment || "暂无 AI 评价数据。"}</p>
                                         </div>
@@ -223,21 +213,21 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
                             {/* 人工评分 */}
                             <div className="space-y-3 pt-2 border-t border-gray-100">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-sm font-bold text-gray-700 flex items-center gap-2"><PenTool size={16}/> 教师人工评分</label>
+                                    <label className="text-sm font-bold text-gray-700 flex items-center gap-2"><PenTool size={16} /> 教师人工评分</label>
                                 </div>
                                 <div className="grid grid-cols-1 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase">最终得分 (Points)</label>
                                         <div className="relative">
                                             <input type="number" min="0" max="100" value={manualScore} onChange={(e) => setManualScore(e.target.value)}
-                                                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800" placeholder="0-100"/>
-                                            <div className="absolute left-3 top-2.5 text-gray-400"><GraduationCap size={18}/></div>
+                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800" placeholder="0-100" />
+                                            <div className="absolute left-3 top-2.5 text-gray-400"><GraduationCap size={18} /></div>
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase">指导意见 (Feedback)</label>
                                         <textarea value={manualFeedback} onChange={(e) => setManualFeedback(e.target.value)}
-                                                  className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none" placeholder="请输入..."/>
+                                            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none" placeholder="请输入..." />
                                     </div>
                                 </div>
                             </div>
@@ -249,7 +239,7 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
                 <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
                     <button onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-gray-500 hover:bg-gray-200 rounded-xl transition-colors text-sm font-medium disabled:opacity-50">取消</button>
                     <button onClick={handleSave} disabled={isSaving} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-bold flex items-center gap-2 disabled:opacity-70">
-                        {isSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} 保存评分
+                        {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} 保存评分
                     </button>
                 </div>
             </div>
@@ -262,8 +252,9 @@ const HomeworkModal = ({isOpen, onClose, homework}) => {
 // ----------------------------------------------------------------------
 const StudentDetail = () => {
     const navigate = useNavigate();
-    const {id} = useParams();
-    const {state} = useLocation();
+    const toast = useToast();
+    const { id } = useParams();
+    const { state } = useLocation();
 
     const [loading, setLoading] = useState(true);
     const [studentData, setStudentData] = useState(null);
@@ -272,8 +263,7 @@ const StudentDetail = () => {
 
     useEffect(() => {
         const initData = async () => {
-            // 1. 🟢 优化：先使用路由传参(State)的缓存数据渲染界面，实现“秒开”
-            // 这样即使用户点击“李娜”，API 还没返回时，也能先看到“李娜”的名字
+            // 1. 🟢 优化：先使用路由传参(State)的缓存数据渲染界面，实现"秒开"
             if (state?.student) {
                 const fallbackData = {
                     info: {
@@ -283,14 +273,14 @@ const StudentDetail = () => {
                         active: state.student.active || 0,
                         score: state.student.score || 0
                     },
-                    ability: {listening: 0, speaking: 0, reading: 0, writing: 0}, // 初始占位
+                    ability: { listening: 0, speaking: 0, reading: 0, writing: 0 }, // 初始占位
                     aiDiagnosis: "正在分析最新学情...",
                     homeworks: []
                 };
-                setStudentData(fallbackData); // 先设置一次数据
+                setStudentData(fallbackData);
             }
 
-            setLoading(true); // 保持 loading 状态（或者是小 loading）
+            setLoading(true);
 
             // 1. 尝试从 API 获取数据
             const apiData = await fetchStudentDetail(id);
@@ -301,7 +291,6 @@ const StudentDetail = () => {
                 // 2. 🟢 降级逻辑：防止 API 失败导致页面崩溃
                 console.warn("⚠️ API 请求失败，正在使用本地缓存数据进行降级渲染");
 
-                // 将旧的扁平数据结构 转换为 新的嵌套结构
                 const fallbackData = {
                     info: {
                         name: state.student.name || '未知学生',
@@ -310,11 +299,10 @@ const StudentDetail = () => {
                         active: state.student.active || 0,
                         score: state.student.score || 0
                     },
-                    // 提供默认能力值，防止读取 undefined 报错
                     ability: {
                         listening: 60, speaking: 60, reading: 60, writing: 60
                     },
-                    aiDiagnosis: "⚠️ 网络连接失败，无法获取实时 AI 诊断数据。请检查 Apifox 接口配置。",
+                    aiDiagnosis: "⚠️ 网络连接失败，无法获取实时 AI 诊断数据。请检查后端服务是否正常运行。",
                     homeworks: state.student.homeworks || []
                 };
                 setStudentData(fallbackData);
@@ -348,7 +336,7 @@ const StudentDetail = () => {
     };
 
     const renderStatus = (status) => {
-        const styles = {'已完成': 'bg-green-100 text-green-700', '待订正': 'bg-orange-100 text-orange-700', '未提交': 'bg-red-100 text-red-700', '进行中': 'bg-blue-100 text-blue-700', '逾期补交': 'bg-gray-100 text-gray-700'};
+        const styles = { '已完成': 'bg-green-100 text-green-700', '待订正': 'bg-orange-100 text-orange-700', '未提交': 'bg-red-100 text-red-700', '进行中': 'bg-blue-100 text-blue-700', '逾期补交': 'bg-gray-100 text-gray-700' };
         return <span className={`px-2 py-1 rounded text-xs font-medium ${styles[status] || 'bg-gray-100'}`}>{status}</span>;
     };
 
@@ -356,20 +344,18 @@ const StudentDetail = () => {
     const handlePushScheme = async () => {
         setIsPushing(true);
         try {
-            const studentUid = studentData?.info?.uid; // 获取学号
+            const studentUid = studentData?.info?.uid;
             console.log(`[Client] 正在为学生 ${studentUid} 推送方案...`);
 
-            // 发送真实 POST 请求
-            const response = await axios.post(API_PUSH_SCHEME, {
-                studentId: studentUid, // 🟢 关键修改：使用学号 (uid) 作为主键
+            const response = await request.post(API_PUSH_SCHEME, {
+                studentId: studentUid,
                 name: studentData?.info?.name,
                 diagnosis: studentData?.aiDiagnosis,
                 timestamp: new Date().toISOString()
             });
 
             if (response.data.code === 200) {
-                // 成功反馈：明确显示目标学号
-                alert(`🚀 推送成功！\n\n目标学号：${studentUid}\n方案名称：${response.data.data?.schemeName || '个性化强化方案'}\n\n学生将在下次登录时收到弹窗提醒。`);
+                toast.success(`推送成功！目标学号：${studentUid}，方案名称：${response.data.data?.schemeName || '个性化强化方案'}`);
             } else {
                 throw new Error(response.data.message || '服务响应异常');
             }
@@ -377,33 +363,33 @@ const StudentDetail = () => {
         } catch (err) {
             console.error("推送失败:", err);
             const errMsg = err.response?.data?.message || err.message || '网络连接超时';
-            alert(`❌ 推送失败: ${errMsg}`);
+            toast.error(`推送失败: ${errMsg}`);
         } finally {
             setIsPushing(false);
         }
     };
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 size={40} className="text-indigo-600 animate-spin"/></div>;
+        return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 size={40} className="text-indigo-600 animate-spin" /></div>;
     }
 
     if (!studentData) {
         return <div className="min-h-screen flex flex-col items-center justify-center text-gray-500">
-            <AlertCircle size={48} className="text-gray-300 mb-4"/>
+            <AlertCircle size={48} className="text-gray-300 mb-4" />
             <p className="mb-4">未找到学生数据，请检查网络或接口配置</p>
             <button onClick={() => navigate(-1)} className="text-indigo-600 font-bold hover:underline">返回上一页</button>
         </div>;
     }
 
-    // 安全解构：经过上面的适配器处理，这里 studentData 一定符合结构
-    const {info, ability, aiDiagnosis, homeworks} = studentData;
+    // 安全解构
+    const { info, ability, aiDiagnosis, homeworks } = studentData;
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="max-w-5xl mx-auto space-y-6">
                 {/* 顶部导航 */}
                 <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 hover:text-indigo-600 font-medium transition-colors mb-4">
-                    <ArrowLeft size={20} className="mr-2"/> 返回仪表盘
+                    <ArrowLeft size={20} className="mr-2" /> 返回仪表盘
                 </button>
 
                 {/* 1. 个人信息卡片 */}
@@ -427,19 +413,19 @@ const StudentDetail = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <BarChart3 className="text-indigo-600"/> 德语能力模型
+                            <BarChart3 className="text-indigo-600" /> 德语能力模型
                         </h2>
                         <div className="space-y-6">
                             {[
-                                {label: '听力 (Hören)', val: ability.listening, col: 'bg-blue-500'},
-                                {label: '口语 (Sprechen)', val: ability.speaking, col: 'bg-orange-500'},
-                                {label: '阅读 (Lesen)', val: ability.reading, col: 'bg-green-500'},
-                                {label: '写作 (Schreiben)', val: ability.writing, col: 'bg-purple-500'}
+                                { label: '听力 (Hören)', val: ability.listening, col: 'bg-blue-500' },
+                                { label: '口语 (Sprechen)', val: ability.speaking, col: 'bg-orange-500' },
+                                { label: '阅读 (Lesen)', val: ability.reading, col: 'bg-green-500' },
+                                { label: '写作 (Schreiben)', val: ability.writing, col: 'bg-purple-500' }
                             ].map(skill => (
                                 <div key={skill.label}>
                                     <div className="flex justify-between text-sm mb-2 font-medium text-gray-700"><span>{skill.label}</span><span>{skill.val}/100</span></div>
                                     <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                                        <div className={`h-full ${skill.col}`} style={{width: `${skill.val}%`}}></div>
+                                        <div className={`h-full ${skill.col}`} style={{ width: `${skill.val}%` }}></div>
                                     </div>
                                 </div>
                             ))}
@@ -448,12 +434,12 @@ const StudentDetail = () => {
                     <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
                         <div>
-                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Brain size={20} className="text-indigo-200"/> AI 智能诊断</h2>
+                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Brain size={20} className="text-indigo-200" /> AI 智能诊断</h2>
                             <p className="text-indigo-100 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{aiDiagnosis}</p>
                         </div>
                         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                             <button onClick={handlePushScheme} disabled={isPushing} className="w-full bg-white text-indigo-600 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
-                                {isPushing ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} 一键推送强化方案
+                                {isPushing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} 一键推送强化方案
                             </button>
                         </div>
                     </div>
@@ -463,51 +449,51 @@ const StudentDetail = () => {
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                            <FileText className="text-indigo-600"/> 作业完成记录
+                            <FileText className="text-indigo-600" /> 作业完成记录
                         </h2>
                         <div className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-lg">共 {homeworks?.length || 0} 项</div>
                     </div>
                     <div className="overflow-hidden border border-gray-200 rounded-xl">
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">作业标题</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">提交日期</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">状态</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">得分</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">操作</th>
-                            </tr>
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">作业标题</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">提交日期</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">状态</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">得分</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">操作</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
-                            {homeworks && homeworks.length > 0 ? (
-                                homeworks.map((hw) => (
-                                    <tr key={hw.id} className="hover:bg-gray-50 transition-colors group">
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 flex items-center gap-2">
-                                            {hw.id === 102 ? <Mic size={16} className="text-purple-500"/> : <FileText size={16} className="text-blue-500"/>}
-                                            {hw.title}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500"><span className="flex items-center gap-1"><Clock size={14}/> {hw.date}</span></td>
-                                        <td className="px-6 py-4">{renderStatus(hw.status)}</td>
-                                        <td className={`px-6 py-4 text-sm font-bold ${getScoreColor(hw.score)}`}>{hw.score ? `${hw.score} 分` : '-'}</td>
-                                        <td className="px-6 py-4 text-sm">
-                                            <button onClick={() => setSelectedHomework(hw)} className="text-indigo-600 hover:text-indigo-800 font-medium hover:underline flex items-center gap-1">
-                                                查看详情 <ArrowLeft size={14} className="rotate-180"/>
-                                            </button>
-                                        </td>
+                                {homeworks && homeworks.length > 0 ? (
+                                    homeworks.map((hw) => (
+                                        <tr key={hw.id} className="hover:bg-gray-50 transition-colors group">
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900 flex items-center gap-2">
+                                                {hw.id === 102 ? <Mic size={16} className="text-purple-500" /> : <FileText size={16} className="text-blue-500" />}
+                                                {hw.title}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500"><span className="flex items-center gap-1"><Clock size={14} /> {hw.date}</span></td>
+                                            <td className="px-6 py-4">{renderStatus(hw.status)}</td>
+                                            <td className={`px-6 py-4 text-sm font-bold ${getScoreColor(hw.score)}`}>{hw.score ? `${hw.score} 分` : '-'}</td>
+                                            <td className="px-6 py-4 text-sm">
+                                                <button onClick={() => setSelectedHomework(hw)} className="text-indigo-600 hover:text-indigo-800 font-medium hover:underline flex items-center gap-1">
+                                                    查看详情 <ArrowLeft size={14} className="rotate-180" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="5" className="px-6 py-12 text-center text-gray-400">暂无作业记录</td>
                                     </tr>
-                                ))
-                            ) : (
-                                 <tr>
-                                     <td colSpan="5" className="px-6 py-12 text-center text-gray-400">暂无作业记录</td>
-                                 </tr>
-                             )}
+                                )}
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
             {/* 挂载模态框 */}
-            <HomeworkModal isOpen={!!selectedHomework} onClose={() => setSelectedHomework(null)} homework={selectedHomework}/>
+            <HomeworkModal isOpen={!!selectedHomework} onClose={() => setSelectedHomework(null)} homework={selectedHomework} toast={toast} />
         </div>
     );
 };

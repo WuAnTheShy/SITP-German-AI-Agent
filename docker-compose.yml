@@ -1,20 +1,44 @@
-version: '3.8'
-
 services:
+  # 新增：数据库服务
+  db:
+    image: postgres:16
+    container_name: german-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sitp_german_ai_agent
+    ports:
+      - "5432:5432"
+    volumes:
+      # 利用 PostgreSQL 官方镜像特性，将初始化脚本挂载到该目录，容器首次启动时会自动执行建表和插入数据
+      - ./backend/db/sql/001_init_schema.sql:/docker-entrypoint-initdb.d/1_init_schema.sql
+      - ./backend/db/sql/002_seed_demo.sql:/docker-entrypoint-initdb.d/2_seed_demo.sql
+      # 数据持久化，防止容器重启后数据丢失
+      - pg_data:/var/lib/postgresql/data
+    restart: always
+
   backend:
-    build: ./backend           # 🔴 修改点：指向 backend 目录
+    build: ./backend           
     container_name: german-backend
     ports:
       - "8000:8000"
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      # 覆盖后端的默认 DB 连接，将 localhost 替换为 db 容器的服务名
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/sitp_german_ai_agent
+    depends_on:
+      - db  # 确保数据库先启动
     restart: always
 
   frontend:
-    build: ./frontend          # 🔴 修改点：指向 frontend 目录
+    build: ./frontend          
     container_name: german-frontend
     ports:
       - "80:80"
     depends_on:
       - backend
     restart: always
+
+# 声明持久化卷
+volumes:
+  pg_data:
