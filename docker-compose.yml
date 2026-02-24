@@ -18,20 +18,20 @@ services:
     restart: always
 
   backend:
-    build: ./backend           
+    build: ./backend
     container_name: german-backend
     ports:
-      - "8000:8000"
+      - "9000:8000"
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       # 覆盖后端的默认 DB 连接，将 localhost 替换为 db 容器的服务名
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/sitp_german_ai_agent
     depends_on:
-      - db  # 确保数据库先启动
+      - db # 确保数据库先启动
     restart: always
 
   frontend:
-    build: ./frontend          
+    build: ./frontend
     container_name: german-frontend
     ports:
       - "80:80"
