@@ -1,20 +1,16 @@
-import React, {useState} from 'react';
-import {useNavigate} from 'react-router-dom';
-import axios from 'axios';
-import {MessageSquare, ArrowLeft, CheckCircle, Loader2, Send} from 'lucide-react';
-
-// ----------------------------------------------------------------------
-// 🔧 配置区域
-// ----------------------------------------------------------------------
-// ⚠️ 请确保此地址与您 Apifox 中的 Mock 地址一致
-const MOCK_SERVER_BASE = 'https://m1.apifoxmock.com/m1/7746497-7491372-default';
-const API_SCENARIO_PUBLISH = `${MOCK_SERVER_BASE}/api/scenario/publish`;
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import request from '../../api/request';
+import { MessageSquare, ArrowLeft, CheckCircle, Loader2, Send } from 'lucide-react';
+import { API_SCENARIO_PUBLISH } from '../../api/config';
+import { useToast } from '../../components/Toast';
 
 const ScenarioLaunch = () => {
     const navigate = useNavigate();
+    const toast = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // 🟢 1. 状态管理：实时捕获“点击的配置”
+    // 🟢 1. 状态管理：实时捕获"点击的配置"
     // ----------------------------------------------------------------
     const [selectedTheme, setSelectedTheme] = useState('慕尼黑机场问路'); // 默认选中第一个
     const [difficulty, setDifficulty] = useState('A1 - 入门 (基础词汇)');
@@ -37,7 +33,6 @@ const ScenarioLaunch = () => {
         setIsProcessing(true);
 
         // 构造发送给后端的数据包 (Payload)
-        // 这里明确包含了所有界面上可配置的项
         const payload = {
             config: {
                 theme: selectedTheme,       // 选中的主题
@@ -51,23 +46,22 @@ const ScenarioLaunch = () => {
             timestamp: new Date().toISOString()
         };
 
-        console.log('[Client] 正在发送配置:', payload); // 方便在控制台查看发送的数据
+        console.log('[Client] 正在发送配置:', payload);
 
         try {
-            // 发送真实 POST 请求
-            const response = await axios.post(API_SCENARIO_PUBLISH, payload);
+            const response = await request.post(API_SCENARIO_PUBLISH, payload);
 
             if (response.data.code === 200) {
                 const scenarioId = response.data.data?.scenarioId || 'N/A';
-                alert(`🎉 任务发布成功！\n\n任务ID: ${scenarioId}\n配置已下发：\n- 主题: ${selectedTheme}\n- 难度: ${difficulty}`);
-                navigate('/teacher/dashboard');
+                toast.success(`任务发布成功！ID: ${scenarioId}，主题: ${selectedTheme}`);
+                setTimeout(() => navigate('/teacher/dashboard'), 1500);
             } else {
                 throw new Error(response.data.message || '发布失败');
             }
         } catch (err) {
             console.error('发布出错:', err);
             const errMsg = err.response?.data?.message || err.message || '网络连接超时';
-            alert(`❌ 发布失败: ${errMsg}`);
+            toast.error(`发布失败: ${errMsg}`);
         } finally {
             setIsProcessing(false);
         }
@@ -79,11 +73,11 @@ const ScenarioLaunch = () => {
                 {/* 顶部导航 */}
                 <div className="p-6 border-b border-gray-100 flex items-center gap-4">
                     <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
-                        <ArrowLeft size={20}/>
+                        <ArrowLeft size={20} />
                     </button>
                     <div>
                         <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <MessageSquare className="text-purple-600"/> 发布情景模拟任务
+                            <MessageSquare className="text-purple-600" /> 发布情景模拟任务
                         </h1>
                         <p className="text-sm text-gray-500">配置 AI 陪练角色与场景参数</p>
                     </div>
@@ -98,17 +92,16 @@ const ScenarioLaunch = () => {
                             {THEMES.map((theme) => (
                                 <div
                                     key={theme}
-                                    onClick={() => setSelectedTheme(theme)} // 🟢 点击事件
-                                    className={`relative group cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${
-                                        selectedTheme === theme
+                                    onClick={() => setSelectedTheme(theme)}
+                                    className={`relative group cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${selectedTheme === theme
                                         ? 'border-purple-600 bg-purple-50 text-purple-700'
                                         : 'border-gray-200 hover:border-purple-200 text-gray-700'
-                                    }`}
+                                        }`}
                                 >
                                     <div className="font-medium">{theme}</div>
                                     {selectedTheme === theme && (
                                         <div className="absolute top-2 right-2 text-purple-600 animate-in zoom-in duration-200">
-                                            <CheckCircle size={16}/>
+                                            <CheckCircle size={16} />
                                         </div>
                                     )}
                                 </div>
@@ -122,7 +115,7 @@ const ScenarioLaunch = () => {
                             <label className="block text-sm font-bold text-gray-700 mb-2">难度等级 (Niveau)</label>
                             <select
                                 value={difficulty}
-                                onChange={(e) => setDifficulty(e.target.value)} // 🟢 变更事件
+                                onChange={(e) => setDifficulty(e.target.value)}
                                 className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
                             >
                                 {LEVELS.map(level => <option key={level} value={level}>{level}</option>)}
@@ -134,7 +127,7 @@ const ScenarioLaunch = () => {
                             <label className="block text-sm font-bold text-gray-700 mb-2">AI 角色性格</label>
                             <select
                                 value={persona}
-                                onChange={(e) => setPersona(e.target.value)} // 🟢 变更事件
+                                onChange={(e) => setPersona(e.target.value)}
                                 className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
                             >
                                 {PERSONAS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -150,7 +143,7 @@ const ScenarioLaunch = () => {
                                 <input
                                     type="checkbox"
                                     checked={goals.perfectTense}
-                                    onChange={(e) => setGoals({...goals, perfectTense: e.target.checked})} // 🟢 勾选事件
+                                    onChange={(e) => setGoals({ ...goals, perfectTense: e.target.checked })}
                                     className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
                                 />
                                 <span className="text-sm text-gray-700">强制使用完成时态 (Perfekt)</span>
@@ -159,7 +152,7 @@ const ScenarioLaunch = () => {
                                 <input
                                     type="checkbox"
                                     checked={goals.b1Vocab}
-                                    onChange={(e) => setGoals({...goals, b1Vocab: e.target.checked})} // 🟢 勾选事件
+                                    onChange={(e) => setGoals({ ...goals, b1Vocab: e.target.checked })}
                                     className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
                                 />
                                 <span className="text-sm text-gray-700">包含至少 5 个 B1 级词汇</span>
@@ -183,10 +176,10 @@ const ScenarioLaunch = () => {
                         className="px-8 py-2.5 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? (
-                            <><Loader2 size={20} className="animate-spin"/> 发布中...</>
+                            <><Loader2 size={20} className="animate-spin" /> 发布中...</>
                         ) : (
-                             <><Send size={20}/> 确认发布任务</>
-                         )}
+                            <><Send size={20} /> 确认发布任务</>
+                        )}
                     </button>
                 </div>
             </div>

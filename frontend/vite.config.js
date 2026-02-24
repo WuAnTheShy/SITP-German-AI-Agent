@@ -9,4 +9,13 @@ export default defineConfig({
   // 因为你使用了 HashRouter，这能自动适应任何仓库名或子路径，
   // 避免因仓库名称大小写不一致导致的 404 问题。
   base: './',
+  server: {
+    proxy: {
+      // 开发模式下，将所有 /api 开头的请求代理到后端
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      }
+    }
+  }
 })
