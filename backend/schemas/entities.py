@@ -189,3 +189,256 @@ class ExamAssignmentRead(ORMBase):
     student_id: int
     assigned_at: datetime
     status: str
+
+
+# =====================================================================
+# 学生端功能 Schema (V2)
+# =====================================================================
+
+
+# ---------- 场景对话 ----------
+
+class ChatSceneRead(ORMBase):
+    id: int
+    name: str
+    description: str | None = None
+
+
+class ChatSessionCreate(BaseModel):
+    student_id: int
+    scene_id: int | None = None
+    scene_name: str | None = None
+
+
+class ChatSessionRead(ORMBase):
+    id: int
+    student_id: int
+    scene_id: int | None = None
+    scene_name: str | None = None
+    created_at: datetime
+
+
+class ChatMessageCreate(BaseModel):
+    session_id: int
+    role: str
+    content: str
+    correction: str | None = None
+
+
+class ChatMessageRead(ORMBase):
+    id: int
+    session_id: int
+    role: str
+    content: str
+    correction: str | None = None
+    created_at: datetime
+
+
+# ---------- 词汇学习 ----------
+
+class VocabularyCreate(BaseModel):
+    german: str
+    chinese: str
+    example: str | None = None
+    level: str = "A1"
+    topic: str = "日常通用"
+
+
+class VocabularyRead(ORMBase):
+    id: int
+    german: str
+    chinese: str
+    example: str | None = None
+    level: str
+    topic: str
+
+
+class StudentVocabCollectionCreate(BaseModel):
+    student_id: int
+    vocab_id: int
+
+
+class StudentVocabCollectionRead(ORMBase):
+    id: int
+    student_id: int
+    vocab_id: int
+    collected_at: datetime
+
+
+# ---------- 语法练习 ----------
+
+class GrammarCategoryRead(ORMBase):
+    id: int
+    name: str
+    description: str | None = None
+
+
+class GrammarExerciseRead(ORMBase):
+    id: int
+    category_id: int
+    question: str
+    correct_answer: str
+    analysis: str | None = None
+
+
+class GrammarSubmissionCreate(BaseModel):
+    student_id: int
+    exercise_id: int
+    user_answer: str
+    is_correct: bool
+    ai_analysis: str | None = None
+
+
+class GrammarSubmissionRead(ORMBase):
+    id: int
+    student_id: int
+    exercise_id: int
+    user_answer: str
+    is_correct: bool
+    ai_analysis: str | None = None
+    submitted_at: datetime
+
+
+# ---------- 听说训练 ----------
+
+class ListeningMaterialRead(ORMBase):
+    id: int
+    title: str
+    level: str
+    duration: str
+    audio_url: str
+    script: str | None = None
+
+
+class SpeakingEvaluationCreate(BaseModel):
+    student_id: int
+    material_id: int
+    audio_url: str | None = None
+    total_score: float | None = None
+    pronunciation_score: float | None = None
+    fluency_score: float | None = None
+    intonation_score: float | None = None
+    analysis: str | None = None
+    suggestion: str | None = None
+
+
+class SpeakingEvaluationRead(ORMBase):
+    id: int
+    student_id: int
+    material_id: int
+    audio_url: str | None = None
+    total_score: float | None = None
+    pronunciation_score: float | None = None
+    fluency_score: float | None = None
+    intonation_score: float | None = None
+    analysis: str | None = None
+    suggestion: str | None = None
+    evaluated_at: datetime
+
+
+# ---------- 写作辅助 ----------
+
+class WritingSessionCreate(BaseModel):
+    student_id: int
+    session_type: str
+    user_text: str
+    result_json: dict | None = None
+
+
+class WritingSessionRead(ORMBase):
+    id: int
+    student_id: int
+    session_type: str
+    user_text: str
+    result_json: dict | None = None
+    created_at: datetime
+
+
+# ---------- 错题本 ----------
+
+class ErrorBookCategoryRead(ORMBase):
+    id: int
+    name: str
+
+
+class ErrorBookEntryCreate(BaseModel):
+    student_id: int
+    category_id: int
+    source: str = "语法练习"
+    question: str
+    user_answer: str
+    correct_answer: str
+    analysis: str | None = None
+
+
+class ErrorBookEntryRead(ORMBase):
+    id: int
+    student_id: int
+    category_id: int
+    source: str
+    question: str
+    user_answer: str
+    correct_answer: str
+    analysis: str | None = None
+    is_mastered: bool
+
+
+# ---------- 收藏夹 ----------
+
+class FavoriteCategoryRead(ORMBase):
+    id: int
+    type: str
+    name: str
+
+
+class FavoriteCreate(BaseModel):
+    student_id: int
+    category_id: int
+    content: str
+    translate: str | None = None
+    rule: str | None = None
+    note: str | None = None
+
+
+class FavoriteRead(ORMBase):
+    id: int
+    student_id: int
+    category_id: int
+    content: str
+    translate: str | None = None
+    rule: str | None = None
+    note: str | None = None
+    created_at: datetime
+
+
+# ---------- 学习进度 ----------
+
+class LearningSessionCreate(BaseModel):
+    student_id: int
+    module: str
+    duration_minutes: int = 0
+    content: str | None = None
+    session_date: datetime | None = None
+
+
+class LearningSessionRead(ORMBase):
+    id: int
+    student_id: int
+    module: str
+    duration_minutes: int
+    content: str | None = None
+    session_date: datetime
+    created_at: datetime
+
+
+class StudentKnowledgeMasteryUpsert(BaseModel):
+    student_id: int
+    knowledge_name: str
+    mastery_level: str = "一般"
+
+
+class StudentKnowledgeMasteryRead(ORMBase):
+    id: int
+    student_id: int
+    knowledge_name: str
+    mastery_level: str
