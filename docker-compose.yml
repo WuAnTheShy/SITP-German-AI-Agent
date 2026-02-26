@@ -13,6 +13,8 @@ services:
       # 利用 PostgreSQL 官方镜像特性，将初始化脚本挂载到该目录，容器首次启动时会自动执行建表和插入数据
       - ./backend/db/sql/001_init_schema.sql:/docker-entrypoint-initdb.d/1_init_schema.sql
       - ./backend/db/sql/002_seed_demo.sql:/docker-entrypoint-initdb.d/2_seed_demo.sql
+      - ./backend/db/sql/003_student_schema.sql:/docker-entrypoint-initdb.d/3_student_schema.sql
+      - ./backend/db/sql/004_student_seed.sql:/docker-entrypoint-initdb.d/4_student_seed.sql
       # 数据持久化，防止容器重启后数据丢失
       - pg_data:/var/lib/postgresql/data
     restart: always
