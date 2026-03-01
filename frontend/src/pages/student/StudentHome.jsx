@@ -51,7 +51,7 @@ const StudentHome = () => {
             setLoading(true);
 
             try {
-                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000/api/chat';
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://49.234.185.167:9000/api/chat';
 
                     const response = await fetch(API_URL, {
                             method: 'POST',
