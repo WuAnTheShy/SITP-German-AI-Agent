@@ -37,6 +37,10 @@ services:
     container_name: german-frontend
     ports:
       - "80:80"
+    environment:
+      # 注意：下面这个变量名（VITE_...）必须和你前端代码里写的一样！
+      # 请把 IP 换成你刚才查到的公网 IP
+      - VITE_API_BASE_URL=http://49.234.185.167:9000
     depends_on:
       - backend
     restart: always
