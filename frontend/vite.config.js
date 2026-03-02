@@ -13,7 +13,8 @@ export default defineConfig({
     proxy: {
       // 开发模式下，将所有 /api 开头的请求代理到后端
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8000', // 本地 Python 后端
+        // target: 'https://m1.apifoxmock.com/m1/7746497-7491372-default', // 当前正在使用的 Apifox Mock 服务
         changeOrigin: true,
       }
     }

@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, BookOpen, Mic, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Send, Bot, User, BookOpen, Mic, Image as ImageIcon, Loader2, MessageSquare, Book, FileText, Headphones, LineChart, Star, AlertCircle, PenTool } from 'lucide-react';
 import { API_BASE } from '../../api/config';
 
 const StudentHome = () => {
+    const navigate = useNavigate();
+
     // 1. 状态管理
     const [messages, setMessages] = useState([
         { id: 1, sender: 'ai', text: 'Hallo! Ich bin dein KI-Tutor. Wie kann ich dir heute helfen? (你好！我是你的AI导师。今天我能为你做什么？)' }
@@ -97,12 +100,33 @@ const StudentHome = () => {
                         <Bot size={24} /> AI-Tutor
                     </h2>
                 </div>
-                <nav className="flex-1 p-4 space-y-2">
-                    <button className="w-full text-left px-4 py-3 bg-blue-50 text-blue-700 rounded-lg font-medium flex items-center gap-3">
+                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                    <button onClick={() => navigate('/student/home')} className="w-full text-left px-4 py-3 bg-blue-50 text-blue-700 rounded-lg font-medium flex items-center gap-3">
                         <Bot size={18} /> 智能对话
                     </button>
-                    <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
-                        <BookOpen size={18} /> 学习路径
+                    <button onClick={() => navigate('/student/ai-scene-chat')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <MessageSquare size={18} /> 情景对话
+                    </button>
+                    <button onClick={() => navigate('/student/vocab-learning')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <Book size={18} /> 词汇学习
+                    </button>
+                    <button onClick={() => navigate('/student/grammar-practice')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <FileText size={18} /> 语法练习
+                    </button>
+                    <button onClick={() => navigate('/student/listening-speaking')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <Headphones size={18} /> 听说训练
+                    </button>
+                    <button onClick={() => navigate('/student/writing-assistant')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <PenTool size={18} /> 写作辅助
+                    </button>
+                    <button onClick={() => navigate('/student/error-book')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <AlertCircle size={18} /> 错题本
+                    </button>
+                    <button onClick={() => navigate('/student/learning-progress')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <LineChart size={18} /> 学习进度
+                    </button>
+                    <button onClick={() => navigate('/student/favorites')} className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-3 transition-colors">
+                        <Star size={18} /> 收藏夹
                     </button>
                 </nav>
                 <div className="p-4 border-t border-gray-100">
