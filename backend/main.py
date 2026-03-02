@@ -4,6 +4,11 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import mean
 from uuid import uuid4
 
+# load_dotenv 必须在所有读取环境变量的 import 之前调用
+# 否则 db/session.py 等模块在 import 时读不到 .env 中的 DATABASE_URL
+from dotenv import load_dotenv
+load_dotenv()
+
 import uvicorn
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +17,6 @@ from google import genai
 from google.genai import types
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from dotenv import load_dotenv
 
 from crud.repositories import (
     ChatMessageCRUD,
@@ -69,8 +73,6 @@ from schemas.entities import (
 )
 
 # ════════════════════ 1. 环境与 AI 配置 ════════════════════
-
-load_dotenv()
 
 # ── 代理配置（国内访问 Google API 需要，在 .env 中配置） ──
 # 如果 .env 里配了 HTTP_PROXY / HTTPS_PROXY，会自动生效
