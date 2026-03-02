@@ -1,12 +1,13 @@
 // ---------------------------------------------------------------
 // 统一 API 配置
 // ---------------------------------------------------------------
-// 开发模式下：Vite proxy 会将 /api 请求代理到 http://localhost:9000
-// 生产模式下：Nginx 会将 /api 请求反向代理到后端容器
-// 因此 API_BASE 设为空字符串即可，所有请求都走相对路径 /api/xxx
+// 自动读取环境变量（需要配置 Vite .env 文件）
+// 开发模式 (.env.development)：VITE_API_BASE=http://localhost:8000
+// 生产模式 (.env.production默认)：VITE_API_BASE= 空字符串（由反向代理决定）
 // ---------------------------------------------------------------
 
-export const API_BASE = '';
+// eslint-disable-next-line
+export const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 // ---- 认证 ----
 export const API_LOGIN = `${API_BASE}/api/auth/login`;

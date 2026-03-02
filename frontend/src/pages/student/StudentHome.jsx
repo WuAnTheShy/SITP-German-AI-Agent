@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, BookOpen, Mic, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { API_BASE } from '../../api/config';
 
 const StudentHome = () => {
     // 1. 状态管理
@@ -50,7 +51,7 @@ const StudentHome = () => {
 
         try {
             // (2) 发送给 Python 后端
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000/api/chat';
+            const API_URL = `${API_BASE}/api/chat`;
 
             const response = await fetch(API_URL, {
                 method: 'POST',

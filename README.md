@@ -33,10 +33,10 @@
 ## 🏗️ 系统架构
 
 ```
-                    ┌──────────────────────────────────────────┐
-                    │          Docker Compose 容器编排           │
-                    │                                          │
- 用户浏览器 ──▶  ┌──┴────────────┐   ┌──────────────┐   ┌─────┴──────┐
+                    ┌──────────────────────────────────────┐
+                    │          Docker Compose 容器编排      │
+                    │                                      │
+ 用户浏览器 ──▶┌─────┴─────────┐   ┌──────────────┐   ┌─────┴──────┐
     :80       │   Frontend    │   │   Backend    │   │ PostgreSQL │
               │   Nginx       │──▶│   FastAPI    │──▶│     16     │
               │   React SPA   │   │   Uvicorn    │   │   :5432    │
@@ -149,7 +149,7 @@ SITP-German-AI-Agent/
 
 ```bash
 # 在项目根目录创建 .env 文件
-echo "GOOGLE_API_KEY=你的_Google_Gemini_API_密钥" > .env
+echo GOOGLE_API_KEY=你的_Google_Gemini_API_密钥 > .env
 ```
 
 > 💡 Gemini API Key 获取方式：访问 [Google AI Studio](https://aistudio.google.com/apikey) 申请免费密钥。
@@ -159,8 +159,29 @@ echo "GOOGLE_API_KEY=你的_Google_Gemini_API_密钥" > .env
 ```bash
 docker compose up -d --build
 ```
+> 💡 **本地 Docker 是如何连通 API 的？**
+> 对于 Docker 部署，前端打包时必定会自动应用 `frontend/.env.production` 文件，API 地址变成置空的相对路径（例如走 `/api/login`）。
+> 在容器启动后，容器内部的 Nginx 会接管所有 `/api` 请求，并将它们无缝反向代理给后端的 `9000`（宿主机映射）对应的 `8000` 端口。因此，无论您在本地起 Docker，还是在云服务器起 Docker，逻辑完全相同，**无需任何配置**即可跑通。
 
-**3. 访问系统**
+### 🌍 服务器部署方法 (服务器 IP: http://49.234.185.167)
+
+部署到云服务器的流程与本地 Docker 部署完全一致。前端代码会在 `docker compose build` 的阶段自动使用 `frontend/.env.production` (相对路径 API 调用)，从而实现与 Nginx 代理的完美对接。
+
+1. **拉取代码并配置密钥**
+   ```bash
+   git pull origin main
+   echo GOOGLE_API_KEY=你的_Google_Gemini_API_密钥 > .env
+   ```
+2. **构建并启动容器**
+   ```bash
+   docker compose up -d --build
+   ```
+3. **完成！** 直接访问服务器 IP 即可：
+   - 🌐 前端首页: [http://49.234.185.167](http://49.234.185.167)
+   - 🎓 教师端登录: [http://49.234.185.167/#/teacher/login](http://49.234.185.167/#/teacher/login)
+
+---
+**3. 访问系统 (本地)**
 
 | 服务 | 地址 |
 |---|---|
@@ -187,6 +208,15 @@ docker compose down
 
 # 停止并清除数据库数据 (慎用)
 docker compose down -v
+
+# 清理所有未使用的数据、镜像、容器和卷 (无提示)
+docker system prune -a --volumes -f
+
+# 清理未使用的悬空镜像和停止的容器
+docker system prune
+
+# 查看 Docker 磁盘使用情况
+docker system df
 ```
 
 ---
@@ -238,9 +268,11 @@ npm install
 npm run dev
 ```
 
-> 前端开发服务器运行在 `http://localhost:5173`，已配置 Vite Proxy 将 `/api` 请求自动代理至后端 `http://localhost:8000`，无需手动修改 API 地址。
-
----
+> 💡 **前端 API 配置说明**：
+> 系统出厂已通过代码库自带的 `frontend/.env.development` 和 `.env.production` 自动完成了本地调试与服务器部署配置的完全解耦。
+> 
+> - **直接拉取代码**：开箱即用，`npm run dev` 会自动通过 `.env.development` 直连本地大后端 `http://localhost:8000`。
+> - **个性化本地覆盖**：如果您的本地后端不想占用 `8000` 端口，或者想跨域请求同伴电脑的服务，只需在 `frontend/` 下新建一个专门被 Git 忽略的文件 `.env.development.local`，填入 `VITE_API_BASE=http://你想替换的地址` 即可强行覆盖配置，保障团队进度不受干扰。
 
 ## 📡 API 概览
 

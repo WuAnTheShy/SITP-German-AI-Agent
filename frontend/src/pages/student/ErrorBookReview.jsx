@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE } from '../../api/config';
 
 // 接口基础配置：和上一个文件完全统一，后续只改这里就行
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000';
+const API_BASE_URL = API_BASE;
 // 错题本相关接口地址（和上面的规范完全一致，绝对不能改）
 const API_ERROR_CATEGORIES = `${API_BASE_URL}/api/student/error-book/categories`;
 const API_ERROR_LIST = `${API_BASE_URL}/api/student/error-book/list`;

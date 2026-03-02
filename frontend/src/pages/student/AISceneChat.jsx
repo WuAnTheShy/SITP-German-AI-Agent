@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { API_BASE } from '../../api/config';
 
 // 接口基础配置：统一管理后端地址，后续后端部署后只改这里就行
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000';
+const API_BASE_URL = API_BASE;
 // 场景对话接口地址（和上面的规范完全一致，绝对不能改）
 const SCENE_CHAT_API = `${API_BASE_URL}/api/student/scene-chat`;
 
