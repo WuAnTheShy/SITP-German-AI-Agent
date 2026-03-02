@@ -8,7 +8,8 @@ import uvicorn
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -70,26 +71,35 @@ from schemas.entities import (
 # ════════════════════ 1. 环境与 AI 配置 ════════════════════
 
 load_dotenv()
+
+# ── 代理配置（国内访问 Google API 需要，在 .env 中配置） ──
+# 如果 .env 里配了 HTTP_PROXY / HTTPS_PROXY，会自动生效
+# 没配则不使用代理（适合国外或已全局代理的环境）
+_proxy = os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
+if _proxy:
+    os.environ.setdefault("HTTP_PROXY", _proxy)
+    os.environ.setdefault("HTTPS_PROXY", _proxy)
+    print(f"代理已启用: {_proxy}")
+else:
+    print("提示: 未配置代理，如果 Gemini API 连不上请在 .env 中设置 HTTP_PROXY")
+
 if not os.getenv("GOOGLE_API_KEY"):
     print("警告: 未找到 GOOGLE_API_KEY")
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# 新版 google-genai SDK 客户端
+_gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# 教师端 AI 模型（多轮对话）
-model = genai.GenerativeModel(
-    'gemini-2.5-flash',
-    system_instruction="你是一个同济大学SITP项目的AI德语助教。请用德语回答，括号内给出中文解释，并指出用户的语法错误。如果用户说中文，请引导通过德语表达。"
-)
-chat = model.start_chat(history=[])
+_MODEL_ID = "gemini-2.5-flash"
 
-# 学生端 AI 模型（单次生成）
-_student_ai = genai.GenerativeModel(
-    "gemini-2.5-flash",
-    system_instruction=(
-        "你是同济大学的 AI 德语助教，帮助学生学习德语。"
-        "回复简洁、准确。除非用户要求中文，否则用德语回答并在括号内给出中文翻译。"
-    ),
+_TEACHER_SYSTEM = "你是一个同济大学SITP项目的AI德语助教。请用德语回答，括号内给出中文解释，并指出用户的语法错误。如果用户说中文，请引导通过德语表达。"
+
+_STUDENT_SYSTEM = (
+    "你是同济大学的 AI 德语助教，帮助学生学习德语。"
+    "回复简洁、准确。除非用户要求中文，否则用德语回答并在括号内给出中文翻译。"
 )
+
+# 教师端多轮对话历史（简单内存存储）
+_teacher_chat_history: list[types.Content] = []
 
 app = FastAPI()
 
@@ -174,7 +184,14 @@ def _current_student(req: Request, db: Session):
 def _ai_text(prompt: str, fallback: str = "") -> str:
     """安全调用 Gemini 返回纯文本"""
     try:
-        return _student_ai.generate_content(prompt).text.strip()
+        resp = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=_STUDENT_SYSTEM,
+            ),
+        )
+        return resp.text.strip()
     except Exception as e:
         print(f"[AI] {e}")
         return fallback
@@ -183,7 +200,14 @@ def _ai_text(prompt: str, fallback: str = "") -> str:
 def _ai_json(prompt: str, fallback=None):
     """调用 Gemini 并尝试解析 JSON，失败返回 fallback"""
     try:
-        text = _student_ai.generate_content(prompt).text.strip()
+        resp = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=_STUDENT_SYSTEM,
+            ),
+        )
+        text = resp.text.strip()
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
         elif "```" in text:
@@ -402,7 +426,16 @@ def _ensure_demo_data(db: Session):
 async def chat_endpoint(request: ChatRequest):
     print(f"收到前端消息: {request.message}")
     try:
-        response = chat.send_message(request.message)
+        global _teacher_chat_history
+        _teacher_chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=request.message)]))
+        response = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=_teacher_chat_history,
+            config=types.GenerateContentConfig(
+                system_instruction=_TEACHER_SYSTEM,
+            ),
+        )
+        _teacher_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
         return {"reply": response.text}
     except Exception as e:
         print(f"Gemini调用失败: {e}")

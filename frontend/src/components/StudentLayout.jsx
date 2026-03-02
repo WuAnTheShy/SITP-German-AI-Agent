@@ -1,20 +1,27 @@
-import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Bot, MessageSquare, ScrollText, Headphones,
-  BookMarked, PenLine, BarChart3, BookX, Star
-} from 'lucide-react';
+  Bot,
+  MessageSquare,
+  ScrollText,
+  Headphones,
+  BookMarked,
+  PenLine,
+  BarChart3,
+  BookX,
+  Star,
+} from "lucide-react";
 
 const navItems = [
-  { label: '智能对话', icon: Bot, path: '/student/home' },
-  { label: '场景对话', icon: MessageSquare, path: '/student/ai-scene-chat' },
-  { label: '语法练习', icon: ScrollText, path: '/student/grammar-practice' },
-  { label: '听说训练', icon: Headphones, path: '/student/listening-speaking' },
-  { label: '词汇学习', icon: BookMarked, path: '/student/vocab-learning' },
-  { label: '写作助手', icon: PenLine, path: '/student/writing-assistant' },
-  { label: '学习进度', icon: BarChart3, path: '/student/learning-progress' },
-  { label: '错题本复习', icon: BookX, path: '/student/error-book' },
-  { label: '我的收藏', icon: Star, path: '/student/favorites' },
+  { label: "智能对话", icon: Bot, path: "/student/home" },
+  { label: "场景对话", icon: MessageSquare, path: "/student/ai-scene-chat" },
+  { label: "语法练习", icon: ScrollText, path: "/student/grammar-practice" },
+  { label: "听说训练", icon: Headphones, path: "/student/listening-speaking" },
+  { label: "词汇学习", icon: BookMarked, path: "/student/vocab-learning" },
+  { label: "写作助手", icon: PenLine, path: "/student/writing-assistant" },
+  { label: "学习进度", icon: BarChart3, path: "/student/learning-progress" },
+  { label: "错题本复习", icon: BookX, path: "/student/error-book" },
+  { label: "我的收藏", icon: Star, path: "/student/favorites" },
 ];
 
 const StudentLayout = ({ children }) => {
@@ -40,8 +47,8 @@ const StudentLayout = ({ children }) => {
                 onClick={() => navigate(item.path)}
                 className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-50"
                 }`}
               >
                 <Icon size={18} /> {item.label}
@@ -63,9 +70,7 @@ const StudentLayout = ({ children }) => {
       </div>
 
       {/* 右侧内容区 */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {children}
-      </div>
+      <div className="flex-1 flex flex-col overflow-hidden">{children}</div>
     </div>
   );
 };
