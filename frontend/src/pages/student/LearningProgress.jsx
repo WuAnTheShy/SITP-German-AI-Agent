@@ -1,179 +1,154 @@
 import React, { useState, useEffect } from 'react';
+import StudentLayout from '../../components/StudentLayout';
 
 const LearningProgress = () => {
   const [learnStats, setLearnStats] = useState({
-    totalTime: 0,
-    weekTime: 0,
-    finishRate: 0,
-    modules: [],
-    knowledge: [],
-    weekReport: []
+    totalTime: 0, weekTime: 0, finishRate: 0,
+    modules: [], knowledge: [], weekReport: []
   });
   const [viewType, setViewType] = useState('overview');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const getLearningProgress = async () => {
+    const getProgress = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/student/learning/progress', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const res = await fetch('/api/student/learning/progress', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         if (!res.ok) throw new Error('网络请求失败');
         const result = await res.json();
         if (result.code !== 200) throw new Error(result.message || '获取学习数据失败');
-        
         setLearnStats(result.data);
-      } catch (err) {
-        alert(err.message);
-        console.error('获取学习进度错误：', err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { alert(err.message); }
+      finally { setLoading(false); }
     };
-
-    getLearningProgress();
+    getProgress();
   }, []);
 
+  const tabs = [
+    { key: 'overview', label: '学习总览' },
+    { key: 'module', label: '模块完成度' },
+    { key: 'knowledge', label: '知识点掌握' },
+    { key: 'week', label: '本周学习周报' },
+  ];
+
   return (
-    <div className="learning-progress-page">
-      <div className="page-header">
-        <h1>我的学习进度统计</h1>
-        <p>实时查看学习数据，AI分析学习情况，精准提升</p>
-      </div>
-
-      <div className="view-switch">
-        <button 
-          className={viewType === 'overview' ? 'active' : ''}
-          onClick={() => setViewType('overview')}
-        >
-          学习总览
-        </button>
-        <button 
-          className={viewType === 'module' ? 'active' : ''}
-          onClick={() => setViewType('module')}
-        >
-          模块完成度
-        </button>
-        <button 
-          className={viewType === 'knowledge' ? 'active' : ''}
-          onClick={() => setViewType('knowledge')}
-        >
-          知识点掌握
-        </button>
-        <button 
-          className={viewType === 'week' ? 'active' : ''}
-          onClick={() => setViewType('week')}
-        >
-          本周学习周报
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="loading-box">
-          <p>正在加载你的学习数据...</p>
+    <StudentLayout>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">📊 我的学习进度统计</h1>
+          <p className="text-gray-500">实时查看学习数据，AI分析学习情况，精准提升</p>
         </div>
-      ) : (
-        <>
-          {viewType === 'overview' && (
-            <div className="overview-section">
-              <div className="stats-card">
-                <h3>总学习时长</h3>
-                <p className="stats-num">{learnStats.totalTime} 小时</p>
-              </div>
-              <div className="stats-card">
-                <h3>本周学习时长</h3>
-                <p className="stats-num">{learnStats.weekTime} 小时</p>
-              </div>
-              <div className="stats-card">
-                <h3>整体完成率</h3>
-                <p className="stats-num">{learnStats.finishRate} %</p>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${learnStats.finishRate}%` }}></div>
+
+        {/* Tab切换 */}
+        <div className="flex gap-2 bg-gray-100 p-1 rounded-lg w-fit mb-6">
+          {tabs.map(tab => (
+            <button key={tab.key} onClick={() => setViewType(tab.key)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewType === tab.key ? 'bg-white shadow text-blue-700' : 'text-gray-600 hover:text-gray-800'}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="text-center py-16 text-gray-400">正在加载你的学习数据...</div>
+        ) : (
+          <>
+            {viewType === 'overview' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+                    <h3 className="text-sm text-gray-500 mb-2">总学习时长</h3>
+                    <p className="text-3xl font-bold text-blue-600">{learnStats.totalTime} <span className="text-base font-normal text-gray-500">小时</span></p>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+                    <h3 className="text-sm text-gray-500 mb-2">本周学习时长</h3>
+                    <p className="text-3xl font-bold text-green-600">{learnStats.weekTime} <span className="text-base font-normal text-gray-500">小时</span></p>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+                    <h3 className="text-sm text-gray-500 mb-2">整体完成率</h3>
+                    <p className="text-3xl font-bold text-purple-600">{learnStats.finishRate}%</p>
+                    <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${learnStats.finishRate}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                  <h4 className="font-bold text-blue-800 mb-2">🤖 AI学习分析</h4>
+                  <p className="text-gray-700">本周学习时长较上周提升20%，但语法和写作模块完成度偏低，建议后续重点练习！</p>
                 </div>
               </div>
-              <div className="ai-analysis">
-                <h4>🤖 AI学习分析</h4>
-                <p>本周学习时长较上周提升20%，但语法和写作模块完成度偏低，建议后续重点练习！</p>
-              </div>
-            </div>
-          )}
+            )}
 
-          {viewType === 'module' && (
-            <div className="module-section">
-              {learnStats.modules.length === 0 ? (
-                <p className="empty-tip">暂无模块学习数据</p>
-              ) : (
-                learnStats.modules.map((item, index) => (
-                  <div key={index} className="module-item">
-                    <div className="module-name">{item.name}</div>
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill" 
-                        style={{ 
-                          width: `${item.rate}%`, 
-                          backgroundColor: item.rate >= 80 ? '#4CAF50' : item.rate >= 60 ? '#FFC107' : '#F44336' 
-                        }}
-                      ></div>
+            {viewType === 'module' && (
+              <div className="space-y-3">
+                {learnStats.modules.length === 0 ? (
+                  <p className="text-center text-gray-400 py-8">暂无模块学习数据</p>
+                ) : learnStats.modules.map((item, index) => (
+                  <div key={index} className="flex items-center gap-4 bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="w-32 font-medium text-gray-700">{item.name}</div>
+                    <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{
+                        width: `${item.rate}%`,
+                        backgroundColor: item.rate >= 80 ? '#22c55e' : item.rate >= 60 ? '#eab308' : '#ef4444'
+                      }}></div>
                     </div>
-                    <div className="module-rate">{item.rate} %</div>
+                    <div className="w-16 text-right font-bold text-gray-700">{item.rate}%</div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
-          {viewType === 'knowledge' && (
-            <div className="knowledge-section">
-              {learnStats.knowledge.length === 0 ? (
-                <p className="empty-tip">暂无知识点学习数据</p>
-              ) : (
-                learnStats.knowledge.map((item, index) => (
-                  <div 
-                    key={index} 
-                    className={`knowledge-item ${item.level === '熟练' ? 'proficient' : item.level === '一般' ? 'average' : 'weak'}`}
-                  >
-                    <div className="know-name">{item.name}</div>
-                    <div className="know-level">{item.level}</div>
+            {viewType === 'knowledge' && (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {learnStats.knowledge.length === 0 ? (
+                  <p className="text-center text-gray-400 py-8 col-span-full">暂无知识点学习数据</p>
+                ) : learnStats.knowledge.map((item, index) => (
+                  <div key={index} className={`p-4 rounded-xl border-2 ${
+                    item.level === '熟练' ? 'border-green-300 bg-green-50' :
+                    item.level === '一般' ? 'border-yellow-300 bg-yellow-50' :
+                    'border-red-300 bg-red-50'
+                  }`}>
+                    <div className="font-medium text-gray-800">{item.name}</div>
+                    <div className={`text-sm font-bold mt-1 ${
+                      item.level === '熟练' ? 'text-green-700' :
+                      item.level === '一般' ? 'text-yellow-700' : 'text-red-700'
+                    }`}>{item.level}</div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
-          {viewType === 'week' && (
-            <div className="week-report-section">
-              <h3>本周学习明细</h3>
-              {learnStats.weekReport.length === 0 ? (
-                <p className="no-report">本周暂无学习记录，快去学习吧！</p>
-              ) : (
-                <table className="week-table">
-                  <thead>
-                    <tr>
-                      <th>星期</th>
-                      <th>学习时长（小时）</th>
-                      <th>学习内容</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {learnStats.weekReport.map((item, index) => (
-                      <tr key={index}>
-                        <td>{item.day}</td>
-                        <td>{item.time}</td>
-                        <td>{item.content}</td>
+            {viewType === 'week' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="p-4 border-b border-gray-100"><h3 className="font-bold text-gray-700">本周学习明细</h3></div>
+                {learnStats.weekReport.length === 0 ? (
+                  <p className="text-center text-gray-400 py-8">本周暂无学习记录，快去学习吧！</p>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">星期</th>
+                        <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">学习时长（小时）</th>
+                        <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">学习内容</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {learnStats.weekReport.map((item, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-3 text-gray-700">{item.day}</td>
+                          <td className="px-6 py-3 text-gray-700">{item.time}</td>
+                          <td className="px-6 py-3 text-gray-700">{item.content}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </StudentLayout>
   );
 };
 

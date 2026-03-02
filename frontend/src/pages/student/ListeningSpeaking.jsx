@@ -1,248 +1,164 @@
 import React, { useState, useEffect } from 'react';
+import StudentLayout from '../../components/StudentLayout';
 
 const ListeningSpeaking = () => {
-  // 听力材料列表
   const [listeningMaterials, setListeningMaterials] = useState([]);
-  // 当前选中的听力材料
   const [selectedMaterial, setSelectedMaterial] = useState(null);
-  // 选中材料的详情（含音频地址、原文等）
   const [materialDetail, setMaterialDetail] = useState(null);
-  // 口语练习状态
   const [recording, setRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
-  // AI口语评分结果
   const [evaluationResult, setEvaluationResult] = useState(null);
-  // 加载状态
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [submittingEval, setSubmittingEval] = useState(false);
 
-  // 页面加载时：获取听力材料列表（接口1）
   useEffect(() => {
-    const getListeningMaterials = async () => {
+    const getMaterials = async () => {
       setLoadingMaterials(true);
       try {
-        const res = await fetch('/api/student/listening/materials', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const res = await fetch('/api/student/listening/materials', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         if (!res.ok) throw new Error('网络请求失败');
         const result = await res.json();
         if (result.code !== 200) throw new Error(result.message || '获取听力材料失败');
-        
         setListeningMaterials(result.data);
-      } catch (err) {
-        alert(err.message);
-        console.error('获取听力材料错误：', err);
-      } finally {
-        setLoadingMaterials(false);
-      }
+      } catch (err) { alert(err.message); }
+      finally { setLoadingMaterials(false); }
     };
-
-    getListeningMaterials();
+    getMaterials();
   }, []);
 
-  // 选中材料变化时：获取材料详情（含音频地址、原文，接口2）
   useEffect(() => {
     if (!selectedMaterial) return;
-
-    const getMaterialDetail = async () => {
-      setLoadingDetail(true);
-      // 切换材料时清空之前的录音、评分结果
-      setAudioUrl(null);
-      setRecording(false);
-      setEvaluationResult(null);
-      setMaterialDetail(null);
-
+    const getDetail = async () => {
+      setLoadingDetail(true); setAudioUrl(null); setRecording(false); setEvaluationResult(null); setMaterialDetail(null);
       try {
-        const res = await fetch(`/api/student/listening/material/detail?materialId=${selectedMaterial.id}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const res = await fetch(`/api/student/listening/material/detail?materialId=${selectedMaterial.id}`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         if (!res.ok) throw new Error('网络请求失败');
         const result = await res.json();
         if (result.code !== 200) throw new Error(result.message || '获取材料详情失败');
-        
         setMaterialDetail(result.data);
-      } catch (err) {
-        alert(err.message);
-        console.error('获取材料详情错误：', err);
-      } finally {
-        setLoadingDetail(false);
-      }
+      } catch (err) { alert(err.message); }
+      finally { setLoadingDetail(false); }
     };
-
-    getMaterialDetail();
+    getDetail();
   }, [selectedMaterial]);
 
-  // 选择听力材料
-  const handleSelectMaterial = (material) => {
-    setSelectedMaterial(material);
-  };
-
-  // 开始/结束录音
   const toggleRecording = () => {
-    if (recording) {
-      setRecording(false);
-      // 模拟录音结束生成音频链接（后续可对接真实录音插件）
-      setAudioUrl("https://example.com/recording.mp3");
-    } else {
-      setRecording(true);
-      setAudioUrl(null);
-      setEvaluationResult(null);
-    }
+    if (recording) { setRecording(false); setAudioUrl("https://example.com/recording.mp3"); }
+    else { setRecording(true); setAudioUrl(null); setEvaluationResult(null); }
   };
 
-  // AI口语评分（接口3）
   const handleAIEvaluation = async () => {
-    if (!audioUrl) {
-      alert('请先完成录音再进行评分');
-      return;
-    }
-    if (!selectedMaterial) {
-      alert('请先选择听力材料');
-      return;
-    }
-
+    if (!audioUrl) { alert('请先完成录音再进行评分'); return; }
+    if (!selectedMaterial) { alert('请先选择听力材料'); return; }
     setSubmittingEval(true);
     try {
       const res = await fetch('/api/student/speaking/evaluate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          materialId: selectedMaterial.id,
-          audioUrl: audioUrl
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ materialId: selectedMaterial.id, audioUrl })
       });
       if (!res.ok) throw new Error('网络请求失败');
       const result = await res.json();
       if (result.code !== 200) throw new Error(result.message || '口语评分失败');
-      
       setEvaluationResult(result.data);
-      alert('AI评分完成！已为你生成发音解析');
-    } catch (err) {
-      alert(err.message);
-      console.error('口语评分错误：', err);
-    } finally {
-      setSubmittingEval(false);
-    }
+    } catch (err) { alert(err.message); }
+    finally { setSubmittingEval(false); }
   };
 
   return (
-    <div className="listening-speaking-page">
-      <div className="page-header">
-        <h1>德语听说训练</h1>
-        <p>听力磨耳朵 + 口语AI纠音，提升德语实战能力</p >
-      </div>
+    <StudentLayout>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">🎧 德语听说训练</h1>
+          <p className="text-gray-500">听力磨耳朵 + 口语AI纠音，提升德语实战能力</p>
+        </div>
 
-      {/* 听力材料选择区 */}
-      <div className="material-selector">
-        {loadingMaterials ? (
-          <p>加载听力材料中...</p >
-        ) : (
-          listeningMaterials.map(material => (
-            <div
-              key={material.id}
-              className={`material-card ${selectedMaterial?.id === material.id ? 'active' : ''}`}
-              onClick={() => handleSelectMaterial(material)}
-            >
-              <h3>{material.title}</h3>
-              <div className="meta">
+        {/* 材料选择 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {loadingMaterials ? (
+            <p className="text-gray-400 col-span-full text-center py-8">加载听力材料中...</p>
+          ) : listeningMaterials.map(material => (
+            <div key={material.id} onClick={() => setSelectedMaterial(material)}
+              className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                selectedMaterial?.id === material.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+              }`}>
+              <h3 className="font-bold text-gray-800 mb-2">{material.title}</h3>
+              <div className="flex gap-3 text-xs text-gray-500">
                 <span>难度：{material.level}</span>
                 <span>时长：{material.duration}</span>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
 
-      {/* 听力播放区 */}
-      {selectedMaterial && (
-        <div className="practice-section">
-          <h2>当前练习：{selectedMaterial.title}</h2>
-          
-          {loadingDetail ? (
-            <p>加载材料详情中...</p >
-          ) : (
-            materialDetail && (
+        {/* 练习区 */}
+        {selectedMaterial && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-bold text-gray-700 mb-4">当前练习：{selectedMaterial.title}</h2>
+            {loadingDetail ? (
+              <p className="text-gray-400 py-8 text-center">加载材料详情中...</p>
+            ) : materialDetail && (
               <>
-                <div className="listening-player">
-                  <audio src={materialDetail.audioUrl} controls />
-                  <div className="script-box">
-                    <h4>听力原文：</h4>
-                    <p>{materialDetail.script}</p >
+                {/* 听力播放 */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <audio src={materialDetail.audioUrl} controls className="w-full mb-3" />
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-1">听力原文：</h4>
+                    <p className="text-gray-600 leading-relaxed">{materialDetail.script}</p>
                   </div>
                 </div>
 
-                {/* 口语模仿区 */}
-                <div className="speaking-area">
-                  <h3>🎤 模仿口语练习</h3>
-                  <p>听完后，点击下方按钮开始录音，模仿刚才的内容</p >
-                  <button
-                    className={`record-btn ${recording ? 'recording' : ''}`}
-                    onClick={toggleRecording}
-                    disabled={submittingEval}
-                  >
+                {/* 口语模仿 */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="font-bold text-gray-800 mb-2">🎤 模仿口语练习</h3>
+                  <p className="text-sm text-gray-500 mb-4">听完后，点击下方按钮开始录音，模仿刚才的内容</p>
+                  <button onClick={toggleRecording} disabled={submittingEval}
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                      recording ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+                    } disabled:bg-gray-400`}>
                     {recording ? '⏹️ 结束录音' : '🎙️ 开始录音'}
                   </button>
 
                   {audioUrl && (
-                    <div className="audio-preview">
-                      <h4>你的录音：</h4>
-                      <audio src={audioUrl} controls />
-                      <button 
-                        className="ai-eval-btn" 
-                        onClick={handleAIEvaluation}
-                        disabled={submittingEval}
-                      >
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="font-semibold text-gray-700 mb-2">你的录音：</h4>
+                      <audio src={audioUrl} controls className="w-full mb-3" />
+                      <button onClick={handleAIEvaluation} disabled={submittingEval}
+                        className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors font-medium">
                         {submittingEval ? '评分中...' : '🤖 AI口语评分'}
                       </button>
                     </div>
                   )}
 
-                  {/* AI评分结果展示 */}
                   {evaluationResult && (
-                    <div className="evaluation-result">
-                      <h3>📊 AI评分结果</h3>
-                      <div className="score-overview">
-                        <div className="score-item">
-                          <span>综合得分</span>
-                          <strong>{evaluationResult.totalScore}分</strong>
-                        </div>
-                        <div className="score-item">
-                          <span>发音准确度</span>
-                          <strong>{evaluationResult.pronunciationScore}分</strong>
-                        </div>
-                        <div className="score-item">
-                          <span>流利度</span>
-                          <strong>{evaluationResult.fluencyScore}分</strong>
-                        </div>
-                        <div className="score-item">
-                          <span>语调匹配度</span>
-                          <strong>{evaluationResult.intonationScore}分</strong>
-                        </div>
+                    <div className="mt-6 p-6 bg-blue-50 rounded-xl border border-blue-200">
+                      <h3 className="font-bold text-blue-800 mb-4">📊 AI评分结果</h3>
+                      <div className="grid grid-cols-4 gap-4 mb-4">
+                        {[
+                          { label: '综合得分', score: evaluationResult.totalScore },
+                          { label: '发音准确度', score: evaluationResult.pronunciationScore },
+                          { label: '流利度', score: evaluationResult.fluencyScore },
+                          { label: '语调匹配度', score: evaluationResult.intonationScore }
+                        ].map((item, i) => (
+                          <div key={i} className="text-center p-3 bg-white rounded-lg">
+                            <p className="text-2xl font-bold text-blue-600">{item.score}</p>
+                            <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+                          </div>
+                        ))}
                       </div>
-                      <div className="analysis-box">
-                        <h4>🔍 详细解析</h4>
-                        <p>{evaluationResult.analysis}</p >
-                        <h4>💡 改进建议</h4>
-                        <p>{evaluationResult.suggestion}</p >
+                      <div className="space-y-3">
+                        <div><h4 className="font-semibold text-gray-700">🔍 详细解析</h4><p className="text-gray-600 mt-1">{evaluationResult.analysis}</p></div>
+                        <div><h4 className="font-semibold text-gray-700">💡 改进建议</h4><p className="text-gray-600 mt-1">{evaluationResult.suggestion}</p></div>
                       </div>
                     </div>
                   )}
                 </div>
               </>
-            )
-          )}
-        </div>
-      )}
-    </div>
+            )}
+          </div>
+        )}
+      </div>
+    </StudentLayout>
   );
 };
 
