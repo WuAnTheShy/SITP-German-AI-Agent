@@ -22,11 +22,11 @@
 
 ### 核心特性
 
-| 模块 | 功能亮点 |
-|---|---|
-| 🎓 **教师端** | 教学仪表盘 · 学情监控 · AI 情景任务发布 · 智能试卷生成 · 作业 AI+人工双轨批改 · 个性化强化方案推送 |
-| 📚 **学生端** | AI 情景对话 · 词汇学习 · 语法练习 · 听说训练 · 写作辅助 · 错题本 · 学习进度追踪 · 收藏夹 |
-| 🤖 **AI 引擎** | 基于 Gemini 2.5 Flash · 德语助教人设 · 语法纠错 · 中德双语解释 |
+| 模块           | 功能亮点                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------- |
+| 🎓 **教师端**  | 教学仪表盘 · 学情监控 · AI 情景任务发布 · 智能试卷生成 · 作业 AI+人工双轨批改 · 个性化强化方案推送 |
+| 📚 **学生端**  | AI 情景对话 · 词汇学习 · 语法练习 · 听说训练 · 写作辅助 · 错题本 · 学习进度追踪 · 收藏夹           |
+| 🤖 **AI 引擎** | 基于 Gemini 2.5 Flash · 德语助教人设 · 语法纠错 · 中德双语解释                                     |
 
 ---
 
@@ -55,36 +55,36 @@
 
 ### 前端 (Frontend)
 
-| 技术 | 版本 | 用途 |
-|---|---|---|
-| [Vite](https://vitejs.dev/) | 7.2 | 构建工具与开发服务器 |
-| [React](https://react.dev/) | 19.2 | UI 框架 |
-| [React Router](https://reactrouter.com/) | 7.12 | 前端路由 (HashRouter) |
-| [Tailwind CSS](https://tailwindcss.com/) | 3.4 | 原子化 CSS 样式 |
-| [Ant Design](https://ant.design/) | 6.2 | UI 组件库 |
-| [Lucide React](https://lucide.dev/) | 0.562 | 矢量图标库 |
-| [Axios](https://axios-http.com/) | 1.13 | HTTP 请求 (统一拦截器) |
-| [React Markdown](https://github.com/remarkjs/react-markdown) | 10.1 | Markdown 渲染 |
+| 技术                                                         | 版本  | 用途                   |
+| ------------------------------------------------------------ | ----- | ---------------------- |
+| [Vite](https://vitejs.dev/)                                  | 7.2   | 构建工具与开发服务器   |
+| [React](https://react.dev/)                                  | 19.2  | UI 框架                |
+| [React Router](https://reactrouter.com/)                     | 7.12  | 前端路由 (HashRouter)  |
+| [Tailwind CSS](https://tailwindcss.com/)                     | 3.4   | 原子化 CSS 样式        |
+| [Ant Design](https://ant.design/)                            | 6.2   | UI 组件库              |
+| [Lucide React](https://lucide.dev/)                          | 0.562 | 矢量图标库             |
+| [Axios](https://axios-http.com/)                             | 1.13  | HTTP 请求 (统一拦截器) |
+| [React Markdown](https://github.com/remarkjs/react-markdown) | 10.1  | Markdown 渲染          |
 
 ### 后端 (Backend)
 
-| 技术 | 用途 |
-|---|---|
-| [FastAPI](https://fastapi.tiangolo.com/) | Web 框架 (Python) |
-| [Uvicorn](https://www.uvicorn.org/) | ASGI 服务器 |
-| [Google Generative AI SDK](https://ai.google.dev/) | Gemini 模型调用 |
-| [SQLAlchemy](https://www.sqlalchemy.org/) | ORM 数据库操作 |
-| [Psycopg](https://www.psycopg.org/psycopg3/) | PostgreSQL 驱动 |
-| [Alembic](https://alembic.sqlalchemy.org/) | 数据库迁移管理 |
+| 技术                                               | 用途              |
+| -------------------------------------------------- | ----------------- |
+| [FastAPI](https://fastapi.tiangolo.com/)           | Web 框架 (Python) |
+| [Uvicorn](https://www.uvicorn.org/)                | ASGI 服务器       |
+| [Google Generative AI SDK](https://ai.google.dev/) | Gemini 模型调用   |
+| [SQLAlchemy](https://www.sqlalchemy.org/)          | ORM 数据库操作    |
+| [Psycopg](https://www.psycopg.org/psycopg3/)       | PostgreSQL 驱动   |
+| [Alembic](https://alembic.sqlalchemy.org/)         | 数据库迁移管理    |
 
 ### 基础设施 (DevOps)
 
-| 技术 | 用途 |
-|---|---|
-| Docker & Docker Compose | 容器化编排（三容器架构） |
-| Nginx | 前端静态资源托管 + API 反向代理 |
-| PostgreSQL 16 | 关系型数据库（数据卷持久化） |
-| GitHub Actions | CI/CD 自动化部署 |
+| 技术                    | 用途                            |
+| ----------------------- | ------------------------------- |
+| Docker & Docker Compose | 容器化编排（三容器架构）        |
+| Nginx                   | 前端静态资源托管 + API 反向代理 |
+| PostgreSQL 16           | 关系型数据库（数据卷持久化）    |
+| GitHub Actions          | CI/CD 自动化部署                |
 
 ---
 
@@ -139,6 +139,30 @@ SITP-German-AI-Agent/
 
 ---
 
+## ⚠️ 网络代理配置（国内环境必需）
+
+本项目的 AI 功能依赖 Google Gemini API，其服务器在国内无法直连。**因为在国内开发，必须配置科学上网代理，否则所有 AI 相关功能将无法使用**（前端页面和数据库功能不受影响）。
+
+**配置方法**：在 `.env` 文件中添加以下两行，将端口号改为你本机代理工具实际使用的端口：
+
+```dotenv
+HTTP_PROXY=http://127.0.0.1:你的代理端口
+HTTPS_PROXY=http://127.0.0.1:你的代理端口
+```
+
+常见代理工具的默认端口参考：
+
+| 代理工具                        | 默认 HTTP 端口          |
+| ------------------------------- | ----------------------- |
+| Clash for Windows / Clash Verge | `7890` 或你实际的端口号 |
+| v2rayN                          | `10809`                 |
+
+> 💡 如何确认端口？打开你的代理客户端，在设置中查看 **HTTP 代理端口**（不是 SOCKS 端口）。
+>
+> 如果你在海外或不需要代理，不写这两行即可，后端代码已做兼容处理，不会报错。
+
+---
+
 ## 🚀 快速开始
 
 ### 方式一：Docker Compose 一键部署 (推荐)
@@ -149,7 +173,7 @@ SITP-German-AI-Agent/
 
 ```bash
 # 在项目根目录创建 .env 文件
-echo "GOOGLE_API_KEY=你的_Google_Gemini_API_密钥" > .env
+echo "GOOGLdsdE_API_KEY=你的_Google_Gemini_API_密钥" > .env
 ```
 
 > 💡 Gemini API Key 获取方式：访问 [Google AI Studio](https://aistudio.google.com/apikey) 申请免费密钥。
@@ -162,13 +186,13 @@ docker compose up -d --build
 
 **3. 访问系统**
 
-| 服务 | 地址 |
-|---|---|
-| 🌐 前端首页 | http://localhost |
-| 🎓 教师端登录 | http://localhost/#/teacher/login |
-| 📚 学生端登录 | http://localhost/#/student/login |
-| 📡 后端 API 文档 | http://localhost:8000/docs |
-| 🔍 后端健康检查 | http://localhost:8000/ |
+| 服务             | 地址                             |
+| ---------------- | -------------------------------- |
+| 🌐 前端首页      | http://localhost                 |
+| 🎓 教师端登录    | http://localhost/#/teacher/login |
+| 📚 学生端登录    | http://localhost/#/student/login |
+| 📡 后端 API 文档 | http://localhost:8000/docs       |
+| 🔍 后端健康检查  | http://localhost:8000/           |
 
 **常用运维命令**
 
@@ -244,17 +268,17 @@ npm run dev
 
 ## 📡 API 概览
 
-| 方法 | 端点 | 功能 |
-|---|---|---|
-| `POST` | `/api/chat` | AI 德语对话 (学生端) |
-| `POST` | `/api/auth/login` | 用户登录认证 |
-| `GET` | `/api/teacher/dashboard` | 教学仪表盘数据 |
-| `POST` | `/api/scenario/publish` | 发布情景任务 |
-| `POST` | `/api/exam/generate` | 生成智能试卷 |
-| `GET` | `/api/student/detail` | 学生详细画像 |
-| `GET` | `/api/homework/detail` | 作业文件详情 |
-| `POST` | `/api/homework/save` | 保存教师评分 |
-| `POST` | `/api/student/push-scheme` | 推送个性化强化方案 |
+| 方法   | 端点                       | 功能                 |
+| ------ | -------------------------- | -------------------- |
+| `POST` | `/api/chat`                | AI 德语对话 (学生端) |
+| `POST` | `/api/auth/login`          | 用户登录认证         |
+| `GET`  | `/api/teacher/dashboard`   | 教学仪表盘数据       |
+| `POST` | `/api/scenario/publish`    | 发布情景任务         |
+| `POST` | `/api/exam/generate`       | 生成智能试卷         |
+| `GET`  | `/api/student/detail`      | 学生详细画像         |
+| `GET`  | `/api/homework/detail`     | 作业文件详情         |
+| `POST` | `/api/homework/save`       | 保存教师评分         |
+| `POST` | `/api/student/push-scheme` | 推送个性化强化方案   |
 
 > 完整 API 文档（自动生成）：启动后端后访问 http://localhost:8000/docs
 
@@ -270,14 +294,14 @@ npm run dev
 
 ## 👥 项目团队
 
-| 角色 | 姓名 | 学院 | 分工 |
-|---|---|---|---|
-| **指导教师** | 汤春艳 | 外国语学院 | 教学理论指导、资源支持 |
+| 角色           | 姓名   | 学院                 | 分工                           |
+| -------------- | ------ | -------------------- | ------------------------------ |
+| **指导教师**   | 汤春艳 | 外国语学院           | 教学理论指导、资源支持         |
 | **项目负责人** | 魏世杰 | 计算机科学与技术学院 | 系统架构设计、服务器部署与维护 |
-| **核心成员** | 洪超慧 | 中德工程学院 | 前端界面 — 学生端 |
-| **核心成员** | 童文景 | 计算机科学与技术学院 | 前端界面 — 教师端 |
-| **核心成员** | 周雨晗 | 外国语学院 | 德语语料搜集、数据库输入 |
-| **核心成员** | 王莹 | 计算机科学与技术学院 | AI 智能体搭建 |
+| **核心成员**   | 洪超慧 | 中德工程学院         | 前端界面 — 学生端              |
+| **核心成员**   | 童文景 | 计算机科学与技术学院 | 前端界面 — 教师端              |
+| **核心成员**   | 周雨晗 | 外国语学院           | 德语语料搜集、数据库输入       |
+| **核心成员**   | 王莹   | 计算机科学与技术学院 | AI 智能体搭建                  |
 
 ---
 

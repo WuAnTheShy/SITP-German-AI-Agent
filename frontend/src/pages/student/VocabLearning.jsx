@@ -1,242 +1,164 @@
 import React, { useState, useEffect } from 'react';
+import StudentLayout from '../../components/StudentLayout';
 
-// 词汇专项学习页
 const VocabLearning = () => {
-  // 核心数据状态
   const [vocabList, setVocabList] = useState([]);
-  // 学习模式切换（闪卡/列表）
   const [mode, setMode] = useState('flashcard');
-  // 闪卡模式专属状态
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
-  // 收藏状态（存储已收藏的词汇ID）
   const [collectedIds, setCollectedIds] = useState(new Set());
-  // 加载状态
   const [loadingVocab, setLoadingVocab] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  // 页面加载时：获取词汇列表（接口1）
   useEffect(() => {
     const getVocabList = async () => {
       setLoadingVocab(true);
       try {
-        const res = await fetch('/api/student/vocab/list', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const res = await fetch('/api/student/vocab/list', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         if (!res.ok) throw new Error('网络请求失败');
         const result = await res.json();
         if (result.code !== 200) throw new Error(result.message || '获取词汇列表失败');
-        
         setVocabList(result.data);
-        // 初始化已收藏的词汇ID集合
         const initCollected = new Set();
-        result.data.forEach(item => {
-          if (item.isCollected) initCollected.add(item.id);
-        });
+        result.data.forEach(item => { if (item.isCollected) initCollected.add(item.id); });
         setCollectedIds(initCollected);
-      } catch (err) {
-        alert(err.message);
-        console.error('获取词汇列表错误：', err);
-      } finally {
-        setLoadingVocab(false);
-      }
+      } catch (err) { alert(err.message); }
+      finally { setLoadingVocab(false); }
     };
-
     getVocabList();
   }, []);
 
-  // 闪卡模式：切换上一个词汇
-  const handlePrevCard = () => {
-    if (currentCardIndex <= 0) return;
-    setCurrentCardIndex(prev => prev - 1);
-    setIsCardFlipped(false);
-  };
+  const handlePrevCard = () => { if (currentCardIndex > 0) { setCurrentCardIndex(prev => prev - 1); setIsCardFlipped(false); } };
+  const handleNextCard = () => { if (currentCardIndex < vocabList.length - 1) { setCurrentCardIndex(prev => prev + 1); setIsCardFlipped(false); } };
 
-  // 闪卡模式：切换下一个词汇
-  const handleNextCard = () => {
-    if (currentCardIndex >= vocabList.length - 1) return;
-    setCurrentCardIndex(prev => prev + 1);
-    setIsCardFlipped(false);
-  };
-
-  // 词汇收藏/取消收藏（接口2）
   const handleCollectVocab = async (vocabId) => {
     if (!vocabId) return;
     setCollecting(true);
     const isCollected = collectedIds.has(vocabId);
-
     try {
       const res = await fetch('/api/student/vocab/collect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          vocabId: vocabId,
-          isCollect: !isCollected
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vocabId, isCollect: !isCollected })
       });
       if (!res.ok) throw new Error('网络请求失败');
       const result = await res.json();
       if (result.code !== 200) throw new Error(result.message || '操作失败');
-      
       const newCollected = new Set(collectedIds);
-      if (isCollected) {
-        newCollected.delete(vocabId);
-        alert('已取消收藏');
-      } else {
-        newCollected.add(vocabId);
-        alert('收藏成功');
-      }
+      if (isCollected) { newCollected.delete(vocabId); } else { newCollected.add(vocabId); }
       setCollectedIds(newCollected);
-    } catch (err) {
-      alert(err.message);
-      console.error('收藏操作错误：', err);
-    } finally {
-      setCollecting(false);
-    }
+    } catch (err) { alert(err.message); }
+    finally { setCollecting(false); }
   };
 
-  // AI生成定制词汇表（接口3）
   const handleAIGenerateVocab = async () => {
     setGenerating(true);
     try {
       const res = await fetch('/api/student/vocab/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          level: "A1",
-          topic: "日常通用"
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: "A1", topic: "日常通用" })
       });
       if (!res.ok) throw new Error('网络请求失败');
       const result = await res.json();
       if (result.code !== 200) throw new Error(result.message || '生成词汇表失败');
-      
       setVocabList(result.data);
-      setCurrentCardIndex(0);
-      setIsCardFlipped(false);
+      setCurrentCardIndex(0); setIsCardFlipped(false);
       const newCollected = new Set();
-      result.data.forEach(item => {
-        if (item.isCollected) newCollected.add(item.id);
-      });
+      result.data.forEach(item => { if (item.isCollected) newCollected.add(item.id); });
       setCollectedIds(newCollected);
       alert('AI定制词汇表生成成功！');
-    } catch (err) {
-      alert(err.message);
-      console.error('AI生成词汇表错误：', err);
-    } finally {
-      setGenerating(false);
-    }
+    } catch (err) { alert(err.message); }
+    finally { setGenerating(false); }
   };
 
   const currentVocab = vocabList[currentCardIndex] || {};
 
   return (
-    <div className="vocab-learning-page">
-      <div className="page-header">
-        <h1>德语词汇专项学习</h1>
-        <div className="mode-switch">
-          <button 
-            className={mode === 'flashcard' ? 'active' : ''}
-            onClick={() => setMode('flashcard')}
-            disabled={loadingVocab}
-          >
-            闪卡模式
-          </button>
-          <button 
-            className={mode === 'list' ? 'active' : ''}
-            onClick={() => setMode('list')}
-            disabled={loadingVocab}
-          >
-            列表模式
-          </button>
+    <StudentLayout>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">📚 德语词汇专项学习</h1>
+            <p className="text-gray-500">闪卡记忆 + 列表浏览，高效掌握德语词汇</p>
+          </div>
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+            <button onClick={() => setMode('flashcard')} disabled={loadingVocab}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'flashcard' ? 'bg-white shadow text-blue-700' : 'text-gray-600 hover:text-gray-800'}`}>
+              闪卡模式
+            </button>
+            <button onClick={() => setMode('list')} disabled={loadingVocab}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'list' ? 'bg-white shadow text-blue-700' : 'text-gray-600 hover:text-gray-800'}`}>
+              列表模式
+            </button>
+          </div>
         </div>
-      </div>
 
-      {loadingVocab ? (
-        <div className="loading-box">
-          <p>加载词汇列表中...</p>
-        </div>
-      ) : (
-        <>
-          {mode === 'flashcard' && vocabList.length > 0 && (
-            <div className="flashcard-container">
-              <div 
-                className={`flashcard ${isCardFlipped ? 'flipped' : ''}`}
-                onClick={() => setIsCardFlipped(!isCardFlipped)}
-              >
-                {!isCardFlipped ? (
-                  <>
-                    <h2>{currentVocab.german}</h2>
-                    <p className="hint">点击显示释义</p>
-                  </>
-                ) : (
-                  <>
-                    <h2>{currentVocab.chinese}</h2>
-                    <p className="example">{currentVocab.example}</p>
-                    <p className="hint">点击返回单词</p>
-                  </>
-                )}
+        {loadingVocab ? (
+          <div className="text-center py-16 text-gray-400">加载词汇列表中...</div>
+        ) : (
+          <>
+            {/* 闪卡模式 */}
+            {mode === 'flashcard' && vocabList.length > 0 && (
+              <div className="flex flex-col items-center">
+                <div onClick={() => setIsCardFlipped(!isCardFlipped)}
+                  className="w-96 h-56 bg-white rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-shadow p-8 select-none">
+                  {!isCardFlipped ? (
+                    <>
+                      <h2 className="text-3xl font-bold text-gray-800 mb-3">{currentVocab.german}</h2>
+                      <p className="text-sm text-gray-400">点击显示释义</p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-2xl font-bold text-blue-700 mb-2">{currentVocab.chinese}</h2>
+                      <p className="text-sm text-gray-600 italic">{currentVocab.example}</p>
+                      <p className="text-xs text-gray-400 mt-2">点击返回单词</p>
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={handlePrevCard} disabled={currentCardIndex <= 0}
+                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">上一个</button>
+                  <span className="px-4 py-2 text-gray-500 text-sm">{currentCardIndex + 1} / {vocabList.length}</span>
+                  <button onClick={handleNextCard} disabled={currentCardIndex >= vocabList.length - 1}
+                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">下一个</button>
+                  <button onClick={() => handleCollectVocab(currentVocab.id)} disabled={collecting}
+                    className={`px-5 py-2 rounded-lg transition-colors ${collectedIds.has(currentVocab.id) ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'} disabled:opacity-50`}>
+                    {collectedIds.has(currentVocab.id) ? '⭐ 已收藏' : '☆ 加入收藏'}
+                  </button>
+                </div>
               </div>
-              <div className="flashcard-controls">
-                <button onClick={handlePrevCard} disabled={currentCardIndex <= 0}>
-                  上一个
-                </button>
-                <button onClick={handleNextCard} disabled={currentCardIndex >= vocabList.length - 1}>
-                  下一个
-                </button>
-                <button 
-                  onClick={() => handleCollectVocab(currentVocab.id)}
-                  disabled={collecting}
-                >
-                  {collectedIds.has(currentVocab.id) ? '已收藏' : '加入收藏'}
-                </button>
-              </div>
-            </div>
-          )}
+            )}
 
-          {mode === 'list' && (
-            <div className="vocab-list">
-              {vocabList.length === 0 ? (
-                <p className="empty-tip">暂无词汇数据，点击下方按钮生成词汇表</p>
-              ) : (
-                vocabList.map(item => (
-                  <div key={item.id} className="vocab-item">
-                    <div className="german-word">{item.german}</div>
-                    <div className="chinese-mean">{item.chinese}</div>
-                    <div className="example-sentence">{item.example}</div>
-                    <button 
-                      className={`collect-btn ${collectedIds.has(item.id) ? 'collected' : ''}`}
-                      onClick={() => handleCollectVocab(item.id)}
-                      disabled={collecting}
-                    >
-                      {collectedIds.has(item.id) ? '已收藏' : '收藏'}
+            {/* 列表模式 */}
+            {mode === 'list' && (
+              <div className="space-y-3">
+                {vocabList.length === 0 ? (
+                  <p className="text-center text-gray-400 py-8">暂无词汇数据，点击下方按钮生成词汇表</p>
+                ) : vocabList.map(item => (
+                  <div key={item.id} className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 hover:shadow-sm transition-shadow">
+                    <div className="font-bold text-lg text-gray-800 w-40">{item.german}</div>
+                    <div className="text-gray-600 w-32">{item.chinese}</div>
+                    <div className="flex-1 text-sm text-gray-500 italic">{item.example}</div>
+                    <button onClick={() => handleCollectVocab(item.id)} disabled={collecting}
+                      className={`px-4 py-2 rounded-lg text-sm transition-colors shrink-0 ${collectedIds.has(item.id) ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-700'}`}>
+                      {collectedIds.has(item.id) ? '⭐ 已收藏' : '收藏'}
                     </button>
                   </div>
-                ))
-              )}
-            </div>
-          )}
-        </>
-      )}
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
-      <div className="ai-generate-section">
-        <button 
-          className="ai-btn" 
-          onClick={handleAIGenerateVocab}
-          disabled={generating || loadingVocab}
-        >
-          {generating ? '生成中...' : '🤖 AI生成定制词汇表'}
-        </button>
+        {/* AI生成 */}
+        <div className="mt-8 text-center">
+          <button onClick={handleAIGenerateVocab} disabled={generating || loadingVocab}
+            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-lg">
+            {generating ? '生成中...' : '🤖 AI生成定制词汇表'}
+          </button>
+        </div>
       </div>
-    </div>
+    </StudentLayout>
   );
 };
 

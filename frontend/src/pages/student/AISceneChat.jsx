@@ -1,205 +1,163 @@
 import React, { useState, useRef, useEffect } from 'react';
-
-// 接口基础配置：统一管理后端地址，后续后端部署后只改这里就行
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://49.234.185.167:9000';
-// 场景对话接口地址（和上面的规范完全一致，绝对不能改）
-const SCENE_CHAT_API = `${API_BASE_URL}/api/student/scene-chat`;
+import StudentLayout from '../../components/StudentLayout';
+import { Bot, User, Send, Loader2 } from 'lucide-react';
 
 const AISceneChat = () => {
-    // 1. 场景定义（完全保留你原来的内容，没动）
-    const [chatScenes] = useState([
-        { id: 1, name: "校园课堂问答", desc: "和老师互动、回答课堂问题" },
-        { id: 2, name: "日常购物交流", desc: "超市/商店买东西的德语对话" },
-        { id: 3, name: "留学面试沟通", desc: "德国大学入学面试常见问题" },
-        { id: 4, name: "餐厅点餐对话", desc: "德国餐厅点餐、询问菜品" }
-    ]);
+  const [chatScenes] = useState([
+    { id: 1, name: "校园课堂问答", desc: "和老师互动、回答课堂问题" },
+    { id: 2, name: "日常购物交流", desc: "超市/商店买东西的德语对话" },
+    { id: 3, name: "留学面试沟通", desc: "德国大学入学面试常见问题" },
+    { id: 4, name: "餐厅点餐对话", desc: "德国餐厅点餐、询问菜品" }
+  ]);
+  const [selectedScene, setSelectedScene] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [inputMsg, setInputMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+  const chatContainerRef = useRef(null);
 
-    // 2. 状态管理（完全保留你原来的内容，没动）
-    const [selectedScene, setSelectedScene] = useState(null);
-    const [messages, setMessages] = useState([]);
-    const [inputMsg, setInputMsg] = useState('');
-    const [loading, setLoading] = useState(false);
-    const chatContainerRef = useRef(null);
+  const handleSelectScene = (scene) => {
+    setSelectedScene(scene);
+    setMessages([{
+      sender: "AI",
+      content: `你好！现在进入【${scene.name}】场景，开始用德语对话吧～我会纠正你的表达错误哦！`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
+  };
 
-    // 3. 选择场景（完全保留你原来的内容，没动）
-    const handleSelectScene = (scene) => {
-        setSelectedScene(scene);
-        setMessages([
-            {
-                sender: "AI",
-                content: `你好！现在进入【${scene.name}】场景，开始用德语对话吧～我会纠正你的表达错误哦！`,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }
-        ]);
-    };
-
-    // 4. 发送消息（核心接口逻辑，全部按规范重写完成）
-    const handleSendMsg = async () => {
-        if (!inputMsg.trim() || !selectedScene) {
-            alert(selectedScene ? "请输入德语对话内容！" : "请先选择一个对话场景！");
-            return;
-        }
-
-        // 立即显示用户的消息（完全保留原来的逻辑）
-        const userContent = inputMsg.trim();
-        const newUserMsg = {
-            sender: "我",
-            content: userContent,
+  const handleSendMsg = async () => {
+    if (!inputMsg.trim() || !selectedScene) {
+      alert(selectedScene ? "请输入德语对话内容！" : "请先选择一个对话场景！");
+      return;
+    }
+    const userContent = inputMsg.trim();
+    setMessages(prev => [...prev, {
+      sender: "我", content: userContent,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
+    setInputMsg('');
+    setLoading(true);
+    try {
+      const response = await fetch('/api/student/scene-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneId: selectedScene.id, sceneName: selectedScene.name, userMessage: userContent })
+      });
+      const data = await response.json();
+      if (data.code === 200) {
+        setMessages(prev => [...prev, {
+          sender: "AI", content: data.data.reply,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+        if (data.data.correction) {
+          setMessages(prev => [...prev, {
+            sender: "系统", content: `📝 语法纠错建议：${data.data.correction}`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-
-        setMessages(prev => [...prev, newUserMsg]);
-        setInputMsg('');
-        setLoading(true);
-
-        try {
-            // 【接口核心1】按规范拼装请求参数，发给后端
-            const requestData = {
-                sceneId: selectedScene.id,
-                sceneName: selectedScene.name,
-                userMessage: userContent
-            };
-
-            // 【接口核心2】发送请求到后端接口
-            const response = await fetch(SCENE_CHAT_API, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            });
-
-            // 【接口核心3】解析后端返回的数据
-            const data = await response.json();
-
-            // 【接口核心4】判断请求是否成功，按规范处理
-            if (data.code === 200) {
-                // 成功：显示AI回复
-                const newAiMsg = {
-                    sender: "AI",
-                    content: data.data.reply,
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                };
-                setMessages(prev => [...prev, newAiMsg]);
-
-                // 可选：如果后端返回了纠错信息，自动显示
-                if (data.data.correction) {
-                    const correctionMsg = {
-                        sender: "系统",
-                        content: `📝 语法纠错建议：${data.data.correction}`,
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    };
-                    setMessages(prev => [...prev, correctionMsg]);
-                }
-            } else {
-                // 后端返回失败，抛出错误交给catch处理
-                throw new Error(data.message || '请求失败，请重试');
-            }
-
-        } catch (error) {
-            console.error("接口请求失败:", error);
-            // 显示错误提示，用户能直接看到
-            setMessages(prev => [...prev, {
-                sender: "系统",
-                content: `❌ ${error.message}`,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }]);
-        } finally {
-            // 无论成功失败，都关闭加载状态
-            setLoading(false);
+          }]);
         }
-    };
+      } else { throw new Error(data.message || '请求失败，请重试'); }
+    } catch (error) {
+      console.error("接口请求失败:", error);
+      setMessages(prev => [...prev, {
+        sender: "系统", content: `❌ ${error.message}`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } finally { setLoading(false); }
+  };
 
-    // 5. 按回车发送（完全保留你原来的内容，没动）
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !loading) {
-            handleSendMsg();
-        }
-    };
+  const handleKeyDown = (e) => { if (e.key === 'Enter' && !loading) handleSendMsg(); };
 
-    // 6. 自动滚动到底部（完全保留你原来的内容，没动）
-    useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-    }, [messages, loading]);
+  useEffect(() => {
+    if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+  }, [messages, loading]);
 
-    // 页面渲染内容（完全保留你原来的布局和样式，没动）
-    return (
-        <div className="ai-scene-chat-page">
-            <div className="page-header">
-                <h1>场景化AI德语对话</h1>
-                <p>模拟真实场景练口语，AI实时纠错+互动</p>
-            </div>
-
-            {/* 场景选择区 */}
-            <div className="scene-selector">
-                {chatScenes.map(scene => (
-                    <button
-                        key={scene.id}
-                        className={selectedScene?.id === scene.id ? 'active' : ''}
-                        onClick={() => handleSelectScene(scene)}
-                    >
-                        <strong>{scene.name}</strong>
-                        <span className="scene-desc" style={{ display: 'block', fontSize: '0.8em', opacity: 0.8 }}>{scene.desc}</span>
-                    </button>
-                ))}
-            </div>
-
-            {/* 对话区域 */}
-            {selectedScene ? (
-                <div className="chat-section">
-                    <div className="chat-header">当前场景：{selectedScene.name}</div>
-
-                    <div className="chat-container" ref={chatContainerRef}>
-                        {messages.length === 0 ? (
-                            <div className="empty-chat">点击场景开始对话吧～</div>
-                        ) : (
-                            messages.map((msg, index) => (
-                                <div key={index} className={`chat-msg ${msg.sender === '我' ? 'user-msg' : 'ai-msg'}`}>
-                                    <div className="msg-sender">{msg.sender}</div>
-                                    <div className="msg-content">{msg.content}</div>
-                                    <div className="msg-time">{msg.time}</div>
-                                </div>
-                            ))
-                        )}
-
-                        {/* 加载中的提示 */}
-                        {loading && (
-                            <div className="chat-msg ai-msg">
-                                <div className="msg-sender">AI</div>
-                                <div className="msg-content">Thinking... (AI正在思考中) 🇩🇪</div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* 输入框区域 */}
-                    <div className="chat-input">
-                        <input
-                            type="text"
-                            placeholder={loading ? "AI正在回复，请稍候..." : "请输入德语内容（按回车发送）..."}
-                            value={inputMsg}
-                            onChange={(e) => setInputMsg(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            disabled={loading}
-                        />
-                        <button
-                            onClick={handleSendMsg}
-                            className="send-btn"
-                            disabled={loading}
-                            style={{ opacity: loading ? 0.5 : 1 }}
-                        >
-                            {loading ? '发送中...' : '发送 🚀'}
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div className="no-scene-tip" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                    请在上方选择一个对话场景，开启你的德语口语练习吧！
-                </div>
-            )}
+  return (
+    <StudentLayout>
+      <div className="flex-1 flex flex-col">
+        {/* 标题 + 场景选择 */}
+        <div className="p-6 border-b border-gray-200 bg-white">
+          <h1 className="text-xl font-bold text-gray-800 mb-1">🗣️ 场景化AI德语对话</h1>
+          <p className="text-sm text-gray-500 mb-4">模拟真实场景练口语，AI实时纠错+互动</p>
+          <div className="flex gap-3 flex-wrap">
+            {chatScenes.map(scene => (
+              <button key={scene.id} onClick={() => handleSelectScene(scene)}
+                className={`px-4 py-3 rounded-lg border-2 text-left transition-all ${
+                  selectedScene?.id === scene.id
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
+                }`}>
+                <strong className="block text-sm">{scene.name}</strong>
+                <span className="text-xs opacity-70">{scene.desc}</span>
+              </button>
+            ))}
+          </div>
         </div>
-    );
+
+        {/* 对话区域 */}
+        {selectedScene ? (
+          <>
+            <div className="px-6 py-2 bg-blue-50 border-b border-blue-100">
+              <span className="text-sm text-blue-700 font-medium">当前场景：{selectedScene.name}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4" ref={chatContainerRef}>
+              {messages.map((msg, index) => (
+                <div key={index} className={`flex ${msg.sender === '我' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex items-start gap-3 max-w-xl ${msg.sender === '我' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                      msg.sender === '我' ? 'bg-blue-600' : msg.sender === '系统' ? 'bg-yellow-500' : 'bg-green-600'
+                    }`}>
+                      {msg.sender === '我' ? <User size={14} className="text-white" /> : <Bot size={14} className="text-white" />}
+                    </div>
+                    <div>
+                      <div className={`p-3 rounded-2xl whitespace-pre-wrap ${
+                        msg.sender === '我' ? 'bg-blue-600 text-white rounded-tr-none'
+                        : msg.sender === '系统' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-tl-none'
+                        : 'bg-white border border-gray-200 shadow-sm rounded-tl-none text-gray-800'
+                      }`}>
+                        {msg.content}
+                      </div>
+                      <span className="text-xs text-gray-400 mt-1 block">{msg.time}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+                      <Bot size={14} className="text-white" />
+                    </div>
+                    <div className="p-3 bg-white border border-gray-200 shadow-sm rounded-2xl rounded-tl-none text-gray-500 flex items-center gap-2">
+                      <Loader2 className="animate-spin" size={16} /> AI正在思考...
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 输入 */}
+            <div className="p-4 bg-white border-t border-gray-200">
+              <div className="max-w-3xl mx-auto flex gap-3">
+                <input type="text"
+                  placeholder={loading ? "AI正在回复，请稍候..." : "请输入德语内容（按回车发送）..."}
+                  value={inputMsg} onChange={(e) => setInputMsg(e.target.value)}
+                  onKeyDown={handleKeyDown} disabled={loading}
+                  className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white disabled:bg-gray-100"
+                />
+                <button onClick={handleSendMsg} disabled={loading}
+                  className={`px-5 py-3 rounded-xl font-medium transition-colors ${loading ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400 text-lg">
+            请在上方选择一个对话场景，开启你的德语口语练习吧！
+          </div>
+        )}
+      </div>
+    </StudentLayout>
+  );
 };
 
 export default AISceneChat;

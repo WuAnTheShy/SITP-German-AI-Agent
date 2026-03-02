@@ -4,10 +4,11 @@ import axios from 'axios';
 import { GraduationCap, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
 
 // ----------------------------------------------------------------------
-// 🔧 接口配置（和教师端同域名，后端同学直接对接，不用改）
+// 🔧 接口配置 —— 指向后端 FastAPI 的学生登录接口
+// 开发模式：Vite Proxy 自动代理到 localhost:8000
+// 生产模式：Nginx 反向代理到后端容器
 // ----------------------------------------------------------------------
-const MOCK_SERVER_BASE = 'https://m1.apifoxmock.com/m1/7746497-7491372-default';
-const API_STUDENT_LOGIN_URL = `${MOCK_SERVER_BASE}/api/auth/student-login`;
+const API_STUDENT_LOGIN_URL = '/api/auth/student-login';
 // ----------------------------------------------------------------------
 
 const StudentLogin = () => {
