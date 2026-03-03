@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import StudentLayout from '../../components/StudentLayout';
+import request from '../../api/request';
+import { API_WRITING_CHECK, API_WRITING_SAMPLE } from '../../api/config';
 
 const WritingAssistant = () => {
   const [userText, setUserText] = useState('');
@@ -13,12 +15,8 @@ const WritingAssistant = () => {
     setIsChecking(true);
     setCorrectionResult(null);
     try {
-      const response = await fetch('/api/student/writing/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userText: userText.trim() })
-      });
-      const res = await response.json();
+      const response = await request.post(API_WRITING_CHECK, { userText: userText.trim() });
+      const res = response.data;
       if (res.code === 200) { setCorrectionResult(res.data); }
       else { alert(res.message || "语法检查失败，请稍后重试"); }
     } catch (error) {
@@ -32,12 +30,8 @@ const WritingAssistant = () => {
     setIsGenerating(true);
     setSampleEssay('');
     try {
-      const response = await fetch('/api/student/writing/generate-sample', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userText: userText.trim() })
-      });
-      const res = await response.json();
+      const response = await request.post(API_WRITING_SAMPLE, { userText: userText.trim() });
+      const res = response.data;
       if (res.code === 200) { setSampleEssay(res.data.sampleEssay); }
       else { alert(res.message || "范文生成失败，请稍后重试"); }
     } catch (error) {

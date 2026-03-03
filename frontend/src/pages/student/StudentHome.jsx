@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
+import request from '../../api/request';
+import { API_CHAT } from '../../api/config';
 import { Send, Bot, User, Image as ImageIcon, Mic, Loader2 } from 'lucide-react';
 
 const StudentHome = () => {
@@ -30,17 +32,9 @@ const StudentHome = () => {
     setInput('');
     setLoading(true);
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: data.reply }]);
-      } else {
-        throw new Error('后端报错了');
-      }
+      const response = await request.post(API_CHAT, { message: userText });
+      const data = response.data;
+      setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: data.reply }]);
     } catch (error) {
       console.error("请求失败:", error);
       setMessages(prev => [...prev, {
@@ -66,7 +60,7 @@ const StudentHome = () => {
                 <div className={`p-4 rounded-2xl whitespace-pre-wrap ${msg.sender === 'user'
                   ? 'bg-blue-600 text-white rounded-tr-none'
                   : 'bg-white border border-gray-200 shadow-sm rounded-tl-none text-gray-800'
-                }`}>
+                  }`}>
                   {msg.text}
                 </div>
               </div>

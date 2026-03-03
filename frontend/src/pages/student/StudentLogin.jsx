@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import request from '../../api/request';
+import { API_STUDENT_LOGIN } from '../../api/config';
 import { GraduationCap, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
-
-// ----------------------------------------------------------------------
-// 🔧 接口配置 —— 指向后端 FastAPI 的学生登录接口
-// 开发模式：Vite Proxy 自动代理到 localhost:8000
-// 生产模式：Nginx 反向代理到后端容器
-// ----------------------------------------------------------------------
-const API_STUDENT_LOGIN_URL = '/api/auth/student-login';
-// ----------------------------------------------------------------------
 
 const StudentLogin = () => {
     const navigate = useNavigate();
@@ -79,7 +72,7 @@ const StudentLogin = () => {
         refreshCaptcha();
     }, []);
 
-    // 登录提交逻辑（接口已写死，不用后续再加）
+    // 登录提交逻辑
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -95,15 +88,20 @@ const StudentLogin = () => {
         }
 
         try {
-            console.log("🔵 [学生登录调试] 请求地址:", API_STUDENT_LOGIN_URL);
+            console.log("🔵 [学生登录调试] 请求地址:", API_STUDENT_LOGIN);
 
             // 发送登录请求（参数和教师端统一，后端好对接）
-            const response = await axios.post(API_STUDENT_LOGIN_URL, {
+            const response = await request.post(API_STUDENT_LOGIN, {
                 username: formData.studentId,
                 password: formData.password
             });
 
             console.log("🟢 [学生登录调试] 服务器返回:", response.data);
+
+            // 先检查后端业务状态码
+            if (response.data.code !== 200) {
+                throw new Error(response.data.message || '登录失败');
+            }
 
             // 提取token和用户信息（和教师端逻辑统一）
             let token = response.data.token || response.data.data?.token;
@@ -154,14 +152,14 @@ const StudentLogin = () => {
                     onClick={() => navigate('/')}
                     className="flex items-center text-gray-500 hover:text-blue-600 transition-colors text-sm font-medium"
                 >
-                    <ArrowLeft size={16} className="mr-1"/> 返回首页
+                    <ArrowLeft size={16} className="mr-1" /> 返回首页
                 </button>
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center">
                     <div className="h-16 w-16 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg transform rotate-3">
-                        <GraduationCap className="text-white h-8 w-8"/>
+                        <GraduationCap className="text-white h-8 w-8" />
                     </div>
                 </div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">学生端登录</h2>
@@ -172,7 +170,7 @@ const StudentLogin = () => {
                     {/* 错误提示 */}
                     {error && (
                         <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-start">
-                            <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5"/>
+                            <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
                             <p className="text-sm text-red-700">{error}</p >
                         </div>
                     )}
@@ -183,7 +181,7 @@ const StudentLogin = () => {
                             <label className="block text-sm font-medium text-gray-700">学号 / Student ID</label>
                             <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User className="h-5 w-5 text-gray-400"/>
+                                    <User className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
                                     type="text"
@@ -191,7 +189,7 @@ const StudentLogin = () => {
                                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                     placeholder="请输入学号"
                                     value={formData.studentId}
-                                    onChange={(e) => setFormData({...formData, studentId: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
                                 />
                             </div>
                         </div>
@@ -201,7 +199,7 @@ const StudentLogin = () => {
                             <label className="block text-sm font-medium text-gray-700">密码 / Password</label>
                             <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock className="h-5 w-5 text-gray-400"/>
+                                    <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
                                     type={showPassword ? "text" : "password"}
@@ -209,11 +207,11 @@ const StudentLogin = () => {
                                     className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                     placeholder="请输入密码"
                                     value={formData.password}
-                                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 />
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-500">
-                                        {showPassword ? <EyeOff className="h-5 w-5"/> : <Eye className="h-5 w-5"/>}
+                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                     </button>
                                 </div>
                             </div>
@@ -225,7 +223,7 @@ const StudentLogin = () => {
                             <div className="mt-1 flex gap-3">
                                 <div className="relative rounded-md shadow-sm flex-1">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <ShieldCheck className="h-5 w-5 text-gray-400"/>
+                                        <ShieldCheck className="h-5 w-5 text-gray-400" />
                                     </div>
                                     <input
                                         type="text"
@@ -234,7 +232,7 @@ const StudentLogin = () => {
                                         className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm tracking-widest uppercase"
                                         placeholder="请输入右侧验证码"
                                         value={formData.captchaInput}
-                                        onChange={(e) => setFormData({...formData, captchaInput: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, captchaInput: e.target.value })}
                                     />
                                 </div>
                                 {/* 验证码图片+刷新 */}
@@ -245,7 +243,7 @@ const StudentLogin = () => {
                                         className="h-[46px] w-[120px] rounded-lg border border-gray-200 object-cover"
                                     />
                                     <div className="absolute inset-0 bg-black/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <RefreshCw className="text-blue-600 font-bold" size={20}/>
+                                        <RefreshCw className="text-blue-600 font-bold" size={20} />
                                     </div>
                                 </div>
                             </div>
@@ -257,7 +255,7 @@ const StudentLogin = () => {
                             disabled={loading}
                             className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5"/> 登录</span>}
+                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录</span>}
                         </button>
                     </form>
 

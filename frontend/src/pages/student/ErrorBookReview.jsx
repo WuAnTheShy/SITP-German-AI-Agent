@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
+import request from '../../api/request';
+import {
+  API_ERROR_CATEGORIES, API_ERROR_LIST, API_ERROR_START_REVIEW,
+  API_ERROR_MARK_MASTERED, API_ERROR_DELETE
+} from '../../api/config';
 
 const ErrorBookReview = () => {
   const [errorCategories, setErrorCategories] = useState([]);
@@ -13,8 +18,8 @@ const ErrorBookReview = () => {
   const getErrorCategories = async () => {
     setLoading(prev => ({ ...prev, page: true }));
     try {
-      const response = await fetch('/api/student/error-book/categories', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-      const data = await response.json();
+      const response = await request.get(API_ERROR_CATEGORIES);
+      const data = response.data;
       if (data.code === 200) setErrorCategories(data.data);
       else throw new Error(data.message || '获取错题分类失败');
     } catch (error) { console.error('获取错题分类失败：', error); alert(`❌ ${error.message}`); }
@@ -25,8 +30,8 @@ const ErrorBookReview = () => {
     if (!categoryId) return;
     setLoading(prev => ({ ...prev, list: true }));
     try {
-      const response = await fetch(`/api/student/error-book/list?categoryId=${categoryId}`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-      const data = await response.json();
+      const response = await request.get(API_ERROR_LIST, { params: { categoryId } });
+      const data = response.data;
       if (data.code === 200) setErrorList(data.data);
       else throw new Error(data.message || '获取错题列表失败');
     } catch (error) { console.error('获取错题列表失败：', error); alert(`❌ ${error.message}`); }
@@ -39,11 +44,8 @@ const ErrorBookReview = () => {
     if (!selectedCate) { alert("请先选择一个错题分类再开始复习！"); return; }
     setLoading(prev => ({ ...prev, review: true }));
     try {
-      const response = await fetch('/api/student/error-book/start-review', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryId: selectedCate.id, categoryName: selectedCate.name })
-      });
-      const data = await response.json();
+      const response = await request.post(API_ERROR_START_REVIEW, { categoryId: selectedCate.id, categoryName: selectedCate.name });
+      const data = response.data;
       if (data.code === 200) { setReviewMode('review'); alert(data.data.reviewTip || `已开启【${selectedCate.name}】针对性复习！`); }
       else throw new Error(data.message || '开启复习失败');
     } catch (error) { alert(`❌ ${error.message}`); }
@@ -56,14 +58,11 @@ const ErrorBookReview = () => {
     try {
       let response;
       if (isMastered) {
-        response = await fetch('/api/student/error-book/mark-mastered', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ errorId: id, categoryId: selectedCate.id })
-        });
+        response = await request.post(API_ERROR_MARK_MASTERED, { errorId: id, categoryId: selectedCate.id });
       } else {
-        response = await fetch(`/api/student/error-book/delete/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
+        response = await request.delete(`${API_ERROR_DELETE}/${id}`);
       }
-      const data = await response.json();
+      const data = response.data;
       if (data.code === 200) {
         setErrorList(prev => prev.filter(item => item.id !== id));
         setErrorCategories(prev => prev.map(cate => cate.id === selectedCate.id ? { ...cate, count: Math.max(0, cate.count - 1) } : cate));
@@ -87,9 +86,8 @@ const ErrorBookReview = () => {
             <p className="text-gray-400">正在加载错题分类...</p>
           ) : errorCategories.map(cate => (
             <button key={cate.id} onClick={() => handleSelectCate(cate)} disabled={loading.operate}
-              className={`px-4 py-3 rounded-lg border-2 transition-all ${
-                selectedCate?.id === cate.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
-              }`}>
+              className={`px-4 py-3 rounded-lg border-2 transition-all ${selectedCate?.id === cate.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
+                }`}>
               {cate.name} <span className="text-xs text-gray-500 ml-1">({cate.count}道)</span>
             </button>
           ))}

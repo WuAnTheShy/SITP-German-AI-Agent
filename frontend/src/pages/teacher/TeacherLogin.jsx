@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import request from '../../api/request';
 import { School, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
 import { API_LOGIN as API_LOGIN_URL } from '../../api/config';
 
@@ -89,12 +89,17 @@ const TeacherLogin = () => {
         try {
             console.log("🔵 [调试] 请求地址:", API_LOGIN_URL);
 
-            const response = await axios.post(API_LOGIN_URL, {
+            const response = await request.post(API_LOGIN_URL, {
                 username: formData.employeeId,
                 password: formData.password
             });
 
             console.log("🟢 [调试] 服务器返回:", response.data);
+
+            // 先检查后端业务状态码
+            if (response.data.code !== 200) {
+                throw new Error(response.data.message || '登录失败');
+            }
 
             let token = response.data.token || response.data.data?.token;
             let mockUser = response.data.user || response.data.data?.user;

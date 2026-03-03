@@ -1,15 +1,20 @@
 // ---------------------------------------------------------------
 // 统一 API 配置
 // ---------------------------------------------------------------
-// 开发模式下：Vite proxy 会将 /api 请求代理到 http://localhost:9000
-// 生产模式下：Nginx 会将 /api 请求反向代理到后端容器
-// 因此 API_BASE 设为空字符串即可，所有请求都走相对路径 /api/xxx
+// 通过 Vite 环境变量 VITE_API_BASE_URL 控制 API 基础路径：
+//
+//   本地开发 (npm run dev)  → 空字符串，走 Vite Proxy
+//   Docker 部署 (生产构建) → 空字符串，走 Nginx 反向代理
+//   直连远程后端          → 设为 http://远程IP:端口
+//
+// 三种模式下前端代码完全一致，无需手动修改。
 // ---------------------------------------------------------------
 
-export const API_BASE = '';
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 // ---- 认证 ----
 export const API_LOGIN = `${API_BASE}/api/auth/login`;
+export const API_STUDENT_LOGIN = `${API_BASE}/api/auth/student-login`;
 
 // ---- 教师仪表盘 ----
 export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
@@ -29,3 +34,42 @@ export const API_HOMEWORK_SAVE = `${API_BASE}/api/homework/save`;
 
 // ---- 推送方案 ----
 export const API_PUSH_SCHEME = `${API_BASE}/api/student/push-scheme`;
+
+// ---- AI 对话 ----
+export const API_CHAT = `${API_BASE}/api/chat`;
+export const API_SCENE_CHAT = `${API_BASE}/api/student/scene-chat`;
+
+// ---- 写作辅助 ----
+export const API_WRITING_CHECK = `${API_BASE}/api/student/writing/check`;
+export const API_WRITING_SAMPLE = `${API_BASE}/api/student/writing/generate-sample`;
+
+// ---- 词汇学习 ----
+export const API_VOCAB_LIST = `${API_BASE}/api/student/vocab/list`;
+export const API_VOCAB_COLLECT = `${API_BASE}/api/student/vocab/collect`;
+export const API_VOCAB_GENERATE = `${API_BASE}/api/student/vocab/generate`;
+
+// ---- 语法练习 ----
+export const API_GRAMMAR_CATEGORIES = `${API_BASE}/api/student/grammar/categories`;
+export const API_GRAMMAR_EXERCISES = `${API_BASE}/api/student/grammar/exercises`;
+export const API_GRAMMAR_SUBMIT = `${API_BASE}/api/student/grammar/submit`;
+
+// ---- 听说训练 ----
+export const API_LISTENING_MATERIALS = `${API_BASE}/api/student/listening/materials`;
+export const API_LISTENING_DETAIL = `${API_BASE}/api/student/listening/material/detail`;
+export const API_SPEAKING_EVALUATE = `${API_BASE}/api/student/speaking/evaluate`;
+
+// ---- 学习进度 ----
+export const API_LEARNING_PROGRESS = `${API_BASE}/api/student/learning/progress`;
+
+// ---- 错题本 ----
+export const API_ERROR_CATEGORIES = `${API_BASE}/api/student/error-book/categories`;
+export const API_ERROR_LIST = `${API_BASE}/api/student/error-book/list`;
+export const API_ERROR_START_REVIEW = `${API_BASE}/api/student/error-book/start-review`;
+export const API_ERROR_MARK_MASTERED = `${API_BASE}/api/student/error-book/mark-mastered`;
+export const API_ERROR_DELETE = `${API_BASE}/api/student/error-book/delete`;
+
+// ---- 收藏夹 ----
+export const API_FAVORITES_CATEGORIES = `${API_BASE}/api/student/favorites/categories`;
+export const API_FAVORITES_LIST = `${API_BASE}/api/student/favorites/list`;
+export const API_FAVORITES_DELETE = `${API_BASE}/api/student/favorites`;
+export const API_FAVORITES_AI_EXTEND = `${API_BASE}/api/student/favorites/ai-extend`;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
-import axios from 'axios';
+import request from '../../api/request';
+import { API_FAVORITES_CATEGORIES, API_FAVORITES_LIST, API_FAVORITES_DELETE, API_FAVORITES_AI_EXTEND } from '../../api/config';
 
 const FavoritesPage = () => {
   const [favCates, setFavCates] = useState([]);
@@ -15,7 +16,7 @@ const FavoritesPage = () => {
     const getCateList = async () => {
       setCateLoading(true);
       try {
-        const res = await axios.get('/api/student/favorites/categories');
+        const res = await request.get(API_FAVORITES_CATEGORIES);
         if (res.data.code === 200) {
           const cateList = res.data.data;
           setFavCates(cateList);
@@ -32,7 +33,7 @@ const FavoritesPage = () => {
     const getFavList = async () => {
       setListLoading(true);
       try {
-        const res = await axios.get('/api/student/favorites/list', { params: { type: selectedType } });
+        const res = await request.get(API_FAVORITES_LIST, { params: { type: selectedType } });
         if (res.data.code === 200) setFavList(res.data.data);
         else alert(res.data.message || '获取收藏列表失败');
       } catch (err) { console.error('获取收藏列表接口报错：', err); alert('网络错误，获取收藏列表失败'); }
@@ -45,7 +46,7 @@ const FavoritesPage = () => {
     if (!window.confirm('确定要删除这条收藏吗？')) return;
     setDeleteLoading(true);
     try {
-      const res = await axios.delete(`/api/student/favorites/${id}`);
+      const res = await request.delete(`${API_FAVORITES_DELETE}/${id}`);
       if (res.data.code === 200) { setFavList(prev => prev.filter(item => item.id !== id)); }
       else alert(res.data.message || '删除失败');
     } catch (err) { alert('网络错误，删除失败'); }
@@ -55,7 +56,7 @@ const FavoritesPage = () => {
   const handleAIExtend = async (item) => {
     setAiLoading(true);
     try {
-      const res = await axios.post('/api/student/favorites/ai-extend', { content: item.content, type: selectedType });
+      const res = await request.post(API_FAVORITES_AI_EXTEND, { content: item.content, type: selectedType });
       if (res.data.code === 200) alert(`🤖 AI拓展学习：\n${res.data.data.extendContent}`);
       else alert(res.data.message || 'AI拓展生成失败');
     } catch (err) { alert('网络错误，AI拓展生成失败'); }
@@ -76,9 +77,8 @@ const FavoritesPage = () => {
             <p className="text-gray-400">分类加载中...</p>
           ) : favCates.map(cate => (
             <button key={cate.id} onClick={() => setSelectedType(cate.type)} disabled={listLoading}
-              className={`px-4 py-3 rounded-lg border-2 transition-all ${
-                selectedType === cate.type ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
-              }`}>
+              className={`px-4 py-3 rounded-lg border-2 transition-all ${selectedType === cate.type ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
+                }`}>
               {cate.name}
             </button>
           ))}

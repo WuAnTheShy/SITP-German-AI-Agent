@@ -95,7 +95,7 @@ SITP-German-AI-Agent/
 ├── frontend/                     # 前端项目
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── config.js         # API 端点统一配置
+│   │   │   ├── config.js         # API 端点统一配置 (环境变量驱动)
 │   │   │   └── request.js        # Axios 实例 (Token注入 + 401拦截)
 │   │   ├── components/
 │   │   │   └── Toast.jsx         # Toast 通知系统
@@ -110,9 +110,11 @@ SITP-German-AI-Agent/
 │   │   │   └── Login.jsx         # 全局入口登录页
 │   │   ├── App.jsx               # 路由配置 (HashRouter)
 │   │   └── main.jsx              # 应用入口
+│   ├── .env.development          # 开发环境变量 (Vite Proxy 配置)
+│   ├── .env.production           # 生产环境变量 (Docker 部署)
 │   ├── nginx.conf                # 生产环境 Nginx 配置
 │   ├── Dockerfile                # 前端容器构建
-│   ├── vite.config.js            # Vite 配置 (含开发代理)
+│   ├── vite.config.js            # Vite 配置 (代理目标读环境变量)
 │   └── package.json
 │
 ├── backend/                      # 后端项目
@@ -132,7 +134,7 @@ SITP-German-AI-Agent/
 │   └── User_Manuals/             # 用户操作手册
 │
 ├── docker-compose.yml            # 容器编排 (一键启动)
-├── .env                          # 环境变量 (需手动创建)
+├── .env                          # 环境变量 (需手动创建，含 API Key)
 ├── .github/workflows/            # GitHub Actions CI/CD
 └── README.md
 ```
@@ -173,7 +175,7 @@ HTTPS_PROXY=http://127.0.0.1:你的代理端口
 
 ```bash
 # 在项目根目录创建 .env 文件
-echo "GOOGLdsdE_API_KEY=你的_Google_Gemini_API_密钥" > .env
+echo "GOOGLE_API_KEY=你的_Google_Gemini_API_密钥" > .env
 ```
 
 > 💡 Gemini API Key 获取方式：访问 [Google AI Studio](https://aistudio.google.com/apikey) 申请免费密钥。
@@ -191,8 +193,10 @@ docker compose up -d --build
 | 🌐 前端首页      | http://localhost                 |
 | 🎓 教师端登录    | http://localhost/#/teacher/login |
 | 📚 学生端登录    | http://localhost/#/student/login |
-| 📡 后端 API 文档 | http://localhost:8000/docs       |
-| 🔍 后端健康检查  | http://localhost:8000/           |
+| 📡 后端 API 文档 | http://localhost:9000/docs       |
+| 🔍 后端健康检查  | http://localhost:9000/           |
+
+> 💡 Docker 模式下，前端 Nginx 会自动将 `/api` 请求反向代理到后端容器，无需任何额外配置。无论是本地 Docker 还是服务器 Docker，前端代码完全一致。
 
 **常用运维命令**
 
@@ -211,6 +215,15 @@ docker compose down
 
 # 停止并清除数据库数据 (慎用)
 docker compose down -v
+
+# 清理所有未使用的数据、镜像、容器和卷 (无提示)
+docker system prune -a --volumes -f
+
+# 清理未使用的悬空镜像和停止的容器
+docker system prune
+
+# 查看 Docker 磁盘使用情况
+docker system df
 ```
 
 ---
@@ -263,6 +276,37 @@ npm run dev
 ```
 
 > 前端开发服务器运行在 `http://localhost:5173`，已配置 Vite Proxy 将 `/api` 请求自动代理至后端 `http://localhost:8000`，无需手动修改 API 地址。
+
+---
+
+### 🔄 环境模式切换说明
+
+前端通过 Vite 环境变量实现三种运行模式的**零改动切换**：
+
+| 运行模式 | 启动方式 | 前端访问地址 | API 请求路由 |
+| --------- | -------------------------------- | -------------------- | ---------------------------------------- |
+| 🖥️ 本地开发 | `npm run dev` | `localhost:5173` | Vite Proxy → `localhost:8000` |
+| 🐳 本地 Docker | `docker compose up -d --build` | `localhost:80` | Nginx 反向代理 → `backend:8000` |
+| 🌐 服务器 Docker | 同上 (在服务器执行) | `服务器IP:80` | Nginx 反向代理 → `backend:8000` |
+
+**配置文件说明**
+
+| 文件 | 用途 | 是否提交到 Git |
+| ------ | ------ | ------------- |
+| `frontend/.env.development` | 开发模式默认配置（Proxy 目标地址等） | ✅ 是 |
+| `frontend/.env.production` | 生产模式默认配置 | ✅ 是 |
+| `frontend/.env.development.local` | **本地覆盖**（如需代理到远程服务器） | ❌ 否 |
+
+**进阶用法：本地开发时代理到远程服务器**
+
+如果需要在本地开发（`npm run dev`）时直接代理到远程服务器的后端，创建 `frontend/.env.development.local`：
+
+```dotenv
+# 将代理目标指向远程服务器 (该文件已被 .gitignore 忽略)
+VITE_DEV_PROXY_TARGET=http://49.234.185.167:9000
+```
+
+> `.local` 文件优先级高于同名非 `.local` 文件，且不会被提交到 Git。
 
 ---
 
