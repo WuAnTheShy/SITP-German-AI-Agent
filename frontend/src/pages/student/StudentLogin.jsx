@@ -122,8 +122,8 @@ const StudentLogin = () => {
             localStorage.setItem('authToken', token);
             localStorage.setItem('userInfo', JSON.stringify(displayUser));
 
-            // 登录成功，跳转到学生主页（和你的StudentHome.jsx对应）
-            navigate('/student/home');
+            // 登录成功，跳转到带有独一无二 userId 的页面
+            navigate(`/student/${displayUser.id}/home`);
 
         } catch (err) {
             console.error('🔴 学生登录错误:', err);

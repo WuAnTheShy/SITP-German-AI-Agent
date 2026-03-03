@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import uvicorn
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
@@ -167,11 +167,45 @@ def to_float(value, default=0.0):
         return default
 
 
+# ════════════════════ 3.5 权限校验依赖 ════════════════════
+
+
+def require_teacher(req: Request, db: Session = Depends(get_db)):
+    """从 Authorization 头解析教师身份，失败则抛 401"""
+    auth = req.headers.get("authorization", "")
+    if auth.startswith("Bearer teacher-token-"):
+        parts = auth.replace("Bearer ", "").split("-")
+        # token 格式: teacher-token-{user_id}-{random}
+        if len(parts) >= 4:
+            try:
+                user_id = int(parts[2])
+            except ValueError:
+                raise HTTPException(status_code=401, detail="无效的教师令牌")
+            user = UserCRUD.get_by_id(db, user_id)
+            if user and user.role == "teacher":
+                return user
+    raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
+
+
+def require_student(req: Request, db: Session = Depends(get_db)):
+    """从 Authorization 头解析学生身份，失败则抛 401"""
+    auth = req.headers.get("authorization", "")
+    if auth.startswith("Bearer student-token-"):
+        parts = auth.replace("Bearer ", "").split("-")
+        # token 格式: student-token-{uid}-{random}
+        if len(parts) >= 4:
+            uid = parts[2]
+            s = StudentCRUD.get_by_uid(db, uid)
+            if s:
+                return s
+    raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
+
+
 # ════════════════════ 4. 学生端辅助函数与请求模型 ════════════════════
 
 
 def _current_student(req: Request, db: Session):
-    """从 Authorization 头解析学生，回退到演示学生 2452001"""
+    """从 Authorization 头解析学生，无有效 token 返回 None"""
     auth = req.headers.get("authorization", "")
     if auth.startswith("Bearer student-token-"):
         parts = auth.replace("Bearer ", "").split("-")
@@ -180,7 +214,7 @@ def _current_student(req: Request, db: Session):
             s = StudentCRUD.get_by_uid(db, uid)
             if s:
                 return s
-    return StudentCRUD.get_by_uid(db, "2452001")
+    return None
 
 
 def _ai_text(prompt: str, fallback: str = "") -> str:
@@ -425,7 +459,9 @@ def _ensure_demo_data(db: Session):
 
 
 @app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+    # 教师端 AI 对话需要教师权限
+    require_teacher(req, db)
     print(f"收到前端消息: {request.message}")
     try:
         global _teacher_chat_history
@@ -451,17 +487,15 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
         user = UserCRUD.get_by_username(db, request.username)
         if not user:
-            user = UserCRUD.create(
-                db,
-                UserCreate(
-                    username=request.username,
-                    password_hash=request.password,
-                    role="teacher",
-                    display_name=f"{request.username}老师",
-                ),
-            )
+            return fail("用户不存在，请检查工号后重试", 401)
 
-        token = f"mock-token-{user.id}-{uuid4().hex[:8]}"
+        if user.role != "teacher":
+            return fail("该账号不是教师账号", 403)
+
+        if user.password_hash != request.password:
+            return fail("密码错误，请重新输入", 401)
+
+        token = f"teacher-token-{user.id}-{uuid4().hex[:8]}"
         user_info = {"id": user.username, "name": user.display_name, "role": user.role}
         return {
             "code": 200,
@@ -475,8 +509,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 @app.get("/api/teacher/dashboard")
-def teacher_dashboard(db: Session = Depends(get_db)):
+def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
     try:
+        require_teacher(request, db)
         teacher, classroom = _ensure_demo_data(db)
         students = StudentCRUD.list_by_class(db, classroom.id)
 
@@ -520,8 +555,9 @@ def teacher_dashboard(db: Session = Depends(get_db)):
 
 
 @app.post("/api/scenario/publish")
-def publish_scenario(request: ScenarioPublishRequest, db: Session = Depends(get_db)):
+def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, classroom = _ensure_demo_data(db)
         cfg = request.config or {}
         goals = cfg.get("goals", {})
@@ -552,8 +588,9 @@ def publish_scenario(request: ScenarioPublishRequest, db: Session = Depends(get_
 
 
 @app.post("/api/exam/generate")
-def generate_exam(request: ExamGenerateRequest, db: Session = Depends(get_db)):
+def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, classroom = _ensure_demo_data(db)
         cfg = request.config or {}
 
@@ -583,8 +620,9 @@ def generate_exam(request: ExamGenerateRequest, db: Session = Depends(get_db)):
 
 
 @app.get("/api/student/detail")
-def get_student_detail(id: str, db: Session = Depends(get_db)):
+def get_student_detail(id: str, request: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(request, db)
         _ensure_demo_data(db)
         student = StudentCRUD.get_by_uid(db, id)
         if not student:
@@ -626,8 +664,9 @@ def get_student_detail(id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/homework/detail")
-def get_homework_detail(id: int, db: Session = Depends(get_db)):
+def get_homework_detail(id: int, request: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(request, db)
         _ensure_demo_data(db)
         hw = HomeworkCRUD.get_by_id(db, id)
         if not hw:
@@ -649,8 +688,9 @@ def get_homework_detail(id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/homework/save")
-def save_homework_review(request: HomeworkSaveRequest, db: Session = Depends(get_db)):
+def save_homework_review(request: HomeworkSaveRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, _ = _ensure_demo_data(db)
         hw = HomeworkCRUD.get_by_id(db, request.homeworkId)
         if not hw:
@@ -672,8 +712,9 @@ def save_homework_review(request: HomeworkSaveRequest, db: Session = Depends(get
 
 
 @app.post("/api/student/push-scheme")
-def push_student_scheme(request: PushSchemeRequest, db: Session = Depends(get_db)):
+def push_student_scheme(request: PushSchemeRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, _ = _ensure_demo_data(db)
         student = StudentCRUD.get_by_uid(db, request.studentId)
         if not student:
@@ -721,6 +762,9 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         user = UserCRUD.get_by_id(db, student.user_id)
         if not user:
             return fail("用户记录异常", 500)
+
+        if user.password_hash != req.password:
+            return fail("密码错误，请重新输入", 401)
 
         token = f"student-token-{student.uid}-{uuid4().hex[:8]}"
         info = {
@@ -872,7 +916,8 @@ def vocab_generate(req: VocabGenerateReq, db: Session = Depends(get_db)):
 
 
 @app.get("/api/student/grammar/categories")
-def grammar_categories(db: Session = Depends(get_db)):
+def grammar_categories(request: Request, db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         cats = GrammarCategoryCRUD.list_all(db)
         return ok([{"id": c.id, "name": c.name, "desc": c.description or ""} for c in cats])
@@ -881,7 +926,8 @@ def grammar_categories(db: Session = Depends(get_db)):
 
 
 @app.get("/api/student/grammar/exercises")
-def grammar_exercises(categoryId: int = Query(...), db: Session = Depends(get_db)):
+def grammar_exercises(request: Request, categoryId: int = Query(...), db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         exs = GrammarExerciseCRUD.list_by_category(db, categoryId)
         return ok([{"id": e.id, "question": e.question} for e in exs])
@@ -1196,7 +1242,8 @@ def error_book_delete(error_id: int, request: Request, db: Session = Depends(get
 
 
 @app.get("/api/student/favorites/categories")
-def favorites_categories(db: Session = Depends(get_db)):
+def favorites_categories(request: Request, db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         cats = FavoriteCategoryCRUD.list_all(db)
         return ok([{"id": c.id, "type": c.type, "name": c.name} for c in cats])
@@ -1243,7 +1290,8 @@ def favorites_delete(fav_id: int, request: Request, db: Session = Depends(get_db
 
 
 @app.post("/api/student/favorites/ai-extend")
-def favorites_ai_extend(req: FavAIExtendReq, db: Session = Depends(get_db)):
+def favorites_ai_extend(req: FavAIExtendReq, request: Request = None, db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         type_prompts = {
             "vocab": f"请对德语词汇「{req.content}」进行扩展：给出词性、复数形式、常用搭配和2个例句。用中文回答。",

@@ -24,15 +24,23 @@ request.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// 响应拦截器 — 401 自动跳转
+// 响应拦截器 — 401 自动跳转（根据角色决定重定向目标）
 request.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            const role = userInfo.role;
             localStorage.removeItem('authToken');
             localStorage.removeItem('userInfo');
-            // 使用 HashRouter 格式跳转
-            window.location.hash = '#/teacher/login';
+            // 根据当前角色跳转到对应登录页
+            if (role === 'student') {
+                window.location.hash = '#/student/login';
+            } else if (role === 'teacher') {
+                window.location.hash = '#/teacher/login';
+            } else {
+                window.location.hash = '#/';
+            }
         }
         return Promise.reject(error);
     }

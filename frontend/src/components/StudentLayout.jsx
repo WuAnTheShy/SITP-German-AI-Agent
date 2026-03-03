@@ -12,26 +12,27 @@ import {
   Star,
 } from "lucide-react";
 
-const navItems = [
-  { label: "智能对话", icon: Bot, path: "/student/home" },
-  { label: "场景对话", icon: MessageSquare, path: "/student/ai-scene-chat" },
-  { label: "语法练习", icon: ScrollText, path: "/student/grammar-practice" },
-  { label: "听说训练", icon: Headphones, path: "/student/listening-speaking" },
-  { label: "词汇学习", icon: BookMarked, path: "/student/vocab-learning" },
-  { label: "写作助手", icon: PenLine, path: "/student/writing-assistant" },
-  { label: "学习进度", icon: BarChart3, path: "/student/learning-progress" },
-  { label: "错题本复习", icon: BookX, path: "/student/error-book" },
-  { label: "我的收藏", icon: Star, path: "/student/favorites" },
-];
-
 const StudentLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   // 从 localStorage 获取实际登录用户信息
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+  const userId = userInfo.id || userInfo.studentId || '';
   const userName = userInfo.name || '未登录';
   const initials = userName.slice(0, 1);
+
+  const navItems = [
+    { label: "智能对话", icon: Bot, path: `/student/${userId}/home` },
+    { label: "场景对话", icon: MessageSquare, path: `/student/${userId}/ai-scene-chat` },
+    { label: "语法练习", icon: ScrollText, path: `/student/${userId}/grammar-practice` },
+    { label: "听说训练", icon: Headphones, path: `/student/${userId}/listening-speaking` },
+    { label: "词汇学习", icon: BookMarked, path: `/student/${userId}/vocab-learning` },
+    { label: "写作助手", icon: PenLine, path: `/student/${userId}/writing-assistant` },
+    { label: "学习进度", icon: BarChart3, path: `/student/${userId}/learning-progress` },
+    { label: "错题本复习", icon: BookX, path: `/student/${userId}/error-book` },
+    { label: "我的收藏", icon: Star, path: `/student/${userId}/favorites` },
+  ];
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -51,8 +52,8 @@ const StudentLayout = ({ children }) => {
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-colors ${isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-50"
                   }`}
               >
                 <Icon size={18} /> {item.label}
