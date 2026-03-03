@@ -93,7 +93,10 @@ _gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 _MODEL_ID = "gemini-2.5-flash"
 
-_TEACHER_SYSTEM = "你是一个同济大学SITP项目的AI德语助教。请用德语回答，括号内给出中文解释，并指出用户的语法错误。如果用户说中文，请引导通过德语表达。"
+_TEACHER_SYSTEM = (
+    "你是一个高级教学AI教研助手，负责协助德语教师分析学情、制定教案和出题等。"
+    "请用中文与教师进行沟通，提供专业、基于数据的教学建议和德语教学方案。"
+)
 
 _STUDENT_SYSTEM = (
     "你是同济大学的 AI 德语助教，帮助学生学习德语。"
@@ -102,6 +105,8 @@ _STUDENT_SYSTEM = (
 
 # 教师端多轮对话历史（简单内存存储）
 _teacher_chat_history: list[types.Content] = []
+# 学生端多轮对话历史（简单内存存储）
+_student_chat_history: list[types.Content] = []
 
 app = FastAPI()
 
@@ -619,6 +624,71 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
         return fail(f"试卷生成失败: {e}")
 
 
+@app.get("/api/teacher/scenario/list")
+def list_teacher_scenarios(request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        scenarios = ScenarioCRUD.list_by_teacher(db, teacher.id)
+        result = [
+            {
+                "id": s.id,
+                "code": s.scenario_code,
+                "theme": s.theme,
+                "difficulty": s.difficulty,
+                "persona": s.persona,
+                "createdAt": s.created_at.isoformat(),
+            }
+            for s in scenarios
+        ]
+        return ok(result)
+    except Exception as e:
+        return fail(f"获取情景任务记录失败: {e}")
+
+
+@app.get("/api/teacher/exam/list")
+def list_teacher_exams(request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        exams = ExamCRUD.list_by_teacher(db, teacher.id)
+        result = [
+            {
+                "id": e.id,
+                "code": e.exam_code,
+                "grammarItems": e.grammar_items,
+                "writingItems": e.writing_items,
+                "strategy": e.strategy,
+                "createdAt": e.created_at.isoformat(),
+            }
+            for e in exams
+        ]
+        return ok(result)
+    except Exception as e:
+        return fail(f"获取试卷记录失败: {e}")
+
+
+@app.get("/api/teacher/exam/{exam_id}")
+def get_teacher_exam_detail(exam_id: int, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        exam = ExamCRUD.get_by_id(db, exam_id)
+        if not exam:
+            return fail("试卷不存在", 404)
+        if exam.teacher_user_id != teacher.id:
+            return fail("无权访问该试卷", 403)
+            
+        content = {
+            "代码": exam.exam_code,
+            "语法题数量": exam.grammar_items,
+            "写作题数量": exam.writing_items,
+            "出题策略": "智能个性化" if exam.strategy == 'personalized' else "统一出题",
+            "重点考察区域": exam.focus_areas,
+            "生成时间": exam.created_at.isoformat()
+        }
+        return ok(content)
+    except Exception as e:
+        return fail(f"获取试卷详情失败: {e}")
+
+
 @app.get("/api/student/detail")
 def get_student_detail(id: str, request: Request = None, db: Session = Depends(get_db)):
     try:
@@ -782,6 +852,32 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         }
     except Exception as e:
         return fail(f"登录失败: {e}")
+
+
+# ╔═══════════════════════════════════════════════════════╗
+# ║  7-1.5. 学生端大厅 AI 对话 (Student Chat)              ║
+# ╚═══════════════════════════════════════════════════════╝
+
+
+@app.post("/api/student/chat")
+async def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+    require_student(req, db)
+    print(f"收到学生端前端消息: {request.message}")
+    try:
+        global _student_chat_history
+        _student_chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=request.message)]))
+        response = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=_student_chat_history,
+            config=types.GenerateContentConfig(
+                system_instruction=_STUDENT_SYSTEM,
+            ),
+        )
+        _student_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
+        return {"reply": response.text}
+    except Exception as e:
+        print(f"Gemini调用失败: {e}")
+        return {"reply": "Entschuldigung, ich habe ein Problem. (AI出错了)"}
 
 
 # ╔═══════════════════════════════════════════════════════╗

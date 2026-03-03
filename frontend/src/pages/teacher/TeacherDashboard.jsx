@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import {
-    LayoutDashboard, Users, GraduationCap, Clock,
-    ArrowRight, Plus, Search, Loader2,
-    TrendingUp, Award, Activity, RefreshCw, LogOut
-} from 'lucide-react';
+import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award } from 'lucide-react';
 import { API_DASHBOARD } from '../../api/config';
 import { useToast } from '../../components/Toast';
 
@@ -114,6 +110,18 @@ const TeacherDashboard = () => {
                             <Plus size={18} /> 发布情景任务
                         </button>
                         <button
+                            onClick={() => navigate('/teacher/ai')}
+                            className="bg-indigo-50 text-indigo-700 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2 shadow-sm"
+                        >
+                            <Bot size={18} /> AI 教研助手
+                        </button>
+                        <button
+                            onClick={() => navigate('/teacher/history')}
+                            className="bg-white text-indigo-600 border border-indigo-100 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 transition-all flex items-center gap-2"
+                        >
+                            <FileText size={18} /> 发布记录
+                        </button>
+                        <button
                             onClick={() => navigate('/teacher/exam')}
                             className="bg-white text-indigo-600 border border-indigo-100 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 transition-all flex items-center gap-2"
                         >
@@ -148,7 +156,7 @@ const TeacherDashboard = () => {
                     <StatCard
                         icon={<Clock className="text-purple-600" />}
                         label="人均互动时长"
-                        value={`${data?.stats?.avgDuration || 0}h`}
+                        value={`${data?.stats?.avgDuration || 0} h`}
                         trend={data?.stats?.avgDurationTrend || '-'} // 动态趋势
                         bg="bg-purple-50"
                     />
@@ -162,7 +170,7 @@ const TeacherDashboard = () => {
                     <StatCard
                         icon={<TrendingUp className="text-green-600" />}
                         label="任务完成率"
-                        value={`${data?.stats?.completionRate || 0}%`}
+                        value={`${data?.stats?.completionRate || 0}% `}
                         trend={data?.stats?.completionRateTrend || '-'} // 动态趋势
                         bg="bg-green-50"
                     />
@@ -220,7 +228,7 @@ const TeacherDashboard = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-16 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-green-500" style={{ width: `${student.active}%` }}></div>
+                                                    <div className="h-full bg-green-500" style={{ width: `${student.active}% ` }}></div>
                                                 </div>
                                                 <span className="text-sm text-gray-600">{student.active}%</span>
                                             </div>

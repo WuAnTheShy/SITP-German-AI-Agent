@@ -10,6 +10,7 @@ import {
   BarChart3,
   BookX,
   Star,
+  LogOut,
 } from "lucide-react";
 
 const StudentLayout = ({ children }) => {
@@ -21,6 +22,12 @@ const StudentLayout = ({ children }) => {
   const userId = userInfo.id || userInfo.studentId || '';
   const userName = userInfo.name || '未登录';
   const initials = userName.slice(0, 1);
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userInfo');
+    navigate('/');
+  };
 
   const navItems = [
     { label: "智能对话", icon: Bot, path: `/student/${userId}/home` },
@@ -61,16 +68,22 @@ const StudentLayout = ({ children }) => {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
               {initials}
             </div>
-            <div>
-              <p className="text-sm font-bold text-gray-700">{userName}</p>
-              <p className="text-xs text-gray-400">在线</p>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold text-gray-700 truncate">{userName}</p>
+              <p className="text-xs text-gray-400">在线活跃中</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all border border-red-100 shadow-sm"
+          >
+            <LogOut size={18} /> 退出登录
+          </button>
         </div>
       </div>
 

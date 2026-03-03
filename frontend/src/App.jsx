@@ -7,6 +7,8 @@ import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ScenarioLaunch from './pages/teacher/ScenarioLaunch';
 import ExamGenerator from './pages/teacher/ExamGenerator';
 import StudentDetail from './pages/teacher/StudentDetail';
+import TeacherHistory from './pages/teacher/TeacherHistory';
+import TeacherAI from './pages/teacher/TeacherAI';
 import StudentLogin from './pages/student/StudentLogin';
 import AISceneChat from './pages/student/AISceneChat';
 import ErrorBookReview from './pages/student/ErrorBookReview';
@@ -47,6 +49,8 @@ function App() {
                 <Route path="/teacher/dashboard" element={<ProtectedRoute requiredRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
                 <Route path="/teacher/scenario" element={<ProtectedRoute requiredRole="teacher"><ScenarioLaunch /></ProtectedRoute>} />
                 <Route path="/teacher/exam" element={<ProtectedRoute requiredRole="teacher"><ExamGenerator /></ProtectedRoute>} />
+                <Route path="/teacher/history" element={<ProtectedRoute requiredRole="teacher"><TeacherHistory /></ProtectedRoute>} />
+                <Route path="/teacher/ai" element={<ProtectedRoute requiredRole="teacher"><TeacherAI /></ProtectedRoute>} />
                 <Route path="/teacher/student/:id" element={<ProtectedRoute requiredRole="teacher"><StudentDetail /></ProtectedRoute>} />
             </Routes>
         </HashRouter>

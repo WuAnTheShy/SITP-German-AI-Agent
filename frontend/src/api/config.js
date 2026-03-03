@@ -21,9 +21,12 @@ export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
 
 // ---- 情景任务 ----
 export const API_SCENARIO_PUBLISH = `${API_BASE}/api/scenario/publish`;
+export const API_TEACHER_SCENARIO_LIST = `${API_BASE}/api/teacher/scenario/list`;
 
 // ---- 试卷生成 ----
 export const API_EXAM_GENERATE = `${API_BASE}/api/exam/generate`;
+export const API_TEACHER_EXAM_LIST = `${API_BASE}/api/teacher/exam/list`;
+export const API_TEACHER_EXAM_DETAIL = `${API_BASE}/api/teacher/exam`; // /{exam_id}
 
 // ---- 学生详情 ----
 export const API_STUDENT_DETAIL = `${API_BASE}/api/student/detail`;
@@ -36,7 +39,8 @@ export const API_HOMEWORK_SAVE = `${API_BASE}/api/homework/save`;
 export const API_PUSH_SCHEME = `${API_BASE}/api/student/push-scheme`;
 
 // ---- AI 对话 ----
-export const API_CHAT = `${API_BASE}/api/chat`;
+export const API_CHAT = `${API_BASE}/api/chat`; // 教师专用
+export const API_STUDENT_CHAT = `${API_BASE}/api/student/chat`; // 学生专用
 export const API_SCENE_CHAT = `${API_BASE}/api/student/scene-chat`;
 
 // ---- 写作辅助 ----
