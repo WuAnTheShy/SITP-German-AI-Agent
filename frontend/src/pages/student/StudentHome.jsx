@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
 import request from '../../api/request';
-import { API_CHAT } from '../../api/config';
+import { API_STUDENT_CHAT } from '../../api/config';
 import { Send, Bot, User, Image as ImageIcon, Mic, Loader2 } from 'lucide-react';
 
 const StudentHome = () => {
@@ -32,7 +32,7 @@ const StudentHome = () => {
     setInput('');
     setLoading(true);
     try {
-      const response = await request.post(API_CHAT, { message: userText });
+      const response = await request.post(API_STUDENT_CHAT, { message: userText });
       const data = response.data;
       setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: data.reply }]);
     } catch (error) {

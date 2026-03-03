@@ -1,5 +1,5 @@
 import React from 'react';
-import {HashRouter, Routes, Route, Navigate} from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import StudentHome from './pages/student/StudentHome';
 import TeacherLogin from './pages/teacher/TeacherLogin';
@@ -7,6 +7,8 @@ import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ScenarioLaunch from './pages/teacher/ScenarioLaunch';
 import ExamGenerator from './pages/teacher/ExamGenerator';
 import StudentDetail from './pages/teacher/StudentDetail';
+import TeacherHistory from './pages/teacher/TeacherHistory';
+import TeacherAI from './pages/teacher/TeacherAI';
 import StudentLogin from './pages/student/StudentLogin';
 import AISceneChat from './pages/student/AISceneChat';
 import ErrorBookReview from './pages/student/ErrorBookReview';
@@ -16,51 +18,40 @@ import LearningProgress from './pages/student/LearningProgress';
 import ListeningSpeaking from './pages/student/ListeningSpeaking';
 import VocabLearning from './pages/student/VocabLearning';
 import WritingAssistant from './pages/student/WritingAssistant';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // 文件路径: src/App.jsx
-
-// 🔒 以下为教师端同学原有代码，完全未修改，100%原样保留
-// 引入原有页面
-
-// 引入新拆分的教师端功能页面
-// 🔒 教师端原有代码结束，以上内容完全未动
-
-// 🆕 新增：学生端所有功能页面导入（仅新增，不影响原有代码）
 
 function App() {
     return (
         <HashRouter>
             <Routes>
-                {/* 1. 首页（原有代码，完全未修改） */}
-                <Route path="/" element={<Login/>}/>
+                {/* 1. 首页（身份选择） */}
+                <Route path="/" element={<Login />} />
 
-                {/* 🆕 新增：学生端完整路由配置（仅新增，不碰教师端代码） */}
-                {/* 学生端根路径自动跳转到登录页，符合你的登录流程 */}
-                <Route path="/student" element={<Navigate to="/student/login" replace/>}/>
-                {/* 学生登录页 */}
-                <Route path="/student/login" element={<StudentLogin/>}/>
-                {/* 学生主页（登录成功后跳转） */}
-                <Route path="/student/home" element={<StudentHome/>}/>
-                {/* 学生端所有功能页面路由 */}
-                <Route path="/student/ai-scene-chat" element={<AISceneChat/>}/>
-                <Route path="/student/error-book" element={<ErrorBookReview/>}/>
-                <Route path="/student/favorites" element={<FavoritesPage/>}/>
-                <Route path="/student/grammar-practice" element={<GrammarPractice/>}/>
-                <Route path="/student/learning-progress" element={<LearningProgress/>}/>
-                <Route path="/student/listening-speaking" element={<ListeningSpeaking/>}/>
-                <Route path="/student/vocab-learning" element={<VocabLearning/>}/>
-                <Route path="/student/writing-assistant" element={<WritingAssistant/>}/>
+                {/* ── 学生端路由 ── */}
+                <Route path="/student" element={<Navigate to="/student/login" replace />} />
+                <Route path="/student/login" element={<StudentLogin />} />
+                {/* 以下学生端页面需要登录 + 学生角色，并带有唯一 userId */}
+                <Route path="/student/:userId/home" element={<ProtectedRoute requiredRole="student"><StudentHome /></ProtectedRoute>} />
+                <Route path="/student/:userId/ai-scene-chat" element={<ProtectedRoute requiredRole="student"><AISceneChat /></ProtectedRoute>} />
+                <Route path="/student/:userId/error-book" element={<ProtectedRoute requiredRole="student"><ErrorBookReview /></ProtectedRoute>} />
+                <Route path="/student/:userId/favorites" element={<ProtectedRoute requiredRole="student"><FavoritesPage /></ProtectedRoute>} />
+                <Route path="/student/:userId/grammar-practice" element={<ProtectedRoute requiredRole="student"><GrammarPractice /></ProtectedRoute>} />
+                <Route path="/student/:userId/learning-progress" element={<ProtectedRoute requiredRole="student"><LearningProgress /></ProtectedRoute>} />
+                <Route path="/student/:userId/listening-speaking" element={<ProtectedRoute requiredRole="student"><ListeningSpeaking /></ProtectedRoute>} />
+                <Route path="/student/:userId/vocab-learning" element={<ProtectedRoute requiredRole="student"><VocabLearning /></ProtectedRoute>} />
+                <Route path="/student/:userId/writing-assistant" element={<ProtectedRoute requiredRole="student"><WritingAssistant /></ProtectedRoute>} />
 
-                {/* 🔒 以下为教师端同学原有代码，完全未修改，100%原样保留 */}
-                {/* 3. 教师端核心流程 */}
-                <Route path="/teacher/login" element={<TeacherLogin/>}/>
-                <Route path="/teacher/dashboard" element={<TeacherDashboard/>}/>
-
-                {/* 4. 教师端子功能页面 */}
-                <Route path="/teacher/scenario" element={<ScenarioLaunch/>}/>
-                <Route path="/teacher/exam" element={<ExamGenerator/>}/>
-                <Route path="/teacher/student/:id" element={<StudentDetail/>}/>
-                {/* 🔒 教师端原有代码结束，以上内容完全未动 */}
+                {/* ── 教师端路由 ── */}
+                <Route path="/teacher/login" element={<TeacherLogin />} />
+                {/* 以下教师端页面需要登录 + 教师角色 */}
+                <Route path="/teacher/dashboard" element={<ProtectedRoute requiredRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
+                <Route path="/teacher/scenario" element={<ProtectedRoute requiredRole="teacher"><ScenarioLaunch /></ProtectedRoute>} />
+                <Route path="/teacher/exam" element={<ProtectedRoute requiredRole="teacher"><ExamGenerator /></ProtectedRoute>} />
+                <Route path="/teacher/history" element={<ProtectedRoute requiredRole="teacher"><TeacherHistory /></ProtectedRoute>} />
+                <Route path="/teacher/ai" element={<ProtectedRoute requiredRole="teacher"><TeacherAI /></ProtectedRoute>} />
+                <Route path="/teacher/student/:id" element={<ProtectedRoute requiredRole="teacher"><StudentDetail /></ProtectedRoute>} />
             </Routes>
         </HashRouter>
     );

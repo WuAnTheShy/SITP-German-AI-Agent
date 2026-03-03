@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import uvicorn
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
@@ -93,7 +93,10 @@ _gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 _MODEL_ID = "gemini-2.5-flash"
 
-_TEACHER_SYSTEM = "你是一个同济大学SITP项目的AI德语助教。请用德语回答，括号内给出中文解释，并指出用户的语法错误。如果用户说中文，请引导通过德语表达。"
+_TEACHER_SYSTEM = (
+    "你是一个高级教学AI教研助手，负责协助德语教师分析学情、制定教案和出题等。"
+    "请用中文与教师进行沟通，提供专业、基于数据的教学建议和德语教学方案。"
+)
 
 _STUDENT_SYSTEM = (
     "你是同济大学的 AI 德语助教，帮助学生学习德语。"
@@ -102,6 +105,8 @@ _STUDENT_SYSTEM = (
 
 # 教师端多轮对话历史（简单内存存储）
 _teacher_chat_history: list[types.Content] = []
+# 学生端多轮对话历史（简单内存存储）
+_student_chat_history: list[types.Content] = []
 
 app = FastAPI()
 
@@ -167,11 +172,45 @@ def to_float(value, default=0.0):
         return default
 
 
+# ════════════════════ 3.5 权限校验依赖 ════════════════════
+
+
+def require_teacher(req: Request, db: Session = Depends(get_db)):
+    """从 Authorization 头解析教师身份，失败则抛 401"""
+    auth = req.headers.get("authorization", "")
+    if auth.startswith("Bearer teacher-token-"):
+        parts = auth.replace("Bearer ", "").split("-")
+        # token 格式: teacher-token-{user_id}-{random}
+        if len(parts) >= 4:
+            try:
+                user_id = int(parts[2])
+            except ValueError:
+                raise HTTPException(status_code=401, detail="无效的教师令牌")
+            user = UserCRUD.get_by_id(db, user_id)
+            if user and user.role == "teacher":
+                return user
+    raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
+
+
+def require_student(req: Request, db: Session = Depends(get_db)):
+    """从 Authorization 头解析学生身份，失败则抛 401"""
+    auth = req.headers.get("authorization", "")
+    if auth.startswith("Bearer student-token-"):
+        parts = auth.replace("Bearer ", "").split("-")
+        # token 格式: student-token-{uid}-{random}
+        if len(parts) >= 4:
+            uid = parts[2]
+            s = StudentCRUD.get_by_uid(db, uid)
+            if s:
+                return s
+    raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
+
+
 # ════════════════════ 4. 学生端辅助函数与请求模型 ════════════════════
 
 
 def _current_student(req: Request, db: Session):
-    """从 Authorization 头解析学生，回退到演示学生 2452001"""
+    """从 Authorization 头解析学生，无有效 token 返回 None"""
     auth = req.headers.get("authorization", "")
     if auth.startswith("Bearer student-token-"):
         parts = auth.replace("Bearer ", "").split("-")
@@ -180,7 +219,7 @@ def _current_student(req: Request, db: Session):
             s = StudentCRUD.get_by_uid(db, uid)
             if s:
                 return s
-    return StudentCRUD.get_by_uid(db, "2452001")
+    return None
 
 
 def _ai_text(prompt: str, fallback: str = "") -> str:
@@ -425,7 +464,9 @@ def _ensure_demo_data(db: Session):
 
 
 @app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+    # 教师端 AI 对话需要教师权限
+    require_teacher(req, db)
     print(f"收到前端消息: {request.message}")
     try:
         global _teacher_chat_history
@@ -451,17 +492,15 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
         user = UserCRUD.get_by_username(db, request.username)
         if not user:
-            user = UserCRUD.create(
-                db,
-                UserCreate(
-                    username=request.username,
-                    password_hash=request.password,
-                    role="teacher",
-                    display_name=f"{request.username}老师",
-                ),
-            )
+            return fail("用户不存在，请检查工号后重试", 401)
 
-        token = f"mock-token-{user.id}-{uuid4().hex[:8]}"
+        if user.role != "teacher":
+            return fail("该账号不是教师账号", 403)
+
+        if user.password_hash != request.password:
+            return fail("密码错误，请重新输入", 401)
+
+        token = f"teacher-token-{user.id}-{uuid4().hex[:8]}"
         user_info = {"id": user.username, "name": user.display_name, "role": user.role}
         return {
             "code": 200,
@@ -475,8 +514,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 @app.get("/api/teacher/dashboard")
-def teacher_dashboard(db: Session = Depends(get_db)):
+def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
     try:
+        require_teacher(request, db)
         teacher, classroom = _ensure_demo_data(db)
         students = StudentCRUD.list_by_class(db, classroom.id)
 
@@ -520,8 +560,9 @@ def teacher_dashboard(db: Session = Depends(get_db)):
 
 
 @app.post("/api/scenario/publish")
-def publish_scenario(request: ScenarioPublishRequest, db: Session = Depends(get_db)):
+def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, classroom = _ensure_demo_data(db)
         cfg = request.config or {}
         goals = cfg.get("goals", {})
@@ -552,8 +593,9 @@ def publish_scenario(request: ScenarioPublishRequest, db: Session = Depends(get_
 
 
 @app.post("/api/exam/generate")
-def generate_exam(request: ExamGenerateRequest, db: Session = Depends(get_db)):
+def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, classroom = _ensure_demo_data(db)
         cfg = request.config or {}
 
@@ -582,9 +624,75 @@ def generate_exam(request: ExamGenerateRequest, db: Session = Depends(get_db)):
         return fail(f"试卷生成失败: {e}")
 
 
-@app.get("/api/student/detail")
-def get_student_detail(id: str, db: Session = Depends(get_db)):
+@app.get("/api/teacher/scenario/list")
+def list_teacher_scenarios(request: Request = None, db: Session = Depends(get_db)):
     try:
+        teacher = require_teacher(request, db)
+        scenarios = ScenarioCRUD.list_by_teacher(db, teacher.id)
+        result = [
+            {
+                "id": s.id,
+                "code": s.scenario_code,
+                "theme": s.theme,
+                "difficulty": s.difficulty,
+                "persona": s.persona,
+                "createdAt": s.created_at.isoformat(),
+            }
+            for s in scenarios
+        ]
+        return ok(result)
+    except Exception as e:
+        return fail(f"获取情景任务记录失败: {e}")
+
+
+@app.get("/api/teacher/exam/list")
+def list_teacher_exams(request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        exams = ExamCRUD.list_by_teacher(db, teacher.id)
+        result = [
+            {
+                "id": e.id,
+                "code": e.exam_code,
+                "grammarItems": e.grammar_items,
+                "writingItems": e.writing_items,
+                "strategy": e.strategy,
+                "createdAt": e.created_at.isoformat(),
+            }
+            for e in exams
+        ]
+        return ok(result)
+    except Exception as e:
+        return fail(f"获取试卷记录失败: {e}")
+
+
+@app.get("/api/teacher/exam/{exam_id}")
+def get_teacher_exam_detail(exam_id: int, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        exam = ExamCRUD.get_by_id(db, exam_id)
+        if not exam:
+            return fail("试卷不存在", 404)
+        if exam.teacher_user_id != teacher.id:
+            return fail("无权访问该试卷", 403)
+            
+        content = {
+            "代码": exam.exam_code,
+            "语法题数量": exam.grammar_items,
+            "写作题数量": exam.writing_items,
+            "出题策略": "智能个性化" if exam.strategy == 'personalized' else "统一出题",
+            "重点考察区域": exam.focus_areas,
+            "生成时间": exam.created_at.isoformat()
+        }
+        return ok(content)
+    except Exception as e:
+        return fail(f"获取试卷详情失败: {e}")
+
+
+@app.get("/api/student/detail")
+def get_student_detail(id: str, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        require_teacher(request, db)
         _ensure_demo_data(db)
         student = StudentCRUD.get_by_uid(db, id)
         if not student:
@@ -626,8 +734,9 @@ def get_student_detail(id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/homework/detail")
-def get_homework_detail(id: int, db: Session = Depends(get_db)):
+def get_homework_detail(id: int, request: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(request, db)
         _ensure_demo_data(db)
         hw = HomeworkCRUD.get_by_id(db, id)
         if not hw:
@@ -649,8 +758,9 @@ def get_homework_detail(id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/homework/save")
-def save_homework_review(request: HomeworkSaveRequest, db: Session = Depends(get_db)):
+def save_homework_review(request: HomeworkSaveRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, _ = _ensure_demo_data(db)
         hw = HomeworkCRUD.get_by_id(db, request.homeworkId)
         if not hw:
@@ -672,8 +782,9 @@ def save_homework_review(request: HomeworkSaveRequest, db: Session = Depends(get
 
 
 @app.post("/api/student/push-scheme")
-def push_student_scheme(request: PushSchemeRequest, db: Session = Depends(get_db)):
+def push_student_scheme(request: PushSchemeRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
+        require_teacher(req, db)
         teacher, _ = _ensure_demo_data(db)
         student = StudentCRUD.get_by_uid(db, request.studentId)
         if not student:
@@ -722,6 +833,9 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         if not user:
             return fail("用户记录异常", 500)
 
+        if user.password_hash != req.password:
+            return fail("密码错误，请重新输入", 401)
+
         token = f"student-token-{student.uid}-{uuid4().hex[:8]}"
         info = {
             "id": student.uid,
@@ -738,6 +852,32 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         }
     except Exception as e:
         return fail(f"登录失败: {e}")
+
+
+# ╔═══════════════════════════════════════════════════════╗
+# ║  7-1.5. 学生端大厅 AI 对话 (Student Chat)              ║
+# ╚═══════════════════════════════════════════════════════╝
+
+
+@app.post("/api/student/chat")
+async def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+    require_student(req, db)
+    print(f"收到学生端前端消息: {request.message}")
+    try:
+        global _student_chat_history
+        _student_chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=request.message)]))
+        response = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=_student_chat_history,
+            config=types.GenerateContentConfig(
+                system_instruction=_STUDENT_SYSTEM,
+            ),
+        )
+        _student_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
+        return {"reply": response.text}
+    except Exception as e:
+        print(f"Gemini调用失败: {e}")
+        return {"reply": "Entschuldigung, ich habe ein Problem. (AI出错了)"}
 
 
 # ╔═══════════════════════════════════════════════════════╗
@@ -872,7 +1012,8 @@ def vocab_generate(req: VocabGenerateReq, db: Session = Depends(get_db)):
 
 
 @app.get("/api/student/grammar/categories")
-def grammar_categories(db: Session = Depends(get_db)):
+def grammar_categories(request: Request, db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         cats = GrammarCategoryCRUD.list_all(db)
         return ok([{"id": c.id, "name": c.name, "desc": c.description or ""} for c in cats])
@@ -881,7 +1022,8 @@ def grammar_categories(db: Session = Depends(get_db)):
 
 
 @app.get("/api/student/grammar/exercises")
-def grammar_exercises(categoryId: int = Query(...), db: Session = Depends(get_db)):
+def grammar_exercises(request: Request, categoryId: int = Query(...), db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         exs = GrammarExerciseCRUD.list_by_category(db, categoryId)
         return ok([{"id": e.id, "question": e.question} for e in exs])
@@ -1196,7 +1338,8 @@ def error_book_delete(error_id: int, request: Request, db: Session = Depends(get
 
 
 @app.get("/api/student/favorites/categories")
-def favorites_categories(db: Session = Depends(get_db)):
+def favorites_categories(request: Request, db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         cats = FavoriteCategoryCRUD.list_all(db)
         return ok([{"id": c.id, "type": c.type, "name": c.name} for c in cats])
@@ -1243,7 +1386,8 @@ def favorites_delete(fav_id: int, request: Request, db: Session = Depends(get_db
 
 
 @app.post("/api/student/favorites/ai-extend")
-def favorites_ai_extend(req: FavAIExtendReq, db: Session = Depends(get_db)):
+def favorites_ai_extend(req: FavAIExtendReq, request: Request = None, db: Session = Depends(get_db)):
+    require_student(request, db)
     try:
         type_prompts = {
             "vocab": f"请对德语词汇「{req.content}」进行扩展：给出词性、复数形式、常用搭配和2个例句。用中文回答。",

@@ -182,6 +182,13 @@ class ScenarioCRUD:
         db.refresh(obj)
         return obj
 
+    @staticmethod
+    def list_by_teacher(db: Session, teacher_user_id: int) -> list[Scenario]:
+        from sqlalchemy import desc
+        return list(db.scalars(
+            select(Scenario).where(Scenario.teacher_user_id == teacher_user_id).order_by(desc(Scenario.created_at))
+        ))
+
 
 class ScenarioPushCRUD:
     @staticmethod
@@ -213,6 +220,17 @@ class ExamCRUD:
         db.commit()
         db.refresh(obj)
         return obj
+
+    @staticmethod
+    def list_by_teacher(db: Session, teacher_user_id: int) -> list[Exam]:
+        from sqlalchemy import desc
+        return list(db.scalars(
+            select(Exam).where(Exam.teacher_user_id == teacher_user_id).order_by(desc(Exam.created_at))
+        ))
+
+    @staticmethod
+    def get_by_id(db: Session, exam_id: int) -> Exam | None:
+        return db.scalar(select(Exam).where(Exam.id == exam_id))
 
 
 class ExamAssignmentCRUD:
