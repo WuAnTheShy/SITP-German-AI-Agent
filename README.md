@@ -34,19 +34,19 @@
 
 ```
                     ┌──────────────────────────────────────────┐
-                    │          Docker Compose 容器编排           │
+                    │          Docker Compose 容器编排          │
                     │                                          │
- 用户浏览器 ──▶  ┌──┴────────────┐   ┌──────────────┐   ┌─────┴──────┐
-    :80       │   Frontend    │   │   Backend    │   │ PostgreSQL │
-              │   Nginx       │──▶│   FastAPI    │──▶│     16     │
-              │   React SPA   │   │   Uvicorn    │   │   :5432    │
-              └───────────────┘   └──────┬───────┘   └────────────┘
-                                         │
-                                  ┌──────▼───────┐
-                                  │  Google AI   │
-                                  │ Gemini 2.5   │
-                                  │    Flash     │
-                                  └──────────────┘
+ 用户浏览器 ──▶┌────┴──────────┐    ┌──────────────┐    ┌───────┴────┐
+    :80        │   Frontend    │    │   Backend    │    │ PostgreSQL │
+               │   Nginx       │──▶│   FastAPI    │──▶│     16     │
+               │   React SPA   │    │   Uvicorn    │    │   :5432    │
+               └───────────────┘    └──────┬───────┘    └────────────┘
+                                           │
+                                    ┌──────▼───────┐
+                                    │  Google AI   │
+                                    │ Gemini 2.5   │
+                                    │    Flash     │
+                                    └──────────────┘
 ```
 
 ---
@@ -141,11 +141,25 @@ SITP-German-AI-Agent/
 
 ---
 
-## ⚠️ 网络代理配置（国内环境必需）
+## 🚀 快速开始
 
-本项目的 AI 功能依赖 Google Gemini API，其服务器在国内无法直连。**因为在国内开发，必须配置科学上网代理，否则所有 AI 相关功能将无法使用**（前端页面和数据库功能不受影响）。
+### 前置准备：环境变量与网络
 
-**配置方法**：在 `.env` 文件中添加以下两行，将端口号改为你本机代理工具实际使用的端口：
+**1. 配置 Gemini API Key**
+
+在项目根目录创建 `.env` 文件：
+
+```bash
+echo GOOGLE_API_KEY=你的_Google_Gemini_API_密钥 > .env
+```
+
+> 💡 Gemini API Key 获取方式：访问 [Google AI Studio](https://aistudio.google.com/apikey) 申请免费密钥。
+
+**2. 配置网络代理（国内环境必需）**
+
+本项目的 AI 功能依赖 Google Gemini API，其服务器在国内无法直连。**在国内开发必须配置科学上网代理，否则所有 AI 相关功能将无法使用**（前端页面和数据库功能不受影响）。
+
+在 `.env` 文件中追加以下两行，将端口号改为你本机代理工具实际使用的端口：
 
 ```dotenv
 HTTP_PROXY=http://127.0.0.1:你的代理端口
@@ -165,28 +179,15 @@ HTTPS_PROXY=http://127.0.0.1:你的代理端口
 
 ---
 
-## 🚀 快速开始
-
-### 方式一：Docker Compose 一键部署 (推荐)
+### 方式一：Docker Compose 一键部署（推荐）
 
 > 无需本地安装 Node.js 或 Python，只需 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
-
-**1. 配置环境变量**
-
-```bash
-# 在项目根目录创建 .env 文件
-echo "GOOGLE_API_KEY=你的_Google_Gemini_API_密钥" > .env
-```
-
-> 💡 Gemini API Key 获取方式：访问 [Google AI Studio](https://aistudio.google.com/apikey) 申请免费密钥。
-
-**2. 构建并启动**
 
 ```bash
 docker compose up -d --build
 ```
 
-**3. 访问系统**
+启动后访问：
 
 | 服务             | 地址                             |
 | ---------------- | -------------------------------- |
@@ -197,34 +198,6 @@ docker compose up -d --build
 | 🔍 后端健康检查  | http://localhost:9000/           |
 
 > 💡 Docker 模式下，前端 Nginx 会自动将 `/api` 请求反向代理到后端容器，无需任何额外配置。无论是本地 Docker 还是服务器 Docker，前端代码完全一致。
-
-**常用运维命令**
-
-```bash
-# 查看所有容器状态
-docker compose ps
-
-# 查看实时日志
-docker compose logs -f
-
-# 仅查看后端日志
-docker compose logs -f backend
-
-# 停止所有容器
-docker compose down
-
-# 停止并清除数据库数据 (慎用)
-docker compose down -v
-
-# 清理所有未使用的数据、镜像、容器和卷 (无提示)
-docker system prune -a --volumes -f
-
-# 清理未使用的悬空镜像和停止的容器
-docker system prune
-
-# 查看 Docker 磁盘使用情况
-docker system df
-```
 
 ---
 
@@ -279,7 +252,19 @@ npm run dev
 
 ---
 
-### 🔄 环境模式切换说明
+### 演示账号
+
+系统预置了以下演示账号用于测试：
+
+| 角色 | 登录入口 | 用户名/学号 | 密码 | 备注 |
+| ---- | -------- | ----------- | ---- | ---- |
+| 教师 | 教师端登录 | `t_zhang` | 任意 | 任意用户名均可自动注册 |
+| 学生 | 学生端登录 | `2452001` | 任意 | 李娜（含完整演示数据） |
+| 学生 | 学生端登录 | `2452002` | 任意 | 王强 |
+
+---
+
+## 🔄 环境模式切换
 
 前端通过 Vite 环境变量实现三种运行模式的**零改动切换**：
 
@@ -307,6 +292,38 @@ VITE_DEV_PROXY_TARGET=http://49.234.185.167:9000
 ```
 
 > `.local` 文件优先级高于同名非 `.local` 文件，且不会被提交到 Git。
+
+---
+
+## 🔧 运维参考
+
+### Docker 常用命令
+
+```bash
+# 查看所有容器状态
+docker compose ps
+
+# 查看实时日志
+docker compose logs -f
+
+# 仅查看后端日志
+docker compose logs -f backend
+
+# 停止所有容器
+docker compose down
+
+# 停止并清除数据库数据 (慎用)
+docker compose down -v
+
+# 清理所有未使用的数据、镜像、容器和卷 (无提示)
+docker system prune -a --volumes -f
+
+# 清理未使用的悬空镜像和停止的容器
+docker system prune
+
+# 查看 Docker 磁盘使用情况
+docker system df
+```
 
 ---
 
