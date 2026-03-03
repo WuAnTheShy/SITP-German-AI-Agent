@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
+import request from '../../api/request';
+import { API_GRAMMAR_CATEGORIES, API_GRAMMAR_EXERCISES, API_GRAMMAR_SUBMIT } from '../../api/config';
 
 const GrammarPractice = () => {
   const [grammarCategories, setGrammarCategories] = useState([]);
@@ -15,9 +17,8 @@ const GrammarPractice = () => {
     const getGrammarCategories = async () => {
       setLoadingCategories(true);
       try {
-        const res = await fetch('/api/student/grammar/categories', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-        if (!res.ok) throw new Error('网络请求失败');
-        const result = await res.json();
+        const response = await request.get(API_GRAMMAR_CATEGORIES);
+        const result = response.data;
         if (result.code !== 200) throw new Error(result.message || '获取语法分类失败');
         setGrammarCategories(result.data);
       } catch (err) { alert(err.message); console.error('获取语法分类错误：', err); }
@@ -31,9 +32,8 @@ const GrammarPractice = () => {
     const getExercises = async () => {
       setLoadingExercises(true); setUserAnswers({}); setCorrectionResult(null); setExercises([]);
       try {
-        const res = await fetch(`/api/student/grammar/exercises?categoryId=${selectedCategory.id}`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-        if (!res.ok) throw new Error('网络请求失败');
-        const result = await res.json();
+        const response = await request.get(API_GRAMMAR_EXERCISES, { params: { categoryId: selectedCategory.id } });
+        const result = response.data;
         if (result.code !== 200) throw new Error(result.message || '获取练习题失败');
         setExercises(result.data);
       } catch (err) { alert(err.message); console.error('获取练习题错误：', err); }
@@ -50,12 +50,8 @@ const GrammarPractice = () => {
       const answerList = Object.entries(userAnswers).map(([exerciseId, userAnswer]) => ({
         exerciseId: Number(exerciseId), userAnswer: userAnswer.trim()
       }));
-      const res = await fetch('/api/student/grammar/submit', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryId: selectedCategory.id, answers: answerList })
-      });
-      if (!res.ok) throw new Error('网络请求失败');
-      const result = await res.json();
+      const response = await request.post(API_GRAMMAR_SUBMIT, { categoryId: selectedCategory.id, answers: answerList });
+      const result = response.data;
       if (result.code !== 200) throw new Error(result.message || '提交答案失败');
       setCorrectionResult(result.data);
     } catch (err) { alert(err.message); console.error('提交答案错误：', err); }
@@ -76,9 +72,8 @@ const GrammarPractice = () => {
             <p className="text-gray-400">加载语法分类中...</p>
           ) : grammarCategories.map(cat => (
             <button key={cat.id} onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-3 rounded-lg border-2 text-left transition-all ${
-                selectedCategory?.id === cat.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
-              }`}>
+              className={`px-4 py-3 rounded-lg border-2 text-left transition-all ${selectedCategory?.id === cat.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
+                }`}>
               <strong className="block text-sm">{cat.name}</strong>
               <span className="text-xs text-gray-500">{cat.desc}</span>
             </button>
@@ -101,7 +96,7 @@ const GrammarPractice = () => {
                         <p className="font-medium text-gray-800 mb-2">{idx + 1}. {exercise.question}</p>
                         <input type="text" placeholder="请输入答案"
                           value={userAnswers[exercise.id] || ''}
-                          onChange={(e) => setUserAnswers({...userAnswers, [exercise.id]: e.target.value})}
+                          onChange={(e) => setUserAnswers({ ...userAnswers, [exercise.id]: e.target.value })}
                           disabled={submitting || correctionResult}
                           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                         />

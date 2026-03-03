@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
+import request from '../../api/request';
+import { API_VOCAB_LIST, API_VOCAB_COLLECT, API_VOCAB_GENERATE } from '../../api/config';
 
 const VocabLearning = () => {
   const [vocabList, setVocabList] = useState([]);
@@ -15,9 +17,8 @@ const VocabLearning = () => {
     const getVocabList = async () => {
       setLoadingVocab(true);
       try {
-        const res = await fetch('/api/student/vocab/list', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-        if (!res.ok) throw new Error('网络请求失败');
-        const result = await res.json();
+        const response = await request.get(API_VOCAB_LIST);
+        const result = response.data;
         if (result.code !== 200) throw new Error(result.message || '获取词汇列表失败');
         setVocabList(result.data);
         const initCollected = new Set();
@@ -37,12 +38,8 @@ const VocabLearning = () => {
     setCollecting(true);
     const isCollected = collectedIds.has(vocabId);
     try {
-      const res = await fetch('/api/student/vocab/collect', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vocabId, isCollect: !isCollected })
-      });
-      if (!res.ok) throw new Error('网络请求失败');
-      const result = await res.json();
+      const response = await request.post(API_VOCAB_COLLECT, { vocabId, isCollect: !isCollected });
+      const result = response.data;
       if (result.code !== 200) throw new Error(result.message || '操作失败');
       const newCollected = new Set(collectedIds);
       if (isCollected) { newCollected.delete(vocabId); } else { newCollected.add(vocabId); }
@@ -54,12 +51,8 @@ const VocabLearning = () => {
   const handleAIGenerateVocab = async () => {
     setGenerating(true);
     try {
-      const res = await fetch('/api/student/vocab/generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: "A1", topic: "日常通用" })
-      });
-      if (!res.ok) throw new Error('网络请求失败');
-      const result = await res.json();
+      const response = await request.post(API_VOCAB_GENERATE, { level: "A1", topic: "日常通用" });
+      const result = response.data;
       if (result.code !== 200) throw new Error(result.message || '生成词汇表失败');
       setVocabList(result.data);
       setCurrentCardIndex(0); setIsCardFlipped(false);

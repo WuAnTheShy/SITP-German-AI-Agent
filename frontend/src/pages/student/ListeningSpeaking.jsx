@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
+import request from '../../api/request';
+import { API_LISTENING_MATERIALS, API_LISTENING_DETAIL, API_SPEAKING_EVALUATE } from '../../api/config';
 
 const ListeningSpeaking = () => {
   const [listeningMaterials, setListeningMaterials] = useState([]);
@@ -16,9 +18,8 @@ const ListeningSpeaking = () => {
     const getMaterials = async () => {
       setLoadingMaterials(true);
       try {
-        const res = await fetch('/api/student/listening/materials', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-        if (!res.ok) throw new Error('网络请求失败');
-        const result = await res.json();
+        const response = await request.get(API_LISTENING_MATERIALS);
+        const result = response.data;
         if (result.code !== 200) throw new Error(result.message || '获取听力材料失败');
         setListeningMaterials(result.data);
       } catch (err) { alert(err.message); }
@@ -32,9 +33,8 @@ const ListeningSpeaking = () => {
     const getDetail = async () => {
       setLoadingDetail(true); setAudioUrl(null); setRecording(false); setEvaluationResult(null); setMaterialDetail(null);
       try {
-        const res = await fetch(`/api/student/listening/material/detail?materialId=${selectedMaterial.id}`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-        if (!res.ok) throw new Error('网络请求失败');
-        const result = await res.json();
+        const response = await request.get(API_LISTENING_DETAIL, { params: { materialId: selectedMaterial.id } });
+        const result = response.data;
         if (result.code !== 200) throw new Error(result.message || '获取材料详情失败');
         setMaterialDetail(result.data);
       } catch (err) { alert(err.message); }
@@ -53,12 +53,8 @@ const ListeningSpeaking = () => {
     if (!selectedMaterial) { alert('请先选择听力材料'); return; }
     setSubmittingEval(true);
     try {
-      const res = await fetch('/api/student/speaking/evaluate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ materialId: selectedMaterial.id, audioUrl })
-      });
-      if (!res.ok) throw new Error('网络请求失败');
-      const result = await res.json();
+      const response = await request.post(API_SPEAKING_EVALUATE, { materialId: selectedMaterial.id, audioUrl });
+      const result = response.data;
       if (result.code !== 200) throw new Error(result.message || '口语评分失败');
       setEvaluationResult(result.data);
     } catch (err) { alert(err.message); }
@@ -79,9 +75,8 @@ const ListeningSpeaking = () => {
             <p className="text-gray-400 col-span-full text-center py-8">加载听力材料中...</p>
           ) : listeningMaterials.map(material => (
             <div key={material.id} onClick={() => setSelectedMaterial(material)}
-              className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                selectedMaterial?.id === material.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
-              }`}>
+              className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedMaterial?.id === material.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+                }`}>
               <h3 className="font-bold text-gray-800 mb-2">{material.title}</h3>
               <div className="flex gap-3 text-xs text-gray-500">
                 <span>难度：{material.level}</span>
@@ -113,9 +108,8 @@ const ListeningSpeaking = () => {
                   <h3 className="font-bold text-gray-800 mb-2">🎤 模仿口语练习</h3>
                   <p className="text-sm text-gray-500 mb-4">听完后，点击下方按钮开始录音，模仿刚才的内容</p>
                   <button onClick={toggleRecording} disabled={submittingEval}
-                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                      recording ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'
-                    } disabled:bg-gray-400`}>
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${recording ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+                      } disabled:bg-gray-400`}>
                     {recording ? '⏹️ 结束录音' : '🎙️ 开始录音'}
                   </button>
 

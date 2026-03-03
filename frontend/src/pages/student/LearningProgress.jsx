@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
+import request from '../../api/request';
+import { API_LEARNING_PROGRESS } from '../../api/config';
 
 const LearningProgress = () => {
   const [learnStats, setLearnStats] = useState({
@@ -13,9 +15,8 @@ const LearningProgress = () => {
     const getProgress = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/student/learning/progress', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-        if (!res.ok) throw new Error('网络请求失败');
-        const result = await res.json();
+        const response = await request.get(API_LEARNING_PROGRESS);
+        const result = response.data;
         if (result.code !== 200) throw new Error(result.message || '获取学习数据失败');
         setLearnStats(result.data);
       } catch (err) { alert(err.message); }
@@ -103,16 +104,14 @@ const LearningProgress = () => {
                 {learnStats.knowledge.length === 0 ? (
                   <p className="text-center text-gray-400 py-8 col-span-full">暂无知识点学习数据</p>
                 ) : learnStats.knowledge.map((item, index) => (
-                  <div key={index} className={`p-4 rounded-xl border-2 ${
-                    item.level === '熟练' ? 'border-green-300 bg-green-50' :
-                    item.level === '一般' ? 'border-yellow-300 bg-yellow-50' :
-                    'border-red-300 bg-red-50'
-                  }`}>
+                  <div key={index} className={`p-4 rounded-xl border-2 ${item.level === '熟练' ? 'border-green-300 bg-green-50' :
+                      item.level === '一般' ? 'border-yellow-300 bg-yellow-50' :
+                        'border-red-300 bg-red-50'
+                    }`}>
                     <div className="font-medium text-gray-800">{item.name}</div>
-                    <div className={`text-sm font-bold mt-1 ${
-                      item.level === '熟练' ? 'text-green-700' :
-                      item.level === '一般' ? 'text-yellow-700' : 'text-red-700'
-                    }`}>{item.level}</div>
+                    <div className={`text-sm font-bold mt-1 ${item.level === '熟练' ? 'text-green-700' :
+                        item.level === '一般' ? 'text-yellow-700' : 'text-red-700'
+                      }`}>{item.level}</div>
                   </div>
                 ))}
               </div>

@@ -28,6 +28,11 @@ const StudentLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // 从 localStorage 获取实际登录用户信息
+  const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+  const userName = userInfo.name || '未登录';
+  const initials = userName.slice(0, 1);
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* 左侧导航栏 */}
@@ -45,11 +50,10 @@ const StudentLayout = ({ children }) => {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-colors ${
-                  isActive
+                className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-colors ${isActive
                     ? "bg-blue-50 text-blue-700"
                     : "text-gray-600 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <Icon size={18} /> {item.label}
               </button>
@@ -59,10 +63,10 @@ const StudentLayout = ({ children }) => {
         <div className="p-4 border-t border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-              WS
+              {initials}
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-700">魏同学</p>
+              <p className="text-sm font-bold text-gray-700">{userName}</p>
               <p className="text-xs text-gray-400">在线</p>
             </div>
           </div>

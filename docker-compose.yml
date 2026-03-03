@@ -37,10 +37,8 @@ services:
     container_name: german-frontend
     ports:
       - "80:80"
-    environment:
-      # 注意：下面这个变量名（VITE_...）必须和你前端代码里写的一样！
-      # 请把 IP 换成你刚才查到的公网 IP
-      - VITE_API_BASE_URL=http://49.234.185.167:9000
+    # 前端为纯静态文件，API 请求由 nginx.conf 反向代理到 backend 容器
+    # 无需设置环境变量（Vite 环境变量仅在构建时注入，运行时无效）
     depends_on:
       - backend
     restart: always
