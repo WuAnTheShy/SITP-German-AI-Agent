@@ -164,6 +164,7 @@ class ExamCreate(BaseModel):
     writing_items: int
     strategy: str
     focus_areas: list[Any] = []
+    content: list[Any] = []
 
 
 class ExamRead(ORMBase):
@@ -174,6 +175,7 @@ class ExamRead(ORMBase):
     writing_items: int
     strategy: str
     focus_areas: list[Any]
+    content: list[Any]
     created_at: datetime
 
 

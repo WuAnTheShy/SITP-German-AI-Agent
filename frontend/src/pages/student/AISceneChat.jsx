@@ -74,15 +74,15 @@ const AISceneChat = () => {
     <StudentLayout>
       <div className="flex-1 flex flex-col">
         {/* 标题 + 场景选择 */}
-        <div className="p-6 border-b border-gray-200 bg-white">
-          <h1 className="text-xl font-bold text-gray-800 mb-1">🗣️ 场景化AI德语对话</h1>
-          <p className="text-sm text-gray-500 mb-4">模拟真实场景练口语，AI实时纠错+互动</p>
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-1">🗣️ 场景化AI德语对话</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">模拟真实场景练口语，AI实时纠错+互动</p>
           <div className="flex gap-3 flex-wrap">
             {chatScenes.map(scene => (
               <button key={scene.id} onClick={() => handleSelectScene(scene)}
                 className={`px-4 py-3 rounded-lg border-2 text-left transition-all ${selectedScene?.id === scene.id
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white hover:border-blue-300 text-gray-700'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 text-gray-700 dark:text-gray-300'
                   }`}>
                 <strong className="block text-sm">{scene.name}</strong>
                 <span className="text-xs opacity-70">{scene.desc}</span>
@@ -94,8 +94,8 @@ const AISceneChat = () => {
         {/* 对话区域 */}
         {selectedScene ? (
           <>
-            <div className="px-6 py-2 bg-blue-50 border-b border-blue-100">
-              <span className="text-sm text-blue-700 font-medium">当前场景：{selectedScene.name}</span>
+            <div className="px-6 py-2 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-100 dark:border-blue-800/50">
+              <span className="text-sm text-blue-700 dark:text-blue-400 font-medium">当前场景：{selectedScene.name}</span>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4" ref={chatContainerRef}>
               {messages.map((msg, index) => (
@@ -108,11 +108,11 @@ const AISceneChat = () => {
                     <div>
                       <div className={`p-3 rounded-2xl whitespace-pre-wrap ${msg.sender === '我' ? 'bg-blue-600 text-white rounded-tr-none'
                           : msg.sender === '系统' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-tl-none'
-                            : 'bg-white border border-gray-200 shadow-sm rounded-tl-none text-gray-800'
+                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-gray-200'
                         }`}>
                         {msg.content}
                       </div>
-                      <span className="text-xs text-gray-400 mt-1 block">{msg.time}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 mt-1 block">{msg.time}</span>
                     </div>
                   </div>
                 </div>
@@ -123,7 +123,7 @@ const AISceneChat = () => {
                     <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
                       <Bot size={14} className="text-white" />
                     </div>
-                    <div className="p-3 bg-white border border-gray-200 shadow-sm rounded-2xl rounded-tl-none text-gray-500 flex items-center gap-2">
+                    <div className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-gray-400 dark:text-gray-500 flex items-center gap-2">
                       <Loader2 className="animate-spin" size={16} /> AI正在思考...
                     </div>
                   </div>
@@ -132,13 +132,13 @@ const AISceneChat = () => {
             </div>
 
             {/* 输入 */}
-            <div className="p-4 bg-white border-t border-gray-200">
+            <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
               <div className="max-w-3xl mx-auto flex gap-3">
                 <input type="text"
                   placeholder={loading ? "AI正在回复，请稍候..." : "请输入德语内容（按回车发送）..."}
                   value={inputMsg} onChange={(e) => setInputMsg(e.target.value)}
                   onKeyDown={handleKeyDown} disabled={loading}
-                  className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white disabled:bg-gray-100"
+                  className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-800 disabled:bg-gray-100 dark:bg-gray-800"
                 />
                 <button onClick={handleSendMsg} disabled={loading}
                   className={`px-5 py-3 rounded-xl font-medium transition-colors ${loading ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
@@ -148,7 +148,7 @@ const AISceneChat = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-lg">
+          <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500 text-lg">
             请在上方选择一个对话场景，开启你的德语口语练习吧！
           </div>
         )}

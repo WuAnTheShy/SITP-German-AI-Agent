@@ -56,18 +56,18 @@ export const ToastProvider = ({ children }) => {
 // 单条 Toast 样式
 const STYLES = {
     success: {
-        bg: 'bg-green-50 border-green-200',
+        bg: 'bg-green-50 dark:bg-green-900/30 border-green-200',
         icon: <CheckCircle size={20} className="text-green-600 shrink-0" />,
         text: 'text-green-800',
     },
     error: {
-        bg: 'bg-red-50 border-red-200',
+        bg: 'bg-red-50 dark:bg-red-900/30 border-red-200',
         icon: <XCircle size={20} className="text-red-600 shrink-0" />,
         text: 'text-red-800',
     },
     info: {
-        bg: 'bg-blue-50 border-blue-200',
-        icon: <Info size={20} className="text-blue-600 shrink-0" />,
+        bg: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200',
+        icon: <Info size={20} className="text-blue-600 dark:text-blue-400 shrink-0" />,
         text: 'text-blue-800',
     },
 };
@@ -81,7 +81,7 @@ const ToastItem = ({ toast, onClose }) => {
         >
             {style.icon}
             <p className={`text-sm font-medium leading-relaxed flex-1 ${style.text}`}>{toast.message}</p>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 shrink-0">
+            <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 shrink-0">
                 <X size={16} />
             </button>
         </div>

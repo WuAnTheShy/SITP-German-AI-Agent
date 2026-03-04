@@ -86,7 +86,7 @@ const TeacherHistory = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-8">
             <div className="w-full max-w-6xl px-4 flex flex-col gap-6">
 
                 {/* 1. 顶部 Header 区 */}
@@ -94,13 +94,13 @@ const TeacherHistory = () => {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate('/teacher/dashboard')}
-                            className="bg-white p-2.5 rounded-full shadow hover:bg-gray-100 transition"
+                            className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:bg-gray-800 transition"
                             title="返回控制台"
                         >
-                            <ArrowLeft size={20} className="text-gray-600" />
+                            <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400 dark:text-gray-500" />
                         </button>
-                        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                            <FileText size={32} className="text-indigo-600" />
+                        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-3">
+                            <FileText size={32} className="text-indigo-600 dark:text-indigo-400" />
                             发布历史记录
                         </h1>
                     </div>
@@ -108,13 +108,13 @@ const TeacherHistory = () => {
                         <button
                             onClick={() => fetchHistoryList(activeTab)}
                             disabled={loading}
-                            className="bg-white text-gray-600 border border-gray-200 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-all flex items-center gap-2 disabled:opacity-50"
+                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:bg-gray-900 transition-all flex items-center gap-2 disabled:opacity-50"
                         >
                             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 刷新
                         </button>
                         <button
                             onClick={handleLogout}
-                            className="bg-white text-red-500 border border-red-100 px-4 py-2.5 rounded-xl font-medium hover:bg-red-50 transition-all flex items-center gap-2"
+                            className="bg-white dark:bg-gray-800 text-red-500 border border-red-100 px-4 py-2.5 rounded-xl font-medium hover:bg-red-50 dark:bg-red-900/30 transition-all flex items-center gap-2"
                         >
                             <LogOut size={16} /> 退出
                         </button>
@@ -123,24 +123,24 @@ const TeacherHistory = () => {
 
                 {/* 错误提示 */}
                 {error && (
-                    <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl flex items-center gap-2 border border-red-100">
+                    <div className="bg-red-50 dark:bg-red-900/30 text-red-600 px-4 py-3 rounded-xl flex items-center gap-2 border border-red-100">
                         <AlertCircle size={18} /> {error}
                     </div>
                 )}
 
                 {/* 2. 内容区区 (白底卡片) */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[600px]">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col min-h-[600px]">
 
                     {/* Tabs */}
-                    <div className="flex border-b border-gray-200">
+                    <div className="flex border-b border-gray-200 dark:border-gray-700">
                         <button
-                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'scenarios' ? 'bg-indigo-50 border-b-2 border-indigo-600 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}
+                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'scenarios' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:bg-gray-900'}`}
                             onClick={() => setActiveTab('scenarios')}
                         >
                             <MessageSquare size={20} /> 情景任务记录
                         </button>
                         <button
-                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'exams' ? 'bg-indigo-50 border-b-2 border-indigo-600 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}
+                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'exams' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:bg-gray-900'}`}
                             onClick={() => setActiveTab('exams')}
                         >
                             <FileText size={20} /> 试卷生成记录
@@ -157,7 +157,7 @@ const TeacherHistory = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                                        <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 dark:text-gray-500 border-b border-gray-200 dark:border-gray-700">
                                             <th className="p-4 font-medium rounded-tl-lg">任务编号</th>
                                             <th className="p-4 font-medium">主题</th>
                                             <th className="p-4 font-medium">难度设定</th>
@@ -165,19 +165,19 @@ const TeacherHistory = () => {
                                             <th className="p-4 font-medium rounded-tr-lg">发布时间</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                         {scenarios.length === 0 ? (
-                                            <tr><td colSpan="5" className="p-8 text-center text-gray-400">暂无情景任务发布记录</td></tr>
+                                            <tr><td colSpan="5" className="p-8 text-center text-gray-400 dark:text-gray-500">暂无情景任务发布记录</td></tr>
                                         ) : (
                                             scenarios.map(item => (
-                                                <tr key={item.id} className="hover:bg-indigo-50/50 transition-colors">
-                                                    <td className="p-4 text-sm font-mono text-gray-500">{item.code}</td>
-                                                    <td className="p-4 font-medium text-gray-800">{item.theme}</td>
+                                                <tr key={item.id} className="hover:bg-indigo-50 dark:bg-indigo-900/30/50 transition-colors">
+                                                    <td className="p-4 text-sm font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">{item.code}</td>
+                                                    <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{item.theme}</td>
                                                     <td className="p-4 text-sm">
-                                                        <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md text-xs font-bold">{item.difficulty}</span>
+                                                        <span className="bg-indigo-100 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-md text-xs font-bold">{item.difficulty}</span>
                                                     </td>
-                                                    <td className="p-4 text-sm text-gray-600">{item.persona}</td>
-                                                    <td className="p-4 text-sm text-gray-500">{formatDate(item.createdAt)}</td>
+                                                    <td className="p-4 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">{item.persona}</td>
+                                                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{formatDate(item.createdAt)}</td>
                                                 </tr>
                                             ))
                                         )}
@@ -188,7 +188,7 @@ const TeacherHistory = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                                        <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 dark:text-gray-500 border-b border-gray-200 dark:border-gray-700">
                                             <th className="p-4 font-medium rounded-tl-lg">试卷编号</th>
                                             <th className="p-4 font-medium">语法题数</th>
                                             <th className="p-4 font-medium">阅读题数</th>
@@ -197,23 +197,23 @@ const TeacherHistory = () => {
                                             <th className="p-4 font-medium text-center rounded-tr-lg">操作</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                         {exams.length === 0 ? (
-                                            <tr><td colSpan="6" className="p-8 text-center text-gray-400">暂无试卷生成记录</td></tr>
+                                            <tr><td colSpan="6" className="p-8 text-center text-gray-400 dark:text-gray-500">暂无试卷生成记录</td></tr>
                                         ) : (
                                             exams.map(item => (
-                                                <tr key={item.id} className="hover:bg-indigo-50/50 transition-colors">
-                                                    <td className="p-4 text-sm font-mono text-gray-500">{item.code}</td>
-                                                    <td className="p-4 text-gray-800">{item.grammarItems}道</td>
-                                                    <td className="p-4 text-gray-800">{item.writingItems}道</td>
-                                                    <td className="p-4 text-sm text-gray-600">
+                                                <tr key={item.id} className="hover:bg-indigo-50 dark:bg-indigo-900/30/50 transition-colors">
+                                                    <td className="p-4 text-sm font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">{item.code}</td>
+                                                    <td className="p-4 text-gray-800 dark:text-gray-200">{item.grammarItems}道</td>
+                                                    <td className="p-4 text-gray-800 dark:text-gray-200">{item.writingItems}道</td>
+                                                    <td className="p-4 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
                                                         {item.strategy === 'personalized' ? '智能个性化' : '默认题海'}
                                                     </td>
-                                                    <td className="p-4 text-sm text-gray-500">{formatDate(item.createdAt)}</td>
+                                                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{formatDate(item.createdAt)}</td>
                                                     <td className="p-4 text-center">
                                                         <button
                                                             onClick={() => handleViewExam(item.id)}
-                                                            className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
+                                                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
                                                         >
                                                             <Eye size={16} /> 查看
                                                         </button>
@@ -232,15 +232,15 @@ const TeacherHistory = () => {
             {/* 查看详情 Modal */}
             {modalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center px-4">
-                    <div className="bg-white w-full max-w-4xl rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
-                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                <FileText className="text-indigo-600" />
+                    <div className="bg-white dark:bg-gray-800 w-full max-w-4xl rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-t-2xl">
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                <FileText className="text-indigo-600 dark:text-indigo-400" />
                                 试卷内容预览
                             </h2>
                             <button
                                 onClick={() => setModalOpen(false)}
-                                className="text-gray-400 hover:text-gray-800 transition-colors p-1"
+                                className="text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 transition-colors p-1"
                             >
                                 ✕
                             </button>
@@ -252,24 +252,61 @@ const TeacherHistory = () => {
                                     <RefreshCw className="animate-spin mr-2" size={24} /> 解析试卷数据中...
                                 </div>
                             ) : currentExamContent ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-white text-gray-800 p-2">
-                                    {Object.entries(currentExamContent).map(([key, value]) => (
-                                        <div key={key} className="bg-indigo-50 p-4 rounded-xl flex flex-col gap-1 border border-indigo-100">
-                                            <span className="text-gray-500 font-medium">{key}</span>
-                                            <span className="font-semibold text-indigo-800 text-base">
-                                                {Array.isArray(value) ? (value.length > 0 ? value.join('、 ') : '全部/无特定') : value}
-                                            </span>
-                                        </div>
-                                    ))}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-2">
+                                    {Object.entries(currentExamContent).map(([key, value]) => {
+                                        if (key === '题目列表' && Array.isArray(value)) {
+                                            return (
+                                                <div key={key} className="col-span-1 md:col-span-2 space-y-4 mt-6">
+                                                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 border-l-4 border-indigo-600 pl-3">具体题目清单</h3>
+                                                    <div className="grid grid-cols-1 gap-4">
+                                                        {value.map((q, idx) => (
+                                                            <div key={q.id || idx} className="bg-white dark:bg-gray-700/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm hover:shadow-md transition-shadow">
+                                                                <div className="flex justify-between items-center mb-3">
+                                                                    <div className="flex gap-2">
+                                                                        <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${q.type === 'grammar' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'}`}>
+                                                                            {q.type === 'grammar' ? 'Grammatik' : 'Schreiben'}
+                                                                        </span>
+                                                                        <span className="text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full">ID: {q.id}</span>
+                                                                    </div>
+                                                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{q.score} 分</span>
+                                                                </div>
+                                                                <p className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3">{q.instruction}</p>
+                                                                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl text-sm leading-relaxed text-gray-700 dark:text-gray-300 border-l-3 border-indigo-200 dark:border-indigo-800 font-medium mb-3">
+                                                                    {q.content}
+                                                                </div>
+                                                                {q.options && (
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        {q.options.map(opt => (
+                                                                            <div key={opt} className="text-xs p-2 bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
+                                                                                {opt}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <div key={key} className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl flex flex-col gap-1 border border-indigo-100 dark:border-indigo-800/50">
+                                                <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium">{key}</span>
+                                                <span className="font-semibold text-indigo-800 dark:text-indigo-300 text-base">
+                                                    {Array.isArray(value) ? (value.length > 0 ? value.join('、 ') : '全部/无特定') : value}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ) : (
-                                <div className="flex justify-center items-center h-48 text-gray-500">
+                                <div className="flex justify-center items-center h-48 text-gray-500 dark:text-gray-400 dark:text-gray-500">
                                     无法加载试卷内容，可能该试卷格式解析失败。
                                 </div>
                             )}
                         </div>
 
-                        <div className="p-4 border-t border-gray-100 bg-white rounded-b-2xl flex justify-end">
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl flex justify-end">
                             <button
                                 onClick={() => setModalOpen(false)}
                                 className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-medium hover:bg-indigo-700 transition"

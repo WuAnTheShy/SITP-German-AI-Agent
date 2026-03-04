@@ -65,20 +65,20 @@ const ListeningSpeaking = () => {
     <StudentLayout>
       <div className="flex-1 overflow-y-auto p-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">🎧 德语听说训练</h1>
-          <p className="text-gray-500">听力磨耳朵 + 口语AI纠音，提升德语实战能力</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">🎧 德语听说训练</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500">听力磨耳朵 + 口语AI纠音，提升德语实战能力</p>
         </div>
 
         {/* 材料选择 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {loadingMaterials ? (
-            <p className="text-gray-400 col-span-full text-center py-8">加载听力材料中...</p>
+            <p className="text-gray-400 dark:text-gray-500 col-span-full text-center py-8">加载听力材料中...</p>
           ) : listeningMaterials.map(material => (
             <div key={material.id} onClick={() => setSelectedMaterial(material)}
-              className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedMaterial?.id === material.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+              className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedMaterial?.id === material.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 hover:shadow-sm dark:shadow-gray-900/50'
                 }`}>
-              <h3 className="font-bold text-gray-800 mb-2">{material.title}</h3>
-              <div className="flex gap-3 text-xs text-gray-500">
+              <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">{material.title}</h3>
+              <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">
                 <span>难度：{material.level}</span>
                 <span>时长：{material.duration}</span>
               </div>
@@ -88,25 +88,25 @@ const ListeningSpeaking = () => {
 
         {/* 练习区 */}
         {selectedMaterial && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-bold text-gray-700 mb-4">当前练习：{selectedMaterial.title}</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4">当前练习：{selectedMaterial.title}</h2>
             {loadingDetail ? (
-              <p className="text-gray-400 py-8 text-center">加载材料详情中...</p>
+              <p className="text-gray-400 dark:text-gray-500 py-8 text-center">加载材料详情中...</p>
             ) : materialDetail && (
               <>
                 {/* 听力播放 */}
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                   <audio src={materialDetail.audioUrl} controls className="w-full mb-3" />
                   <div>
-                    <h4 className="font-semibold text-gray-700 mb-1">听力原文：</h4>
-                    <p className="text-gray-600 leading-relaxed">{materialDetail.script}</p>
+                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">听力原文：</h4>
+                    <p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 leading-relaxed">{materialDetail.script}</p>
                   </div>
                 </div>
 
                 {/* 口语模仿 */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="font-bold text-gray-800 mb-2">🎤 模仿口语练习</h3>
-                  <p className="text-sm text-gray-500 mb-4">听完后，点击下方按钮开始录音，模仿刚才的内容</p>
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">🎤 模仿口语练习</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">听完后，点击下方按钮开始录音，模仿刚才的内容</p>
                   <button onClick={toggleRecording} disabled={submittingEval}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors ${recording ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'
                       } disabled:bg-gray-400`}>
@@ -114,8 +114,8 @@ const ListeningSpeaking = () => {
                   </button>
 
                   {audioUrl && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-semibold text-gray-700 mb-2">你的录音：</h4>
+                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                      <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">你的录音：</h4>
                       <audio src={audioUrl} controls className="w-full mb-3" />
                       <button onClick={handleAIEvaluation} disabled={submittingEval}
                         className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors font-medium">
@@ -125,7 +125,7 @@ const ListeningSpeaking = () => {
                   )}
 
                   {evaluationResult && (
-                    <div className="mt-6 p-6 bg-blue-50 rounded-xl border border-blue-200">
+                    <div className="mt-6 p-6 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-200">
                       <h3 className="font-bold text-blue-800 mb-4">📊 AI评分结果</h3>
                       <div className="grid grid-cols-4 gap-4 mb-4">
                         {[
@@ -134,15 +134,15 @@ const ListeningSpeaking = () => {
                           { label: '流利度', score: evaluationResult.fluencyScore },
                           { label: '语调匹配度', score: evaluationResult.intonationScore }
                         ].map((item, i) => (
-                          <div key={i} className="text-center p-3 bg-white rounded-lg">
-                            <p className="text-2xl font-bold text-blue-600">{item.score}</p>
-                            <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+                          <div key={i} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{item.score}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">{item.label}</p>
                           </div>
                         ))}
                       </div>
                       <div className="space-y-3">
-                        <div><h4 className="font-semibold text-gray-700">🔍 详细解析</h4><p className="text-gray-600 mt-1">{evaluationResult.analysis}</p></div>
-                        <div><h4 className="font-semibold text-gray-700">💡 改进建议</h4><p className="text-gray-600 mt-1">{evaluationResult.suggestion}</p></div>
+                        <div><h4 className="font-semibold text-gray-700 dark:text-gray-300">🔍 详细解析</h4><p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-1">{evaluationResult.analysis}</p></div>
+                        <div><h4 className="font-semibold text-gray-700 dark:text-gray-300">💡 改进建议</h4><p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-1">{evaluationResult.suggestion}</p></div>
                       </div>
                     </div>
                   )}

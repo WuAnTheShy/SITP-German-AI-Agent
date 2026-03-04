@@ -48,39 +48,39 @@ const TeacherAI = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-8">
             <div className="w-full max-w-5xl px-4 flex flex-col gap-6 h-[calc(100vh-4rem)]">
                 {/* 顶部 Header 区 */}
-                <div className="flex items-center gap-4 border-b border-gray-200 pb-4">
+                <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
                     <button
                         onClick={() => navigate('/teacher/dashboard')}
-                        className="bg-white p-2.5 rounded-full shadow hover:bg-gray-100 transition"
+                        className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:bg-gray-800 transition"
                         title="返回控制台"
                     >
-                        <ArrowLeft size={20} className="text-gray-600" />
+                        <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400 dark:text-gray-500" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            <Bot size={28} className="text-indigo-600" />
+                        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                            <Bot size={28} className="text-indigo-600 dark:text-indigo-400" />
                             AI 教研助手
                         </h1>
-                        <p className="text-sm text-gray-500 mt-1">智能分析学情，自动化教务辅助</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">智能分析学情，自动化教务辅助</p>
                     </div>
                 </div>
 
                 {/* 主题聊天框 */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 flex-1 flex flex-col overflow-hidden">
                     {/* 聊天内容区 */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50">
                         {messages.map((msg) => (
                             <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`flex items-start gap-4 max-w-3xl ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${msg.sender === 'user' ? 'bg-indigo-600' : 'bg-white border border-gray-100'}`}>
-                                        {msg.sender === 'user' ? <User size={20} className="text-white" /> : <Bot size={24} className="text-indigo-600" />}
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm dark:shadow-gray-900/50 ${msg.sender === 'user' ? 'bg-indigo-600' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
+                                        {msg.sender === 'user' ? <User size={20} className="text-white" /> : <Bot size={24} className="text-indigo-600 dark:text-indigo-400" />}
                                     </div>
-                                    <div className={`p-4 rounded-2xl text-base leading-relaxed whitespace-pre-wrap shadow-sm ${msg.sender === 'user'
+                                    <div className={`p-4 rounded-2xl text-base leading-relaxed whitespace-pre-wrap shadow-sm dark:shadow-gray-900/50 ${msg.sender === 'user'
                                         ? 'bg-indigo-600 text-white rounded-tr-none'
-                                        : 'bg-white border border-gray-100 rounded-tl-none text-gray-800'
+                                        : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-tl-none text-gray-800 dark:text-gray-200'
                                         }`}>
                                         {msg.text}
                                     </div>
@@ -90,10 +90,10 @@ const TeacherAI = () => {
                         {loading && (
                             <div className="flex justify-start">
                                 <div className="flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm">
-                                        <Bot size={24} className="text-indigo-600" />
+                                    <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center shadow-sm dark:shadow-gray-900/50">
+                                        <Bot size={24} className="text-indigo-600 dark:text-indigo-400" />
                                     </div>
-                                    <div className="p-4 bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-none text-gray-500 flex items-center gap-2">
+                                    <div className="p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-gray-400 dark:text-gray-500 flex items-center gap-2">
                                         <Loader2 className="animate-spin text-indigo-500" size={18} /> AI 助教正在分析您的需求...
                                     </div>
                                 </div>
@@ -103,11 +103,11 @@ const TeacherAI = () => {
                     </div>
 
                     {/* 提示词模板 */}
-                    <div className="p-4 bg-white border-t border-gray-100">
+                    <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
                         <div className="flex flex-wrap gap-3">
                             {promptTemplates.map((template, index) => (
                                 <button key={index} onClick={() => handleTemplateClick(template.text)}
-                                    className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-sm font-medium transition-colors flex items-center border border-indigo-100"
+                                    className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-400 rounded-xl text-sm font-medium transition-colors flex items-center border border-indigo-100 dark:border-indigo-800/50"
                                     disabled={loading}>
                                     {template.icon}
                                     {template.name}
@@ -117,17 +117,17 @@ const TeacherAI = () => {
                     </div>
 
                     {/* 下部输入区 */}
-                    <div className="p-5 bg-white border-t border-gray-100">
+                    <div className="p-5 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
                         <div className="flex max-w-5xl mx-auto items-center gap-3">
                             <input type="text" value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                                 placeholder={loading ? "正在处理请求..." : "输入您要咨询的教研问题或指令..."}
                                 disabled={loading}
-                                className="flex-1 px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all disabled:bg-gray-100 text-gray-700"
+                                className="flex-1 px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:bg-gray-800 transition-all disabled:bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                             />
                             <button onClick={handleSend} disabled={loading}
-                                className={`px-6 py-4 rounded-xl font-bold transition-colors shadow-sm flex items-center gap-2 ${loading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
+                                className={`px-6 py-4 rounded-xl font-bold transition-colors shadow-sm dark:shadow-gray-900/50 flex items-center gap-2 ${loading ? 'bg-gray-300 text-gray-500 dark:text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
                                 {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                                 发送
                             </button>

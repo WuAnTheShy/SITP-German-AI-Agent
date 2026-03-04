@@ -15,6 +15,8 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 // ---- 认证 ----
 export const API_LOGIN = `${API_BASE}/api/auth/login`;
 export const API_STUDENT_LOGIN = `${API_BASE}/api/auth/student-login`;
+export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
+export const API_TEACHER_REGISTER = `${API_BASE}/api/auth/teacher-register`;
 
 // ---- 教师仪表盘 ----
 export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
