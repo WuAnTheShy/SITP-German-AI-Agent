@@ -4,24 +4,276 @@
 
 * {
     user-select: none;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 body {
-    background-color: #F5F5F5; /* 浅灰背景，适合长时间阅读 */
+    background-color: #f8fafc;
+    transition: background-color 0.3s ease;
 }
 
-/* Toast 滑入动画 */
+.dark body {
+    background-color: #0f0f1a;
+}
+
+/* ═══════════ 渐变主题背景 (通用入口页) ═══════════ */
+/* 深色态 (原始默认状态，现改为 dark 类下的变体，或直接提供双态 class) */
+.bg-premium-dark {
+    background: linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 40%, #12122b 70%, #0a0a1f 100%);
+}
+
+.bg-premium-light {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 40%, #f5f3ff 70%, #ffffff 100%);
+}
+
+.theme-bg-premium {
+    @apply relative overflow-hidden transition-colors duration-500;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 40%, #f5f3ff 70%, #ffffff 100%);
+}
+
+.dark .theme-bg-premium {
+    background: linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 40%, #12122b 70%, #0a0a1f 100%);
+}
+
+/* ═══════════ 浮动德语字母粒子 ═══════════ */
+@keyframes floatUp {
+    0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 0.15;
+    }
+
+    90% {
+        opacity: 0.15;
+    }
+
+    100% {
+        transform: translateY(-10vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+.floating-particle {
+    position: absolute;
+    color: rgba(0, 0, 0, 0.04);
+    font-size: 1.5rem;
+    font-weight: 700;
+    pointer-events: none;
+    animation: floatUp linear infinite;
+}
+
+.dark .floating-particle {
+    color: rgba(255, 255, 255, 0.08);
+}
+
+/* ═══════════ 渐变光圈装饰 ═══════════ */
+.glow-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+}
+
+.glow-orb-1 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.2), transparent 70%);
+    top: -100px;
+    right: -100px;
+    animation: orbPulse 8s ease-in-out infinite;
+}
+
+.glow-orb-2 {
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.15), transparent 70%);
+    bottom: -80px;
+    left: -80px;
+    animation: orbPulse 10s ease-in-out infinite reverse;
+}
+
+.glow-orb-3 {
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.12), transparent 70%);
+    top: 40%;
+    left: 50%;
+    animation: orbPulse 12s ease-in-out infinite;
+}
+
+@keyframes orbPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+
+    50% {
+        transform: scale(1.3);
+        opacity: 1;
+    }
+}
+
+/* ═══════════ 玻璃态卡片 ═══════════ */
+/* 浅色卡片 */
+.glass-card-light {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* 深色卡片 */
+.glass-card-dark {
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.theme-glass-card {
+    @apply transition-all duration-300;
+    /* 默认浅色样式 */
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.dark .theme-glass-card {
+    /* 深色样式 */
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+
+/* ═══════════ 渐变按钮 ═══════════ */
+.btn-gradient-blue {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.btn-gradient-blue:hover {
+    box-shadow: 0 6px 25px rgba(59, 130, 246, 0.45);
+    transform: translateY(-1px);
+}
+
+.btn-gradient-indigo {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.btn-gradient-indigo:hover {
+    box-shadow: 0 6px 25px rgba(99, 102, 241, 0.45);
+    transform: translateY(-1px);
+}
+
+/* ═══════════ 输入框焦点渐变边框 ═══════════ */
+.input-glow:focus {
+    border-color: transparent;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 0 15px rgba(99, 102, 241, 0.15);
+}
+
+.input-glow-blue:focus {
+    border-color: transparent;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5), 0 0 15px rgba(59, 130, 246, 0.15);
+}
+
+/* ═══════════ 动画集合 ═══════════ */
 @keyframes slideInRight {
     from {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
     }
 }
 
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
 .animate-slide-in-right {
     animation: slideInRight 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out both;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.8s ease-out both;
+}
+
+/* 延迟动画 */
+.delay-100 {
+    animation-delay: 0.1s;
+}
+
+.delay-200 {
+    animation-delay: 0.2s;
+}
+
+.delay-300 {
+    animation-delay: 0.3s;
+}
+
+.delay-400 {
+    animation-delay: 0.4s;
+}
+
+.delay-500 {
+    animation-delay: 0.5s;
+}
+
+/* ═══════════ 微光效果 ═══════════ */
+.shimmer-text {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, 0.6) 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
 }

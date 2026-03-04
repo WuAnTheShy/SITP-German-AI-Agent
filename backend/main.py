@@ -110,6 +110,28 @@ _student_chat_history: list[types.Content] = []
 
 app = FastAPI()
 
+@app.on_event("startup")
+def startup_event():
+    from sqlalchemy import text
+    from db.session import engine
+    print("[Server] Checking for database migrations...")
+    try:
+        with engine.begin() as conn:
+            # 检查 content 字段是否已存在
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='exams' AND column_name='content';
+            """))
+            if not result.fetchone():
+                print("[Server] Missing 'content' column in 'exams' table. Applying patch...")
+                conn.execute(text("ALTER TABLE exams ADD COLUMN content JSONB DEFAULT '[]'::jsonb NOT NULL;"))
+                print("[Server] Database patch applied successfully.")
+            else:
+                print("[Server] Database schema is up to date.")
+    except Exception as e:
+        print(f"[Server] Database migration failed (might be handled by alembic): {e}")
+
 # ════════════════════ 2. 跨域中间件 ════════════════════
 
 app.add_middleware(
@@ -129,6 +151,14 @@ class ChatRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    display_name: str
+    class_code: str | None = None
+
 
 
 class ScenarioPublishRequest(BaseModel):
@@ -600,15 +630,41 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
         cfg = request.config or {}
 
         exam_code = f"EXM-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4]}"
+        grammar_count = int(cfg.get("grammarItems", 15))
+        writing_count = int(cfg.get("writingItems", 2))
+        
+        # ----------- 构造模拟具体题目（Mock Data） -----------
+        mock_questions = []
+        for i in range(grammar_count):
+            mock_questions.append({
+                "type": "grammar",
+                "id": f"G-{i+1}",
+                "instruction": f"语法题 {i+1}：请选择正确的选项填空。",
+                "content": f"Das ist ___ (ein) Buch, ___ ich gestern gekauft habe.",
+                "options": ["A. ein / das", "B. ein / was", "C. das / das", "D. das / was"],
+                "answer": "A",
+                "score": 2
+            })
+        for i in range(writing_count):
+            mock_questions.append({
+                "type": "writing",
+                "id": f"W-{i+1}",
+                "instruction": f"写作题 {i+1}：请根据以下情景进行写作。",
+                "content": "你的一位德国朋友即将来中国旅行，请给他写一封邮件，推荐几个必去的城市，并说明理由。字数要求：100-150词。",
+                "score": 15
+            })
+        # ----------------------------------------------------
+
         exam = ExamCRUD.create(
             db,
             ExamCreate(
                 exam_code=exam_code,
                 teacher_user_id=teacher.id,
-                grammar_items=int(cfg.get("grammarItems", 15)),
-                writing_items=int(cfg.get("writingItems", 2)),
+                grammar_items=grammar_count,
+                writing_items=writing_count,
                 strategy=cfg.get("strategy", "personalized"),
                 focus_areas=cfg.get("focusAreas", []),
+                content=mock_questions,
             ),
         )
 
@@ -682,7 +738,8 @@ def get_teacher_exam_detail(exam_id: int, request: Request = None, db: Session =
             "写作题数量": exam.writing_items,
             "出题策略": "智能个性化" if exam.strategy == 'personalized' else "统一出题",
             "重点考察区域": exam.focus_areas,
-            "生成时间": exam.created_at.isoformat()
+            "生成时间": exam.created_at.isoformat(),
+            "题目列表": exam.content
         }
         return ok(content)
     except Exception as e:
@@ -852,6 +909,128 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         }
     except Exception as e:
         return fail(f"登录失败: {e}")
+
+
+# ╔═══════════════════════════════════════════════════════╗
+# ║  7-1a. 学生注册                                      ║
+# ╚═══════════════════════════════════════════════════════╝
+
+
+@app.post("/api/auth/student-register")
+def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
+    try:
+        # 1. 检查用户名(学号)是否已存在
+        existing_user = UserCRUD.get_by_username(db, req.username)
+        if existing_user:
+            return fail("该学号已被注册", 409)
+
+        existing_student = StudentCRUD.get_by_uid(db, req.username)
+        if existing_student:
+            return fail("该学号已被注册", 409)
+
+        # 2. 确保默认班级存在
+        _ensure_demo_data(db)
+        class_code = req.class_code or "SE-2026-4"
+        classroom = ClassroomCRUD.get_by_code(db, class_code)
+        if not classroom:
+            return fail(f"班级 {class_code} 不存在", 404)
+
+        # 3. 创建 User 记录
+        user = UserCRUD.create(
+            db,
+            UserCreate(
+                username=req.username,
+                password_hash=req.password,
+                role="student",
+                display_name=req.display_name,
+            ),
+        )
+
+        # 4. 创建 Student 记录
+        student = StudentCRUD.create(
+            db,
+            StudentCreate(
+                uid=req.username,
+                user_id=user.id,
+                class_id=classroom.id,
+                name=req.display_name,
+                active_score=0,
+                overall_score=0,
+            ),
+        )
+
+        # 5. 初始化 StudentAbility
+        StudentAbilityCRUD.upsert(
+            db,
+            StudentAbilityUpsert(
+                student_id=student.id,
+                listening=0,
+                speaking=0,
+                reading=0,
+                writing=0,
+                ai_diagnosis=f"{req.display_name}刚注册，暂无学习数据。",
+            ),
+        )
+
+        return ok({"username": req.username, "name": req.display_name}, "注册成功")
+    except Exception as e:
+        return fail(f"注册失败: {e}")
+
+
+# ╔═══════════════════════════════════════════════════════╗
+# ║  7-1b. 教师注册                                      ║
+# ╚═══════════════════════════════════════════════════════╝
+
+
+@app.post("/api/auth/teacher-register")
+def teacher_register(req: RegisterRequest, db: Session = Depends(get_db)):
+    try:
+        # 1. 检查用户名(工号)是否已存在
+        existing_user = UserCRUD.get_by_username(db, req.username)
+        if existing_user:
+            return fail("该工号已被注册", 409)
+
+        # 2. 创建 User 记录
+        user = UserCRUD.create(
+            db,
+            UserCreate(
+                username=req.username,
+                password_hash=req.password,
+                role="teacher",
+                display_name=req.display_name,
+            ),
+        )
+
+        return ok({"username": req.username, "name": req.display_name}, "注册成功")
+    except Exception as e:
+        return fail(f"注册失败: {e}")
+
+
+
+# ╔═══════════════════════════════════════════════════════╗
+# ║  6-8. 教师端教研助手 AI 对话 (Teacher Chat)             ║
+# ╚═══════════════════════════════════════════════════════╝
+
+
+@app.post("/api/chat")
+async def teacher_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+    require_teacher(req, db)
+    print(f"收到教师端前端消息: {request.message}")
+    try:
+        global _teacher_chat_history
+        _teacher_chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=request.message)]))
+        response = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=_teacher_chat_history,
+            config=types.GenerateContentConfig(
+                system_instruction=_TEACHER_SYSTEM,
+            ),
+        )
+        _teacher_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
+        return {"reply": response.text}
+    except Exception as e:
+        print(f"Gemini调用失败(教师端): {e}")
+        return {"reply": "抱歉，教研助手遇到错误，请稍后再试。"}
 
 
 # ╔═══════════════════════════════════════════════════════╗

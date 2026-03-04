@@ -1,35 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { API_STUDENT_LOGIN } from '../../api/config';
-import { GraduationCap, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus } from 'lucide-react';
+import { API_STUDENT_REGISTER } from '../../api/config';
+import { GraduationCap, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus, CheckCircle, BookOpen } from 'lucide-react';
 
-// 浮动粒子数据（与首页统一设计语言）
 const PARTICLES = [
-    { text: 'Ä', left: '8%', duration: 20, delay: 0, size: '1.1rem' },
-    { text: 'Hallo', left: '18%', duration: 24, delay: 4, size: '0.85rem' },
-    { text: 'ß', left: '30%', duration: 19, delay: 7, size: '1.2rem' },
-    { text: 'Ö', left: '70%', duration: 22, delay: 2, size: '1rem' },
-    { text: 'Deutsch', left: '82%', duration: 26, delay: 6, size: '0.8rem' },
-    { text: 'Buch', left: '92%', duration: 23, delay: 10, size: '0.9rem' },
+    { text: 'Willkommen', left: '5%', duration: 22, delay: 0, size: '0.8rem' },
+    { text: 'Ü', left: '25%', duration: 20, delay: 4, size: '1.2rem' },
+    { text: 'Lernen', left: '50%', duration: 24, delay: 8, size: '0.85rem' },
+    { text: 'ß', left: '75%', duration: 19, delay: 2, size: '1.3rem' },
+    { text: 'Anfang', left: '90%', duration: 23, delay: 6, size: '0.9rem' },
 ];
 
-const StudentLogin = () => {
+const StudentRegister = () => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
 
-    // 🔐 验证码状态
     const [captcha, setCaptcha] = useState({ code: '', dataUrl: '' });
 
     const [formData, setFormData] = useState({
         studentId: '',
+        displayName: '',
         password: '',
+        confirmPassword: '',
         captchaInput: ''
     });
 
-    // 🎨 图形验证码生成逻辑
     const refreshCaptcha = () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let code = '';
@@ -62,7 +62,6 @@ const StudentLogin = () => {
             const x = startX + i * 25;
             const y = canvas.height / 2 + (Math.random() - 0.5) * 10;
             const angle = (Math.random() - 0.5) * 0.5;
-
             ctx.translate(x, y);
             ctx.rotate(angle);
             ctx.fillStyle = `hsl(${200 + Math.random() * 60}, 80%, 70%)`;
@@ -70,7 +69,7 @@ const StudentLogin = () => {
             ctx.restore();
         }
 
-        setCaptcha({ code: code, dataUrl: canvas.toDataURL() });
+        setCaptcha({ code, dataUrl: canvas.toDataURL() });
     };
 
     useEffect(() => {
@@ -82,6 +81,19 @@ const StudentLogin = () => {
         setLoading(true);
         setError('');
 
+        // 前端验证
+        if (formData.password.length < 6) {
+            setError('密码长度不能少于6位');
+            setLoading(false);
+            return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+            setError('两次输入的密码不一致');
+            setLoading(false);
+            return;
+        }
+
         if (formData.captchaInput.toUpperCase() !== captcha.code) {
             setError('验证码错误，请重新输入');
             setLoading(false);
@@ -91,41 +103,28 @@ const StudentLogin = () => {
         }
 
         try {
-            const response = await request.post(API_STUDENT_LOGIN, {
+            const response = await request.post(API_STUDENT_REGISTER, {
                 username: formData.studentId,
-                password: formData.password
+                password: formData.password,
+                display_name: formData.displayName,
             });
 
             if (response.data.code !== 200) {
-                throw new Error(response.data.message || '登录失败');
+                throw new Error(response.data.message || '注册失败');
             }
 
-            let token = response.data.token || response.data.data?.token;
-            let mockUser = response.data.user || response.data.data?.user;
-
-            if (!token) {
-                throw new Error("登录成功，但未找到登录凭证");
-            }
-
-            const displayUser = {
-                ...mockUser,
-                id: formData.studentId,
-                name: mockUser.name,
-                role: 'student'
-            };
-
-            localStorage.setItem('authToken', token);
-            localStorage.setItem('userInfo', JSON.stringify(displayUser));
-
-            navigate(`/student/${displayUser.id}/home`);
+            setSuccess(true);
+            setTimeout(() => {
+                navigate('/student/login');
+            }, 2000);
 
         } catch (err) {
-            console.error('🔴 学生登录错误:', err);
+            console.error('🔴 学生注册错误:', err);
             refreshCaptcha();
             setFormData(prev => ({ ...prev, captchaInput: '' }));
 
             if (err.response) {
-                setError(`登录失败: ${err.response.data.message || '账号或密码错误'}`);
+                setError(`注册失败: ${err.response.data?.message || err.response.data?.detail || '服务器错误'}`);
             } else if (err.request) {
                 setError('无法连接服务器 (网络/跨域错误)');
             } else {
@@ -136,13 +135,29 @@ const StudentLogin = () => {
         }
     };
 
+    // 注册成功界面
+    if (success) {
+        return (
+            <div className="min-h-screen theme-bg-premium flex flex-col items-center justify-center p-4 relative">
+                <div className="glow-orb glow-orb-1" />
+                <div className="glow-orb glow-orb-2" />
+                <div className="theme-glass-card rounded-2xl p-10 text-center relative z-10 animate-fade-in-up max-w-md w-full">
+                    <div className="h-20 w-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle className="text-green-500 dark:text-green-400 h-10 w-10" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">注册成功！</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-1">Registrierung erfolgreich!</p>
+                    <p className="text-gray-500 text-sm mt-4">正在跳转到登录页面...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen theme-bg-premium flex flex-col items-center justify-center p-4 relative">
-            {/* 光圈装饰 */}
             <div className="glow-orb glow-orb-1" />
             <div className="glow-orb glow-orb-2" />
 
-            {/* 浮动粒子 */}
             {PARTICLES.map((p, i) => (
                 <span
                     key={i}
@@ -158,31 +173,30 @@ const StudentLogin = () => {
                 </span>
             ))}
 
-            {/* 返回首页 */}
+            {/* 返回 */}
             <div className="w-full max-w-md mb-6 relative z-10 animate-fade-in">
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/student/login')}
                     className="flex items-center text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-sm font-medium"
                 >
-                    <ArrowLeft size={16} className="mr-1" /> 返回首页
+                    <ArrowLeft size={16} className="mr-1" /> 返回登录
                 </button>
             </div>
 
             {/* Logo + 标题 */}
             <div className="text-center mb-8 relative z-10 animate-fade-in-up">
                 <div className="flex justify-center mb-4">
-                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/30 transform rotate-3">
-                        <GraduationCap className="text-white h-8 w-8" />
+                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/30 transform -rotate-3">
+                        <UserPlus className="text-white h-8 w-8" />
                     </div>
                 </div>
-                <h2 className="text-3xl font-extrabold text-gray-800 dark:text-white">学生端登录</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Student Login · Anmeldung</p>
+                <h2 className="text-3xl font-extrabold text-gray-800 dark:text-white">学生注册</h2>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Student Registration · Registrierung</p>
             </div>
 
-            {/* 登录表单卡片 */}
+            {/* 注册表单 */}
             <div className="w-full max-w-md relative z-10 animate-fade-in-up delay-200">
                 <div className="theme-glass-card rounded-2xl py-8 px-6 sm:px-10">
-                    {/* 错误提示 */}
                     {error && (
                         <div className="mb-5 bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex items-start">
                             <AlertCircle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" />
@@ -190,16 +204,16 @@ const StudentLogin = () => {
                         </div>
                     )}
 
-                    <form className="space-y-5" onSubmit={handleSubmit}>
-                        {/* 学号输入框 */}
+                    <form className="space-y-4" onSubmit={handleSubmit}>
+                        {/* 学号 */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">学号 / Student ID</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                    <User className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                    <BookOpen className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                                 </div>
                                 <input
-                                    id="input-student-id"
+                                    id="input-reg-student-id"
                                     type="text"
                                     required
                                     className="input-glow-blue block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm transition-all"
@@ -210,7 +224,26 @@ const StudentLogin = () => {
                             </div>
                         </div>
 
-                        {/* 密码输入框 */}
+                        {/* 姓名 */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">姓名 / Name</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <User className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                </div>
+                                <input
+                                    id="input-reg-student-name"
+                                    type="text"
+                                    required
+                                    className="input-glow-blue block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm transition-all"
+                                    placeholder="请输入姓名"
+                                    value={formData.displayName}
+                                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        {/* 密码 */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">密码 / Passwort</label>
                             <div className="relative">
@@ -218,11 +251,11 @@ const StudentLogin = () => {
                                     <Lock className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                                 </div>
                                 <input
-                                    id="input-student-password"
+                                    id="input-reg-student-password"
                                     type={showPassword ? "text" : "password"}
                                     required
                                     className="input-glow-blue block w-full pl-11 pr-11 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm transition-all"
-                                    placeholder="请输入密码"
+                                    placeholder="至少6位密码"
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 />
@@ -234,7 +267,31 @@ const StudentLogin = () => {
                             </div>
                         </div>
 
-                        {/* 验证码区域 */}
+                        {/* 确认密码 */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">确认密码 / Bestätigen</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <Lock className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                </div>
+                                <input
+                                    id="input-reg-student-confirm"
+                                    type={showConfirm ? "text" : "password"}
+                                    required
+                                    className="input-glow-blue block w-full pl-11 pr-11 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm transition-all"
+                                    placeholder="再次输入密码"
+                                    value={formData.confirmPassword}
+                                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                />
+                                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center">
+                                    <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
+                                        {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 验证码 */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">验证码 / Captcha</label>
                             <div className="flex gap-3">
@@ -243,7 +300,7 @@ const StudentLogin = () => {
                                         <ShieldCheck className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                                     </div>
                                     <input
-                                        id="input-student-captcha"
+                                        id="input-reg-student-captcha"
                                         type="text"
                                         required
                                         maxLength={4}
@@ -266,34 +323,28 @@ const StudentLogin = () => {
                             </div>
                         </div>
 
-                        {/* 登录按钮 */}
+                        {/* 注册按钮 */}
                         <button
-                            id="btn-student-login"
+                            id="btn-student-register"
                             type="submit"
                             disabled={loading}
-                            className={`w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white btn-gradient-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            className={`w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white btn-gradient-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 mt-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录 / Anmelden</span>}
+                            {loading ? '注册中...' : <span className="flex items-center"><UserPlus className="mr-2 h-5 w-5" /> 注册 / Registrieren</span>}
                         </button>
                     </form>
 
-                    {/* 注册入口 */}
+                    {/* 登录入口 */}
                     <div className="mt-6 pt-5 border-t border-gray-200 dark:border-white/10 text-center">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            没有账号？
+                            已有账号？
                             <button
-                                id="link-student-register"
-                                onClick={() => navigate('/student/register')}
-                                className="ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-semibold transition-colors inline-flex items-center gap-1"
+                                onClick={() => navigate('/student/login')}
+                                className="ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-semibold transition-colors"
                             >
-                                <UserPlus size={14} />
-                                立即注册
+                                立即登录
                             </button>
                         </p>
-                    </div>
-
-                    <div className="mt-4 text-center text-xs text-gray-400 dark:text-gray-600">
-                        点击图片可刷新验证码
                     </div>
                 </div>
             </div>
@@ -301,4 +352,4 @@ const StudentLogin = () => {
     );
 };
 
-export default StudentLogin;
+export default StudentRegister;

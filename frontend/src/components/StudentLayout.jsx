@@ -42,10 +42,10 @@ const StudentLayout = ({ children }) => {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* 左侧导航栏 */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
-        <div className="p-6 border-b border-gray-100">
+      <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0">
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
             <Bot size={24} /> AI-Tutor
           </h2>
@@ -59,8 +59,8 @@ const StudentLayout = ({ children }) => {
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-colors ${isActive
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:bg-gray-900"
                   }`}
               >
                 <Icon size={18} /> {item.label}
@@ -68,19 +68,19 @@ const StudentLayout = ({ children }) => {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-gray-100 flex flex-col gap-3">
+        <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
               {initials}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold text-gray-700 truncate">{userName}</p>
-              <p className="text-xs text-gray-400">在线活跃中</p>
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">{userName}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">在线活跃中</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all border border-red-100 shadow-sm"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 rounded-xl transition-all border border-red-100 shadow-sm dark:shadow-gray-900/50"
           >
             <LogOut size={18} /> 退出登录
           </button>

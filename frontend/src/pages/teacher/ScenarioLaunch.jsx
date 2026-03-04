@@ -68,18 +68,18 @@ const ScenarioLaunch = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 p-8">
-            <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+            <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {/* 顶部导航 */}
-                <div className="p-6 border-b border-gray-100 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 dark:text-gray-500 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <MessageSquare className="text-purple-600" /> 发布情景模拟任务
                         </h1>
-                        <p className="text-sm text-gray-500">配置 AI 陪练角色与场景参数</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">配置 AI 陪练角色与场景参数</p>
                     </div>
                 </div>
 
@@ -87,15 +87,15 @@ const ScenarioLaunch = () => {
                 <div className="p-8 space-y-8">
                     {/* 1. 主题选择 (点击卡片切换状态) */}
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-3">选择情景主题 (Szenario)</label>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">选择情景主题 (Szenario)</label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {THEMES.map((theme) => (
                                 <div
                                     key={theme}
                                     onClick={() => setSelectedTheme(theme)}
                                     className={`relative group cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${selectedTheme === theme
-                                        ? 'border-purple-600 bg-purple-50 text-purple-700'
-                                        : 'border-gray-200 hover:border-purple-200 text-gray-700'
+                                        ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/30 text-purple-700'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-purple-200 text-gray-700 dark:text-gray-300'
                                         }`}
                                 >
                                     <div className="font-medium">{theme}</div>
@@ -112,11 +112,11 @@ const ScenarioLaunch = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* 2. 难度等级 (Select 变更状态) */}
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">难度等级 (Niveau)</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">难度等级 (Niveau)</label>
                             <select
                                 value={difficulty}
                                 onChange={(e) => setDifficulty(e.target.value)}
-                                className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
+                                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:bg-white dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
                             >
                                 {LEVELS.map(level => <option key={level} value={level}>{level}</option>)}
                             </select>
@@ -124,11 +124,11 @@ const ScenarioLaunch = () => {
 
                         {/* 3. AI 性格 (Select 变更状态) */}
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">AI 角色性格</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">AI 角色性格</label>
                             <select
                                 value={persona}
                                 onChange={(e) => setPersona(e.target.value)}
-                                className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
+                                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:bg-white dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
                             >
                                 {PERSONAS.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
@@ -136,37 +136,37 @@ const ScenarioLaunch = () => {
                     </div>
 
                     {/* 4. 训练目标 (Checkbox 变更状态) */}
-                    <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
+                    <div className="bg-purple-50 dark:bg-purple-900/30 p-6 rounded-xl border border-purple-100">
                         <label className="block text-sm font-bold text-purple-900 mb-3">训练目标设定</label>
                         <div className="space-y-3">
-                            <label className="flex items-center gap-3 bg-white p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm transition-shadow select-none">
+                            <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
                                     type="checkbox"
                                     checked={goals.perfectTense}
                                     onChange={(e) => setGoals({ ...goals, perfectTense: e.target.checked })}
                                     className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
                                 />
-                                <span className="text-sm text-gray-700">强制使用完成时态 (Perfekt)</span>
+                                <span className="text-sm text-gray-700 dark:text-gray-300">强制使用完成时态 (Perfekt)</span>
                             </label>
-                            <label className="flex items-center gap-3 bg-white p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm transition-shadow select-none">
+                            <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
                                     type="checkbox"
                                     checked={goals.b1Vocab}
                                     onChange={(e) => setGoals({ ...goals, b1Vocab: e.target.checked })}
                                     className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
                                 />
-                                <span className="text-sm text-gray-700">包含至少 5 个 B1 级词汇</span>
+                                <span className="text-sm text-gray-700 dark:text-gray-300">包含至少 5 个 B1 级词汇</span>
                             </label>
                         </div>
                     </div>
                 </div>
 
                 {/* 底部按钮 */}
-                <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3">
                     <button
                         onClick={() => navigate(-1)}
                         disabled={isProcessing}
-                        className="px-6 py-2.5 text-gray-500 hover:bg-gray-200 rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
                     >
                         取消
                     </button>

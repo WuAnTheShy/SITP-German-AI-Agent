@@ -59,7 +59,7 @@ const StudentHome = () => {
                 </div>
                 <div className={`p-4 rounded-2xl whitespace-pre-wrap ${msg.sender === 'user'
                   ? 'bg-blue-600 text-white rounded-tr-none'
-                  : 'bg-white border border-gray-200 shadow-sm rounded-tl-none text-gray-800'
+                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-gray-200'
                   }`}>
                   {msg.text}
                 </div>
@@ -72,7 +72,7 @@ const StudentHome = () => {
                 <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
                   <Bot size={16} className="text-white" />
                 </div>
-                <div className="p-4 bg-white border border-gray-200 shadow-sm rounded-2xl rounded-tl-none text-gray-500 flex items-center gap-2">
+                <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-gray-400 dark:text-gray-500 flex items-center gap-2">
                   <Loader2 className="animate-spin" size={16} /> AI 正在思考...
                 </div>
               </div>
@@ -82,8 +82,8 @@ const StudentHome = () => {
         </div>
 
         {/* 提示词模板 */}
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">📋 选择提示词模板</h3>
+        <div className="p-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📋 选择提示词模板</h3>
           <div className="flex flex-wrap gap-2">
             {promptTemplates.map((template, index) => (
               <button key={index} onClick={() => handleTemplateClick(template.text)}
@@ -96,25 +96,25 @@ const StudentHome = () => {
         </div>
 
         {/* 输入区 */}
-        <div className="p-4 bg-white border-t border-gray-200">
+        <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
           <div className="max-w-4xl mx-auto relative">
             <input type="text" value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
               placeholder={loading ? "请等待 AI 回复..." : "请输入德语与 AI 对话..."}
               disabled={loading}
-              className="w-full pl-4 pr-32 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all disabled:bg-gray-100"
+              className="w-full pl-4 pr-32 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-800 transition-all disabled:bg-gray-100 dark:bg-gray-800"
             />
             <div className="absolute right-2 top-2 bottom-2 flex items-center gap-1">
-              <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><ImageIcon size={20} /></button>
-              <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Mic size={20} /></button>
+              <button className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-900/30 rounded-lg transition-colors"><ImageIcon size={20} /></button>
+              <button className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-900/30 rounded-lg transition-colors"><Mic size={20} /></button>
               <button onClick={handleSend} disabled={loading}
-                className={`p-2 rounded-lg transition-colors shadow-sm ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                className={`p-2 rounded-lg transition-colors shadow-sm dark:shadow-gray-900/50 ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                 {loading ? <Loader2 size={18} className="animate-spin text-white" /> : <Send size={18} />}
               </button>
             </div>
           </div>
-          <p className="text-center text-xs text-gray-400 mt-2">AI 可能会生成错误信息，请核对重要知识点。</p>
+          <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-2">AI 可能会生成错误信息，请核对重要知识点。</p>
         </div>
       </div>
     </StudentLayout>
