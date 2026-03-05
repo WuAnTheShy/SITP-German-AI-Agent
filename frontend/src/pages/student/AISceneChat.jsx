@@ -21,7 +21,10 @@ const AISceneChat = () => {
   });
   const [messages, setMessages] = useState(() => {
     try {
-      const saved = sessionStorage.getItem("sceneChat_messages");
+      const scene = sessionStorage.getItem("sceneChat_scene");
+      if (!scene) return [];
+      const sceneId = JSON.parse(scene).id;
+      const saved = sessionStorage.getItem(`sceneChat_messages_${sceneId}`);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -29,10 +32,15 @@ const AISceneChat = () => {
   });
   const [inputMsg, setInputMsg] = useState("");
 
-  // 消息 / 场景变化时保存到 sessionStorage，切换页面后可恢复
+  // 消息变化时按当前场景 ID 保存，切换场景 / 页面后可恢复
   useEffect(() => {
-    sessionStorage.setItem("sceneChat_messages", JSON.stringify(messages));
-  }, [messages]);
+    if (selectedScene) {
+      sessionStorage.setItem(
+        `sceneChat_messages_${selectedScene.id}`,
+        JSON.stringify(messages),
+      );
+    }
+  }, [messages, selectedScene]);
   useEffect(() => {
     sessionStorage.setItem("sceneChat_scene", JSON.stringify(selectedScene));
   }, [selectedScene]);
@@ -42,6 +50,19 @@ const AISceneChat = () => {
 
   const handleSelectScene = (scene) => {
     setSelectedScene(scene);
+    // 尝试加载该场景的历史记录，没有则显示欢迎语
+    try {
+      const saved = sessionStorage.getItem(`sceneChat_messages_${scene.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) {
+          setMessages(parsed);
+          return;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     setMessages([
       {
         sender: "AI",
