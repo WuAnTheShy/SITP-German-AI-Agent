@@ -41,7 +41,7 @@ const AISceneChat = () => {
     try {
       const response = await request.post(API_SCENE_CHAT, {
         sceneId: selectedScene.id, sceneName: selectedScene.name, userMessage: userContent
-      });
+      }, { timeout: 60000 });
       const data = response.data;
       if (data.code === 200) {
         setMessages(prev => [...prev, {
@@ -81,8 +81,8 @@ const AISceneChat = () => {
             {chatScenes.map(scene => (
               <button key={scene.id} onClick={() => handleSelectScene(scene)}
                 className={`px-4 py-3 rounded-lg border-2 text-left transition-all ${selectedScene?.id === scene.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 text-gray-700 dark:text-gray-300'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 text-gray-700 dark:text-gray-300'
                   }`}>
                 <strong className="block text-sm">{scene.name}</strong>
                 <span className="text-xs opacity-70">{scene.desc}</span>
@@ -107,8 +107,8 @@ const AISceneChat = () => {
                     </div>
                     <div>
                       <div className={`p-3 rounded-2xl whitespace-pre-wrap ${msg.sender === '我' ? 'bg-blue-600 text-white rounded-tr-none'
-                          : msg.sender === '系统' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-tl-none'
-                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-gray-200'
+                        : msg.sender === '系统' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-tl-none'
+                          : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-gray-200'
                         }`}>
                         {msg.content}
                       </div>

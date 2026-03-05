@@ -494,25 +494,36 @@ def _ensure_demo_data(db: Session):
 
 
 @app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
     # 教师端 AI 对话需要教师权限
     require_teacher(req, db)
-    print(f"收到前端消息: {request.message}")
+    print(f"[教师AI] 收到前端消息: {request.message}", flush=True)
     try:
         global _teacher_chat_history
-        _teacher_chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=request.message)]))
+        # 限制历史长度，防止 token 超限导致请求变慢或失败
+        if len(_teacher_chat_history) > 20:
+            _teacher_chat_history = _teacher_chat_history[-20:]
+        
+        user_content = types.Content(role="user", parts=[types.Part.from_text(text=request.message)])
+        contents_to_send = _teacher_chat_history + [user_content]
+        
+        print(f"[教师AI] 开始调用 Gemini API (历史消息数: {len(_teacher_chat_history)})...", flush=True)
         response = _gemini_client.models.generate_content(
             model=_MODEL_ID,
-            contents=_teacher_chat_history,
+            contents=contents_to_send,
             config=types.GenerateContentConfig(
                 system_instruction=_TEACHER_SYSTEM,
+                http_options={"timeout": 90_000},
             ),
         )
+        print(f"[教师AI] Gemini API 返回成功", flush=True)
+        # 仅在成功后才更新历史，避免历史被污染
+        _teacher_chat_history.append(user_content)
         _teacher_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
         return {"reply": response.text}
     except Exception as e:
-        print(f"Gemini调用失败: {e}")
-        return {"reply": "Entschuldigung, ich habe ein Problem. (AI出错了)"}
+        print(f"[教师AI] Gemini调用失败: {type(e).__name__}: {e}", flush=True)
+        return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {type(e).__name__}"}
 
 
 @app.post("/api/auth/login")
@@ -1039,24 +1050,35 @@ async def teacher_chat_endpoint(request: ChatRequest, req: Request = None, db: S
 
 
 @app.post("/api/student/chat")
-async def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
     require_student(req, db)
-    print(f"收到学生端前端消息: {request.message}")
+    print(f"[学生AI] 收到前端消息: {request.message}", flush=True)
     try:
         global _student_chat_history
-        _student_chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=request.message)]))
+        # 限制历史长度，防止 token 超限导致请求变慢或失败
+        if len(_student_chat_history) > 20:
+            _student_chat_history = _student_chat_history[-20:]
+        
+        user_content = types.Content(role="user", parts=[types.Part.from_text(text=request.message)])
+        contents_to_send = _student_chat_history + [user_content]
+        
+        print(f"[学生AI] 开始调用 Gemini API...", flush=True)
         response = _gemini_client.models.generate_content(
             model=_MODEL_ID,
-            contents=_student_chat_history,
+            contents=contents_to_send,
             config=types.GenerateContentConfig(
                 system_instruction=_STUDENT_SYSTEM,
+                http_options={"timeout": 90_000},
             ),
         )
+        print(f"[学生AI] Gemini API 返回成功", flush=True)
+        # 仅在成功后才更新历史，避免历史被污染
+        _student_chat_history.append(user_content)
         _student_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
         return {"reply": response.text}
     except Exception as e:
-        print(f"Gemini调用失败: {e}")
-        return {"reply": "Entschuldigung, ich habe ein Problem. (AI出错了)"}
+        print(f"[学生AI] Gemini调用失败: {type(e).__name__}: {e}", flush=True)
+        return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {type(e).__name__}"}
 
 
 # ╔═══════════════════════════════════════════════════════╗

@@ -15,7 +15,7 @@ const WritingAssistant = () => {
     setIsChecking(true);
     setCorrectionResult(null);
     try {
-      const response = await request.post(API_WRITING_CHECK, { userText: userText.trim() });
+      const response = await request.post(API_WRITING_CHECK, { userText: userText.trim() }, { timeout: 60000 });
       const res = response.data;
       if (res.code === 200) { setCorrectionResult(res.data); }
       else { alert(res.message || "语法检查失败，请稍后重试"); }
@@ -30,7 +30,7 @@ const WritingAssistant = () => {
     setIsGenerating(true);
     setSampleEssay('');
     try {
-      const response = await request.post(API_WRITING_SAMPLE, { userText: userText.trim() });
+      const response = await request.post(API_WRITING_SAMPLE, { userText: userText.trim() }, { timeout: 60000 });
       const res = response.data;
       if (res.code === 200) { setSampleEssay(res.data.sampleEssay); }
       else { alert(res.message || "范文生成失败，请稍后重试"); }

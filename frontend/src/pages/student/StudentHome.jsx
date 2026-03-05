@@ -32,14 +32,17 @@ const StudentHome = () => {
     setInput('');
     setLoading(true);
     try {
-      const response = await request.post(API_STUDENT_CHAT, { message: userText });
+      const response = await request.post(API_STUDENT_CHAT, { message: userText }, { timeout: 60000 });
       const data = response.data;
       setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: data.reply }]);
     } catch (error) {
       console.error("请求失败:", error);
+      const isTimeout = error.code === 'ECONNABORTED';
       setMessages(prev => [...prev, {
         id: Date.now() + 1, sender: 'ai',
-        text: '⚠️ 连接失败。请确认后端服务是否正常运行。'
+        text: isTimeout
+          ? '⚠️ AI 响应超时，请稍后重试。'
+          : '⚠️ 连接失败。请确认后端服务是否正常运行。'
       }]);
     } finally {
       setLoading(false);
