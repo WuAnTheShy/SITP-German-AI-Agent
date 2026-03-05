@@ -56,7 +56,7 @@ const FavoritesPage = () => {
   const handleAIExtend = async (item) => {
     setAiLoading(true);
     try {
-      const res = await request.post(API_FAVORITES_AI_EXTEND, { content: item.content, type: selectedType });
+      const res = await request.post(API_FAVORITES_AI_EXTEND, { content: item.content, type: selectedType }, { timeout: 60000 });
       if (res.data.code === 200) alert(`🤖 AI拓展学习：\n${res.data.data.extendContent}`);
       else alert(res.data.message || 'AI拓展生成失败');
     } catch (err) { alert('网络错误，AI拓展生成失败'); }
