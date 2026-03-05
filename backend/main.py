@@ -1142,8 +1142,32 @@ def vocab_collect(req: VocabCollectReq, request: Request, db: Session = Depends(
             StudentVocabCollectionCRUD.collect(
                 db, StudentVocabCollectionCreate(student_id=student.id, vocab_id=req.vocabId)
             )
+            # ── 同步写入收藏夹（favorites 表），使"我的收藏"页面可见 ──
+            vocab = VocabularyCRUD.get_by_id(db, req.vocabId)
+            vocab_cat = FavoriteCategoryCRUD.get_by_type(db, "vocab")
+            if vocab and vocab_cat:
+                # 避免重复插入：检查是否已存在同内容收藏
+                existing_favs = FavoriteCRUD.list_by_student_and_category(db, student.id, vocab_cat.id)
+                already_exists = any(f.content == vocab.german for f in existing_favs)
+                if not already_exists:
+                    FavoriteCRUD.create(db, FavoriteCreate(
+                        student_id=student.id,
+                        category_id=vocab_cat.id,
+                        content=vocab.german,
+                        translate=vocab.chinese,
+                        note=vocab.example,
+                    ))
         else:
             StudentVocabCollectionCRUD.uncollect(db, student.id, req.vocabId)
+            # ── 同步从收藏夹删除 ──
+            vocab = VocabularyCRUD.get_by_id(db, req.vocabId)
+            vocab_cat = FavoriteCategoryCRUD.get_by_type(db, "vocab")
+            if vocab and vocab_cat:
+                existing_favs = FavoriteCRUD.list_by_student_and_category(db, student.id, vocab_cat.id)
+                for f in existing_favs:
+                    if f.content == vocab.german:
+                        FavoriteCRUD.delete(db, f.id)
+                        break
         return ok(None, "操作成功")
     except Exception as e:
         return fail(f"收藏操作失败: {e}")
@@ -1558,6 +1582,17 @@ def favorites_delete(fav_id: int, request: Request, db: Session = Depends(get_db
             return fail("收藏不存在", 404)
         if fav.student_id != student.id:
             return fail("无权操作该收藏", 403)
+
+        # ── 若删除的是词汇类收藏，同步清除 student_vocab_collections 记录 ──
+        vocab_cat = FavoriteCategoryCRUD.get_by_type(db, "vocab")
+        if vocab_cat and fav.category_id == vocab_cat.id:
+            # 按 content(德语单词) 反查词汇表，找到 vocab_id 后取消收藏
+            all_vocabs = VocabularyCRUD.list_all(db)
+            for v in all_vocabs:
+                if v.german == fav.content:
+                    StudentVocabCollectionCRUD.uncollect(db, student.id, v.id)
+                    break
+
         FavoriteCRUD.delete(db, fav_id)
         return ok(None, "删除成功")
     except Exception as e:
