@@ -33,7 +33,7 @@ const ExamGenerator = () => {
         console.log('[Client] 正在请求生成试卷:', payload);
 
         try {
-            const response = await request.post(API_EXAM_GENERATE, payload);
+            const response = await request.post(API_EXAM_GENERATE, payload, { timeout: 90000 });
 
             if (response.data.code === 200) {
                 const { examId, studentCount } = response.data.data || {};
