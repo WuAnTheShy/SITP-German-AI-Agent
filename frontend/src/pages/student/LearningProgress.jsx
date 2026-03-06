@@ -104,13 +104,13 @@ const LearningProgress = () => {
                 {learnStats.knowledge.length === 0 ? (
                   <p className="text-center text-gray-400 dark:text-gray-500 py-8 col-span-full">暂无知识点学习数据</p>
                 ) : learnStats.knowledge.map((item, index) => (
-                  <div key={index} className={`p-4 rounded-xl border-2 ${item.level === '熟练' ? 'border-green-300 bg-green-50 dark:bg-green-900/30' :
-                      item.level === '一般' ? 'border-yellow-300 bg-yellow-50' :
-                        'border-red-300 bg-red-50 dark:bg-red-900/30'
+                  <div key={index} className={`p-4 rounded-xl border-2 transition-all duration-300 ${item.level === '熟练' ? 'border-green-300 dark:border-green-900/50 bg-green-50 dark:bg-green-900/30' :
+                    item.level === '一般' ? 'border-yellow-300 dark:border-yellow-900/50 bg-yellow-50 dark:bg-yellow-900/20' :
+                      'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/30'
                     }`}>
                     <div className="font-medium text-gray-800 dark:text-gray-200">{item.name}</div>
-                    <div className={`text-sm font-bold mt-1 ${item.level === '熟练' ? 'text-green-700' :
-                        item.level === '一般' ? 'text-yellow-700' : 'text-red-700'
+                    <div className={`text-sm font-bold mt-1 ${item.level === '熟练' ? 'text-green-700 dark:text-green-400' :
+                      item.level === '一般' ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400'
                       }`}>{item.level}</div>
                   </div>
                 ))}

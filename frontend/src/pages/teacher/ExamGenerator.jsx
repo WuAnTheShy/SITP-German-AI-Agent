@@ -57,7 +57,7 @@ const ExamGenerator = () => {
             <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
@@ -75,9 +75,9 @@ const ExamGenerator = () => {
                             <Brain size={24} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-indigo-900 mb-1">AI 诊断建议</h3>
-                            <p className="text-sm text-indigo-800 leading-relaxed">
-                                系统检测到班级近期在 <span className="font-bold border-b-2 border-indigo-300">被动语态</span> 和 <span className="font-bold border-b-2 border-indigo-300">虚拟式</span> 模块错误率较高（平均错误率 42%）。建议生成专项强化练习。
+                            <h3 className="font-bold text-indigo-900 dark:text-indigo-200 mb-1">AI 诊断建议</h3>
+                            <p className="text-sm text-indigo-800 dark:text-indigo-100 leading-relaxed">
+                                系统检测到班级近期在 <span className="font-bold border-b-2 border-indigo-300 dark:border-indigo-500">被动语态</span> 和 <span className="font-bold border-b-2 border-indigo-300 dark:border-indigo-500">虚拟式</span> 模块错误率较高（平均错误率 42%）。建议生成专项强化练习。
                             </p>
                         </div>
                     </div>
@@ -135,7 +135,7 @@ const ExamGenerator = () => {
                             {/* 选项 1: 千人千面 */}
                             <div
                                 onClick={() => setStrategy('personalized')}
-                                className={`relative border-2 p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-all hover:scale-[1.01] ${strategy === 'personalized' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-900'
+                                className={`relative border-2 p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-all hover:scale-[1.01] ${strategy === 'personalized' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 <div className={`mt-1 w-4 h-4 rounded-full border flex items-center justify-center ${strategy === 'personalized' ? 'border-blue-600' : 'border-gray-400'
@@ -143,8 +143,8 @@ const ExamGenerator = () => {
                                     {strategy === 'personalized' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
                                 </div>
                                 <div>
-                                    <div className={`font-bold ${strategy === 'personalized' ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300'}`}>千人千面 (推荐)</div>
-                                    <div className={`text-xs mt-1 ${strategy === 'personalized' ? 'text-blue-700 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    <div className={`font-bold ${strategy === 'personalized' ? 'text-blue-900 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>千人千面 (推荐)</div>
+                                    <div className={`text-xs mt-1 ${strategy === 'personalized' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                         AI 根据每位学生的弱点自动替换 30% 的题目，实现精准打击。
                                     </div>
                                 </div>
@@ -158,7 +158,7 @@ const ExamGenerator = () => {
                             {/* 选项 2: 统一试卷 */}
                             <div
                                 onClick={() => setStrategy('unified')}
-                                className={`border p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-colors ${strategy === 'unified' ? 'border-gray-600 bg-gray-100 dark:bg-gray-800' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-900'
+                                className={`border p-5 rounded-xl cursor-pointer flex items-start gap-3 transition-colors ${strategy === 'unified' ? 'border-gray-600 bg-gray-100 dark:bg-gray-800' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 <div className={`mt-1 w-4 h-4 rounded-full border flex items-center justify-center ${strategy === 'unified' ? 'border-gray-800' : 'border-gray-400'
@@ -179,7 +179,7 @@ const ExamGenerator = () => {
                     <button
                         onClick={() => navigate(-1)}
                         disabled={isProcessing}
-                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
                     >
                         取消
                     </button>

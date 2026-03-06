@@ -118,8 +118,8 @@ const StudentHome = () => {
                 </div>
                 <div
                   className={`p-4 rounded-2xl whitespace-pre-wrap ${msg.sender === "user"
-                      ? "bg-blue-600 text-white rounded-tr-none"
-                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-white"
+                    ? "bg-blue-600 text-white rounded-tr-none"
+                    : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-white"
                     }`}
                 >
                   {msg.text}
@@ -152,7 +152,7 @@ const StudentHome = () => {
               <button
                 key={index}
                 onClick={() => handleTemplateClick(template.text)}
-                className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-xs transition-colors"
+                className="px-3 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-400 rounded text-xs transition-colors border border-blue-200 dark:border-blue-800/50"
                 disabled={loading}
               >
                 {template.name}

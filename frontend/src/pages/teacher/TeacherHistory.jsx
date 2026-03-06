@@ -94,7 +94,7 @@ const TeacherHistory = () => {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate('/teacher/dashboard')}
-                            className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:bg-gray-800 transition"
+                            className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                             title="返回控制台"
                         >
                             <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
@@ -108,13 +108,13 @@ const TeacherHistory = () => {
                         <button
                             onClick={() => fetchHistoryList(activeTab)}
                             disabled={loading}
-                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:bg-gray-900 transition-all flex items-center gap-2 disabled:opacity-50"
+                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2 disabled:opacity-50"
                         >
                             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 刷新
                         </button>
                         <button
                             onClick={handleLogout}
-                            className="bg-white dark:bg-gray-800 text-red-500 border border-red-100 px-4 py-2.5 rounded-xl font-medium hover:bg-red-50 dark:bg-red-900/30 transition-all flex items-center gap-2"
+                            className="bg-white dark:bg-gray-800 text-red-500 border border-red-100 dark:border-red-900/50 px-4 py-2.5 rounded-xl font-medium hover:bg-red-50 dark:hover:bg-red-900/40 transition-all flex items-center gap-2"
                         >
                             <LogOut size={16} /> 退出
                         </button>
@@ -134,13 +134,13 @@ const TeacherHistory = () => {
                     {/* Tabs */}
                     <div className="flex border-b border-gray-200 dark:border-gray-700">
                         <button
-                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'scenarios' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900'}`}
+                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'scenarios' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             onClick={() => setActiveTab('scenarios')}
                         >
                             <MessageSquare size={20} /> 情景任务记录
                         </button>
                         <button
-                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'exams' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900'}`}
+                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'exams' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             onClick={() => setActiveTab('exams')}
                         >
                             <FileText size={20} /> 试卷生成记录
@@ -159,9 +159,9 @@ const TeacherHistory = () => {
                                     <thead>
                                         <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                             <th className="p-4 font-medium rounded-tl-lg">任务编号</th>
-                                            <th className="p-4 font-medium">主题</th>
-                                            <th className="p-4 font-medium">难度设定</th>
-                                            <th className="p-4 font-medium">AI人设</th>
+                                            <th className="p-4 font-medium text-gray-700 dark:text-gray-300">主题</th>
+                                            <th className="p-4 font-medium text-gray-700 dark:text-gray-300">难度设定</th>
+                                            <th className="p-4 font-medium text-gray-700 dark:text-gray-300">AI人设</th>
                                             <th className="p-4 font-medium rounded-tr-lg">发布时间</th>
                                         </tr>
                                     </thead>
@@ -170,7 +170,7 @@ const TeacherHistory = () => {
                                             <tr><td colSpan="5" className="p-8 text-center text-gray-400 dark:text-gray-500">暂无情景任务发布记录</td></tr>
                                         ) : (
                                             scenarios.map(item => (
-                                                <tr key={item.id} className="hover:bg-indigo-50 dark:bg-indigo-900/30/50 transition-colors">
+                                                <tr key={item.id} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group">
                                                     <td className="p-4 text-sm font-mono text-gray-500 dark:text-gray-400">{item.code}</td>
                                                     <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{item.theme}</td>
                                                     <td className="p-4 text-sm">
@@ -202,7 +202,7 @@ const TeacherHistory = () => {
                                             <tr><td colSpan="6" className="p-8 text-center text-gray-400 dark:text-gray-500">暂无试卷生成记录</td></tr>
                                         ) : (
                                             exams.map(item => (
-                                                <tr key={item.id} className="hover:bg-indigo-50 dark:bg-indigo-900/30/50 transition-colors">
+                                                <tr key={item.id} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group">
                                                     <td className="p-4 text-sm font-mono text-gray-500 dark:text-gray-400">{item.code}</td>
                                                     <td className="p-4 text-gray-800 dark:text-gray-200">{item.grammarItems}道</td>
                                                     <td className="p-4 text-gray-800 dark:text-gray-200">{item.writingItems}道</td>
@@ -213,7 +213,7 @@ const TeacherHistory = () => {
                                                     <td className="p-4 text-center">
                                                         <button
                                                             onClick={() => handleViewExam(item.id)}
-                                                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
+                                                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
                                                         >
                                                             <Eye size={16} /> 查看
                                                         </button>

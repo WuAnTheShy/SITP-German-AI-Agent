@@ -101,7 +101,7 @@ const TeacherDashboard = () => {
                         <button
                             onClick={() => fetchDashboardData(true)}
                             disabled={refreshing}
-                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:bg-gray-900 transition-all flex items-center gap-2 disabled:opacity-50"
+                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2 disabled:opacity-50"
                         >
                             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新
                         </button>
@@ -113,26 +113,26 @@ const TeacherDashboard = () => {
                         </button>
                         <button
                             onClick={() => navigate('/teacher/exam')}
-                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
+                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/40 transition-all flex items-center gap-2"
                         >
                             <GraduationCap size={18} /> 生成试卷
                         </button>
                         <button
                             onClick={() => navigate('/teacher/history')}
-                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
+                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/40 transition-all flex items-center gap-2"
                         >
                             <FileText size={18} /> 发布记录
                         </button>
                         <button
                             onClick={() => navigate('/teacher/ai')}
-                            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50"
+                            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50"
                         >
                             <Bot size={18} /> AI 教研助手
                         </button>
                         {/* 🟢 登出按钮 */}
                         <button
                             onClick={handleLogout}
-                            className="bg-white dark:bg-gray-800 text-red-500 border border-red-100 px-4 py-2.5 rounded-xl font-medium hover:bg-red-50 dark:bg-red-900/30 transition-all flex items-center gap-2"
+                            className="bg-white dark:bg-gray-800 text-red-500 border border-red-100 dark:border-red-900/50 px-4 py-2.5 rounded-xl font-medium hover:bg-red-50 dark:hover:bg-red-900/40 transition-all flex items-center gap-2"
                         >
                             <LogOut size={16} /> 退出
                         </button>
@@ -141,7 +141,7 @@ const TeacherDashboard = () => {
 
                 {/* 错误提示 */}
                 {error && (
-                    <div className="bg-orange-50 dark:bg-orange-900/30 text-orange-600 px-4 py-3 rounded-xl flex items-center gap-2 border border-orange-100">
+                    <div className="bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-4 py-3 rounded-xl flex items-center gap-2 border border-orange-100 dark:border-orange-900/50">
                         <Activity size={18} /> {error}
                     </div>
                 )}
@@ -163,7 +163,7 @@ const TeacherDashboard = () => {
                         bg="bg-purple-50 dark:bg-purple-900/30"
                     />
                     <StatCard
-                        icon={<Award className="text-orange-600" />}
+                        icon={<Award className="text-orange-600 dark:text-orange-400" />}
                         label="平均综合得分"
                         value={data?.stats?.avgScore || 0}
                         trend={data?.stats?.avgScoreTrend || '-'} // 动态趋势
@@ -214,7 +214,7 @@ const TeacherDashboard = () => {
                                     <tr
                                         key={student.uid}
                                         onClick={() => navigate(`/teacher/student/${student.uid}`, { state: { student } })}
-                                        className="hover:bg-indigo-50 dark:bg-indigo-900/30/50 transition-colors cursor-pointer group"
+                                        className="hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group"
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
@@ -236,20 +236,20 @@ const TeacherDashboard = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.score >= 90 ? 'bg-green-100 text-green-800' :
-                                                student.score >= 80 ? 'bg-blue-100 text-blue-800' :
-                                                    'bg-orange-100 text-orange-800'
+                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.score >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' :
+                                                student.score >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' :
+                                                    'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'
                                                 }`}>
                                                 {student.score} 分
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            <span className="flex items-center gap-1 text-red-500 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
+                                            <span className="flex items-center gap-1 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
                                                 <Activity size={12} /> {student.weak || '暂无'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 p-2 hover:bg-indigo-50 dark:bg-indigo-900/30 rounded-lg transition-colors">
+                                            <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-colors">
                                                 <ArrowRight size={18} />
                                             </button>
                                         </td>
@@ -276,7 +276,7 @@ const StatCard = ({ icon, label, value, trend, bg }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 hover:shadow-md dark:shadow-gray-900/50 transition-shadow">
             <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${bg}`}>{icon}</div>
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900'}`}>
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900'}`}>
                     {trend}
                 </span>
             </div>
