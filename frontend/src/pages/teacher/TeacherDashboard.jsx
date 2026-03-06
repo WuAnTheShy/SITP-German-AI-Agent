@@ -80,74 +80,66 @@ const TeacherDashboard = () => {
 
     // 渲染主界面
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-            <div className="max-w-7xl mx-auto space-y-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+            <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
 
                 {/* 1. 顶部 Header */}
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
-                            <LayoutDashboard className="text-indigo-600 dark:text-indigo-400" />
-                            教师控制台
-                            {/* 🟢 动态班级名称 */}
-                            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-md">
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-6">
+                    <div className="w-full">
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
+                            <LayoutDashboard className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                            <span>教师控制台</span>
+                            {/* 动态班级名称 */}
+                            <span className="text-xs md:text-sm font-normal text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-md truncate max-w-[150px] md:max-w-none">
                                 {data?.className || '加载中...'}
                             </span>
                         </h1>
-                        <p className="text-gray-500 dark:text-gray-400 mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态待处理。</p>
+                        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态。</p>
                     </div>
-                    <div className="flex gap-3">
-                        {/* 🟢 刷新按钮 */}
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 md:gap-3 w-full lg:w-auto">
                         <button
                             onClick={() => fetchDashboardData(true)}
                             disabled={refreshing}
-                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:bg-gray-900 transition-all flex items-center gap-2 disabled:opacity-50"
+                            className="h-10 md:h-11 px-3 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
                         >
-                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新
+                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新数据
                         </button>
                         <button
                             onClick={() => navigate('/teacher/scenario')}
-                            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50 hover:shadow-md dark:shadow-gray-900/50 hover:-translate-y-0.5"
+                            className="h-10 md:h-11 px-4 md:px-6 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-sm dark:shadow-indigo-900/20 text-sm md:text-base border border-transparent"
                         >
-                            <Plus size={18} /> 发布情景任务
+                            <Plus size={18} /> 发布任务
                         </button>
                         <button
                             onClick={() => navigate('/teacher/exam')}
-                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
+                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                         >
                             <GraduationCap size={18} /> 生成试卷
                         </button>
                         <button
                             onClick={() => navigate('/teacher/history')}
-                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
+                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                         >
                             <FileText size={18} /> 发布记录
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/ai')}
-                            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50"
-                        >
-                            <Bot size={18} /> AI 教研助手
-                        </button>
-                        {/* 🟢 登出按钮 */}
-                        <button
                             onClick={handleLogout}
-                            className="bg-white dark:bg-gray-800 text-red-500 border border-red-100 px-4 py-2.5 rounded-xl font-medium hover:bg-red-50 dark:bg-red-900/30 transition-all flex items-center gap-2"
+                            className="h-10 md:h-11 px-3 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/40 col-span-2 sm:col-span-1"
                         >
-                            <LogOut size={16} /> 退出
+                            <LogOut size={16} /> 退出登录
                         </button>
                     </div>
                 </div>
 
                 {/* 错误提示 */}
                 {error && (
-                    <div className="bg-orange-50 dark:bg-orange-900/30 text-orange-600 px-4 py-3 rounded-xl flex items-center gap-2 border border-orange-100">
+                    <div className="bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-4 py-3 rounded-xl flex items-center gap-2 border border-orange-100 dark:border-orange-900/50">
                         <Activity size={18} /> {error}
                     </div>
                 )}
 
                 {/* 2. 核心指标卡片 (Stats) - 🟢 全部动态化 */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                     <StatCard
                         icon={<Users className="text-blue-600 dark:text-blue-400" />}
                         label="班级总人数"
@@ -163,7 +155,7 @@ const TeacherDashboard = () => {
                         bg="bg-purple-50 dark:bg-purple-900/30"
                     />
                     <StatCard
-                        icon={<Award className="text-orange-600" />}
+                        icon={<Award className="text-orange-600 dark:text-orange-400" />}
                         label="平均综合得分"
                         value={data?.stats?.avgScore || 0}
                         trend={data?.stats?.avgScoreTrend || '-'} // 动态趋势
@@ -188,11 +180,11 @@ const TeacherDashboard = () => {
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                             <input
-                                className="dark:text-white" type="text"
+                                type="text"
                                 placeholder="搜索姓名或学号..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 transition-all"
+                                className="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 transition-all dark:text-white"
                             />
                         </div>
                     </div>
@@ -214,7 +206,7 @@ const TeacherDashboard = () => {
                                     <tr
                                         key={student.uid}
                                         onClick={() => navigate(`/teacher/student/${student.uid}`, { state: { student } })}
-                                        className="hover:bg-indigo-50 dark:bg-indigo-900/30/50 transition-colors cursor-pointer group"
+                                        className="hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group"
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
@@ -236,20 +228,20 @@ const TeacherDashboard = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.score >= 90 ? 'bg-green-100 text-green-800' :
-                                                student.score >= 80 ? 'bg-blue-100 text-blue-800' :
-                                                    'bg-orange-100 text-orange-800'
+                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.score >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' :
+                                                student.score >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' :
+                                                    'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'
                                                 }`}>
                                                 {student.score} 分
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            <span className="flex items-center gap-1 text-red-500 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
+                                            <span className="flex items-center gap-1 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
                                                 <Activity size={12} /> {student.weak || '暂无'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 p-2 hover:bg-indigo-50 dark:bg-indigo-900/30 rounded-lg transition-colors">
+                                            <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-colors">
                                                 <ArrowRight size={18} />
                                             </button>
                                         </td>
@@ -276,7 +268,7 @@ const StatCard = ({ icon, label, value, trend, bg }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 hover:shadow-md dark:shadow-gray-900/50 transition-shadow">
             <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${bg}`}>{icon}</div>
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900'}`}>
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900'}`}>
                     {trend}
                 </span>
             </div>

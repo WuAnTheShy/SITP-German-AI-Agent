@@ -12,11 +12,14 @@ import {
   Star,
   LogOut,
   ClipboardList,
+  Menu,
+  X,
 } from "lucide-react";
 
 const StudentLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   // 从 localStorage 获取实际登录用户信息
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -43,26 +46,63 @@ const StudentLayout = ({ children }) => {
     { label: "我的收藏", icon: Star, path: `/student/${userId}/favorites` },
   ];
 
+  const handleNavClick = (path) => {
+    navigate(path);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* 左侧导航栏 */}
-      <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0">
-        <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden relative">
+      {/* 📱 移动端顶部状态栏 */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 w-full fixed top-0 z-40">
+        <h2 className="text-xl font-bold text-blue-900 dark:text-blue-400 flex items-center gap-2">
+          <Bot size={24} /> AI-Tutor
+        </h2>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* 遮罩层 (Mobile Overlay) */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* 🏠 左侧导航栏 - 响应式配置 */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0
+        transition-transform duration-300 ease-in-out md:relative md:translate-x-0
+        ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+      `}>
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700 hidden md:block">
+          <h2 className="text-xl font-bold text-blue-900 dark:text-blue-400 flex items-center gap-2">
             <Bot size={24} /> AI-Tutor
           </h2>
         </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+
+        {/* Mobile Header (inside sidebar) */}
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex md:hidden items-center justify-between">
+          <h2 className="text-xl font-bold text-blue-900 dark:text-blue-400">导航菜单</h2>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 text-gray-400"><X size={20} /></button>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
               <button
                 key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-colors ${isActive
-                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900"
+                onClick={() => handleNavClick(item.path)}
+                className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-all ${isActive
+                  ? "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                   }`}
               >
                 <Icon size={18} /> {item.label}
@@ -71,18 +111,18 @@ const StudentLayout = ({ children }) => {
           })}
         </nav>
         <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-blue-50 dark:border-blue-800">
               {initials}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">{userName}</p>
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{userName}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">在线活跃中</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 rounded-xl transition-all border border-red-100 shadow-sm dark:shadow-gray-900/50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-all border border-red-100 dark:border-red-900/30 shadow-sm"
           >
             <LogOut size={18} /> 退出登录
           </button>
@@ -90,7 +130,7 @@ const StudentLayout = ({ children }) => {
       </div>
 
       {/* 右侧内容区 */}
-      <div className="flex-1 flex flex-col overflow-hidden">{children}</div>
+      <div className="flex-1 flex flex-col overflow-hidden pt-16 md:pt-0">{children}</div>
     </div>
   );
 };

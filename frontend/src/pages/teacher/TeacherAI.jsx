@@ -122,12 +122,12 @@ const TeacherAI = () => {
                     {/* 下部输入区 */}
                     <div className="p-5 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
                         <div className="flex max-w-5xl mx-auto items-center gap-3">
-                            <input className="dark:text-white" type="text" value={input}
+                            <input type="text" value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                                 placeholder={loading ? "正在处理请求..." : "输入您要咨询的教研问题或指令..."}
                                 disabled={loading}
-                                className="flex-1 px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:bg-gray-800 transition-all disabled:bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                className="flex-1 px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:bg-gray-800 transition-all disabled:bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white"
                             />
                             <button onClick={handleSend} disabled={loading}
                                 className={`px-6 py-4 rounded-xl font-bold transition-colors shadow-sm dark:shadow-gray-900/50 flex items-center gap-2 ${loading ? 'bg-gray-300 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>

@@ -160,7 +160,7 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                             <span className="flex items-center gap-1"><Clock size={14} /> 提交于: {homework.date}</span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 p-1 hover:bg-gray-100 dark:bg-gray-800 rounded-lg"><X size={24} /></button>
+                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"><X size={24} /></button>
                 </div>
 
                 {/* Content */}
@@ -195,7 +195,7 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                                             <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-2"><span>{data.meta?.fileSize}</span><span>•</span><span>{data.meta?.uploadTime}</span></div>
                                         </div>
                                     </div>
-                                    <button onClick={handleDownload} className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 p-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold">
+                                    <button onClick={handleDownload} className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 p-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold">
                                         <Download size={18} /> 下载
                                     </button>
                                 </div>
@@ -230,14 +230,14 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase">最终得分 (Points)</label>
                                         <div className="relative">
                                             <input type="number" min="0" max="100" value={manualScore} onChange={(e) => setManualScore(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 dark:text-white" placeholder="0-100" />
+                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 dark:text-white transition-colors" placeholder="0-100" />
                                             <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500"><GraduationCap size={18} /></div>
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase">指导意见 (Feedback)</label>
                                         <textarea value={manualFeedback} onChange={(e) => setManualFeedback(e.target.value)}
-                                            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none dark:text-white" placeholder="请输入..." />
+                                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-sm bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none dark:text-white transition-colors" placeholder="请输入..." />
                                     </div>
                                 </div>
                             </div>
@@ -247,7 +247,7 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
 
                 {/* Footer */}
                 <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-b-2xl flex justify-end gap-3">
-                    <button onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:bg-gray-700 rounded-xl transition-colors text-sm font-medium disabled:opacity-50">取消</button>
+                    <button onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors text-sm font-medium disabled:opacity-50">取消</button>
                     <button onClick={handleSave} disabled={isSaving} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-bold flex items-center gap-2 disabled:opacity-70">
                         {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} 保存评分
                     </button>
@@ -283,7 +283,7 @@ const ExamModal = ({ isOpen, onClose, exam }) => {
                             </span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 p-1 hover:bg-gray-100 dark:bg-gray-800 rounded-lg"><X size={24} /></button>
+                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"><X size={24} /></button>
                 </div>
 
                 {/* Content */}
@@ -402,19 +402,25 @@ const StudentDetail = () => {
             return 'text-gray-400 dark:text-gray-500';
         }
         if (score >= 90) {
-            return 'text-green-600';
+            return 'text-green-600 dark:text-green-400';
         }
         if (score >= 80) {
             return 'text-blue-600 dark:text-blue-400';
         }
         if (score >= 60) {
-            return 'text-orange-600';
+            return 'text-orange-600 dark:text-orange-400';
         }
-        return 'text-red-600';
+        return 'text-red-600 dark:text-red-400';
     };
 
     const renderStatus = (status) => {
-        const styles = { '已完成': 'bg-green-100 text-green-700', '待订正': 'bg-orange-100 text-orange-700', '未提交': 'bg-red-100 text-red-700', '进行中': 'bg-blue-100 text-blue-700 dark:text-blue-400', '逾期补交': 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' };
+        const styles = {
+            '已完成': 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+            '待订正': 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+            '未提交': 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+            '进行中': 'bg-blue-100 text-blue-700 dark:text-blue-400 dark:bg-blue-900/40',
+            '逾期补交': 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+        };
         return <span className={`px-2 py-1 rounded text-xs font-medium ${styles[status] || 'bg-gray-100 dark:bg-gray-800'}`}>{status}</span>;
     };
 
@@ -516,7 +522,7 @@ const StudentDetail = () => {
                             <p className="text-indigo-100 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{aiDiagnosis}</p>
                         </div>
                         <div className="bg-white dark:bg-gray-800/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                            <button onClick={handlePushScheme} disabled={isPushing} className="w-full bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 dark:bg-indigo-900/30 transition-colors flex items-center justify-center gap-2">
+                            <button onClick={handlePushScheme} disabled={isPushing} className="w-full bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-2">
                                 {isPushing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} 一键推送强化方案
                             </button>
                         </div>
@@ -545,7 +551,7 @@ const StudentDetail = () => {
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-800">
                                 {homeworks && homeworks.length > 0 ? (
                                     homeworks.map((hw) => (
-                                        <tr key={hw.id} className="hover:bg-gray-50 dark:bg-gray-900 transition-colors group">
+                                        <tr key={hw.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group">
                                             <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
                                                 {hw.id === 102 ? <Mic size={16} className="text-purple-500" /> : <FileText size={16} className="text-blue-500" />}
                                                 {hw.title}
@@ -592,13 +598,13 @@ const StudentDetail = () => {
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-800">
                                 {exams && exams.length > 0 ? (
                                     exams.map((ex) => (
-                                        <tr key={ex.id} className="hover:bg-gray-50 dark:bg-gray-900 transition-colors group">
+                                        <tr key={ex.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group">
                                             <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
                                                 <FileText size={16} className="text-indigo-500" />
                                                 {ex.examCode}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                                <span className={`px-2 py-1 rounded text-xs font-medium ${ex.strategy === 'personalized' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-700'}`}>
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${ex.strategy === 'personalized' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                                                     {ex.strategy === 'personalized' ? '千人千面 (个性化)' : '统一标准'}
                                                 </span>
                                             </td>

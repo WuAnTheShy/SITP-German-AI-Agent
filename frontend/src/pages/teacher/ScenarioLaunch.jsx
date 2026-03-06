@@ -68,23 +68,23 @@ const ScenarioLaunch = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 md:p-8">
             <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {/* 顶部导航 */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
                         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                            <MessageSquare className="text-purple-600" /> 发布情景模拟任务
+                            <MessageSquare className="text-purple-600 dark:text-purple-400" /> 发布情景模拟任务
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400">配置 AI 陪练角色与场景参数</p>
                     </div>
                 </div>
 
                 {/* 核心表单区 */}
-                <div className="p-8 space-y-8">
+                <div className="p-4 md:p-8 space-y-6 md:space-y-8">
                     {/* 1. 主题选择 (点击卡片切换状态) */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">选择情景主题 (Szenario)</label>
@@ -94,7 +94,7 @@ const ScenarioLaunch = () => {
                                     key={theme}
                                     onClick={() => setSelectedTheme(theme)}
                                     className={`relative group cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${selectedTheme === theme
-                                        ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/30 text-purple-700'
+                                        ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200'
                                         : 'border-gray-200 dark:border-gray-700 hover:border-purple-200 text-gray-700 dark:text-gray-300'
                                         }`}
                                 >
@@ -136,24 +136,24 @@ const ScenarioLaunch = () => {
                     </div>
 
                     {/* 4. 训练目标 (Checkbox 变更状态) */}
-                    <div className="bg-purple-50 dark:bg-purple-900/30 p-6 rounded-xl border border-purple-100">
-                        <label className="block text-sm font-bold text-purple-900 mb-3">训练目标设定</label>
+                    <div className="bg-purple-50 dark:bg-purple-900/30 p-6 rounded-xl border border-purple-100 dark:border-purple-900/50">
+                        <label className="block text-sm font-bold text-purple-900 dark:text-purple-200 mb-3">训练目标设定</label>
                         <div className="space-y-3">
                             <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
-                                    className="dark:text-white" type="checkbox"
+                                    type="checkbox"
                                     checked={goals.perfectTense}
                                     onChange={(e) => setGoals({ ...goals, perfectTense: e.target.checked })}
-                                    className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                                    className="w-5 h-5 text-purple-600 dark:text-purple-400 dark:bg-gray-700 rounded focus:ring-purple-500"
                                 />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">强制使用完成时态 (Perfekt)</span>
                             </label>
                             <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
-                                    className="dark:text-white" type="checkbox"
+                                    type="checkbox"
                                     checked={goals.b1Vocab}
                                     onChange={(e) => setGoals({ ...goals, b1Vocab: e.target.checked })}
-                                    className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                                    className="w-5 h-5 text-purple-600 dark:text-purple-400 dark:bg-gray-700 rounded focus:ring-purple-500"
                                 />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">包含至少 5 个 B1 级词汇</span>
                             </label>
@@ -166,7 +166,7 @@ const ScenarioLaunch = () => {
                     <button
                         onClick={() => navigate(-1)}
                         disabled={isProcessing}
-                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
                     >
                         取消
                     </button>

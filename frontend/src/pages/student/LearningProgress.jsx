@@ -34,14 +34,14 @@ const LearningProgress = () => {
 
   return (
     <StudentLayout>
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">📊 我的学习进度统计</h1>
           <p className="text-gray-500 dark:text-gray-400">实时查看学习数据，AI分析学习情况，精准提升</p>
         </div>
 
         {/* Tab切换 */}
-        <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit mb-6">
+        <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800 p-1.5 rounded-lg w-fit mb-6">
           {tabs.map(tab => (
             <button key={tab.key} onClick={() => setViewType(tab.key)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewType === tab.key ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:text-gray-200'}`}>
@@ -50,13 +50,14 @@ const LearningProgress = () => {
           ))}
         </div>
 
+
         {loading ? (
           <div className="text-center py-16 text-gray-400 dark:text-gray-500">正在加载你的学习数据...</div>
         ) : (
           <>
             {viewType === 'overview' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6 text-center">
                     <h3 className="text-sm text-gray-500 dark:text-gray-400 mb-2">总学习时长</h3>
                     <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{learnStats.totalTime} <span className="text-base font-normal text-gray-500 dark:text-gray-400">小时</span></p>
@@ -100,17 +101,17 @@ const LearningProgress = () => {
             )}
 
             {viewType === 'knowledge' && (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {learnStats.knowledge.length === 0 ? (
                   <p className="text-center text-gray-400 dark:text-gray-500 py-8 col-span-full">暂无知识点学习数据</p>
                 ) : learnStats.knowledge.map((item, index) => (
-                  <div key={index} className={`p-4 rounded-xl border-2 ${item.level === '熟练' ? 'border-green-300 bg-green-50 dark:bg-green-900/30' :
-                      item.level === '一般' ? 'border-yellow-300 bg-yellow-50' :
-                        'border-red-300 bg-red-50 dark:bg-red-900/30'
+                  <div key={index} className={`p-4 rounded-xl border-2 transition-all duration-300 ${item.level === '熟练' ? 'border-green-300 dark:border-green-900/50 bg-green-50 dark:bg-green-900/30' :
+                    item.level === '一般' ? 'border-yellow-300 dark:border-yellow-900/50 bg-yellow-50 dark:bg-yellow-900/20' :
+                      'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/30'
                     }`}>
                     <div className="font-medium text-gray-800 dark:text-gray-200">{item.name}</div>
-                    <div className={`text-sm font-bold mt-1 ${item.level === '熟练' ? 'text-green-700' :
-                        item.level === '一般' ? 'text-yellow-700' : 'text-red-700'
+                    <div className={`text-sm font-bold mt-1 ${item.level === '熟练' ? 'text-green-700 dark:text-green-400' :
+                      item.level === '一般' ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400'
                       }`}>{item.level}</div>
                   </div>
                 ))}
