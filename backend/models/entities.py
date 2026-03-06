@@ -169,6 +169,7 @@ class ExamAssignment(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="assigned", nullable=False)
+    personalized_content: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("exam_id", "student_id", name="uq_exam_assignments_exam_student"),

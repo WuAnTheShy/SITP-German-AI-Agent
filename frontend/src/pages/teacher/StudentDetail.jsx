@@ -146,11 +146,11 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                         <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <FileText className="text-indigo-600 dark:text-indigo-400" />{homework.title}
                         </h3>
-                        <div className="flex gap-3 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                        <div className="flex gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
                             <span className="flex items-center gap-1"><Clock size={14} /> 提交于: {homework.date}</span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 p-1 hover:bg-gray-100 dark:bg-gray-800 rounded-lg"><X size={24} /></button>
+                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 p-1 hover:bg-gray-100 dark:bg-gray-800 rounded-lg"><X size={24} /></button>
                 </div>
 
                 {/* Content */}
@@ -158,7 +158,7 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                     {loading && (
                         <div className="flex flex-col items-center justify-center py-12 space-y-4">
                             <Loader2 size={40} className="text-indigo-600 dark:text-indigo-400 animate-spin" />
-                            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">正在获取作业数据...</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">正在获取作业数据...</p>
                         </div>
                     )}
 
@@ -182,7 +182,7 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                                         </div>
                                         <div>
                                             <div className="font-bold text-gray-800 dark:text-gray-200 text-sm">{data.meta?.fileName || '未命名文件'}</div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 flex gap-2"><span>{data.meta?.fileSize}</span><span>•</span><span>{data.meta?.uploadTime}</span></div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-2"><span>{data.meta?.fileSize}</span><span>•</span><span>{data.meta?.uploadTime}</span></div>
                                         </div>
                                     </div>
                                     <button onClick={handleDownload} className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 p-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold">
@@ -217,17 +217,17 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                                 </div>
                                 <div className="grid grid-cols-1 gap-4 bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-1.5 uppercase">最终得分 (Points)</label>
+                                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase">最终得分 (Points)</label>
                                         <div className="relative">
                                             <input type="number" min="0" max="100" value={manualScore} onChange={(e) => setManualScore(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 dark:text-gray-200" placeholder="0-100" />
+                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 dark:text-white" placeholder="0-100" />
                                             <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500"><GraduationCap size={18} /></div>
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-1.5 uppercase">指导意见 (Feedback)</label>
+                                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase">指导意见 (Feedback)</label>
                                         <textarea value={manualFeedback} onChange={(e) => setManualFeedback(e.target.value)}
-                                            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none" placeholder="请输入..." />
+                                            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none dark:text-white" placeholder="请输入..." />
                                     </div>
                                 </div>
                             </div>
@@ -237,10 +237,76 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
 
                 {/* Footer */}
                 <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-b-2xl flex justify-end gap-3">
-                    <button onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:bg-gray-700 rounded-xl transition-colors text-sm font-medium disabled:opacity-50">取消</button>
+                    <button onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:bg-gray-700 rounded-xl transition-colors text-sm font-medium disabled:opacity-50">取消</button>
                     <button onClick={handleSave} disabled={isSaving} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-bold flex items-center gap-2 disabled:opacity-70">
                         {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} 保存评分
                     </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 🧩 组件：试卷详情模态框
+// ----------------------------------------------------------------------
+const ExamModal = ({ isOpen, onClose, exam }) => {
+    if (!isOpen || !exam) {
+        return null;
+    }
+
+    const { examCode, strategy, content, assignedAt } = exam;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                            <FileText className="text-indigo-600 dark:text-indigo-400" /> 试卷详情: {examCode}
+                        </h3>
+                        <div className="flex gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <span className="flex items-center gap-1"><Clock size={14} /> 分配于: {assignedAt}</span>
+                            <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-xs font-medium border border-indigo-200 dark:border-indigo-800">
+                                {strategy === 'personalized' ? '千人千面 (个性化)' : '统一标准'}
+                            </span>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 p-1 hover:bg-gray-100 dark:bg-gray-800 rounded-lg"><X size={24} /></button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                    {content && content.length > 0 ? content.map((q, idx) => (
+                        <div key={idx} className="bg-gray-50 dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 transition-colors">
+                            <div className="flex justify-between items-start mb-3">
+                                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-lg">
+                                    {q.type === 'grammar' ? `第 ${idx + 1} 题 (语法) - ${q.id}` : `第 ${idx + 1} 题 (写作) - ${q.id}`}
+                                </span>
+                                <span className="text-sm text-gray-500 font-medium">{q.score} 分</span>
+                            </div>
+                            <p className="font-medium text-gray-800 dark:text-gray-200 mb-2">{q.instruction}</p>
+                            <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">{q.content}</p>
+
+                            {q.type === 'grammar' && q.options && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                    {q.options.map((opt, i) => {
+                                        const isCorrect = q.answer && (opt.startsWith(q.answer + '.') || opt.startsWith(q.answer + ' ') || opt === q.answer || q.answer.startsWith(opt) || opt.startsWith(q.answer));
+                                        return (
+                                            <div key={i} className={`p-3 rounded-lg border text-sm font-medium ${isCorrect ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                                                {opt}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )) : (
+                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                            暂缺试卷题目详情
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -259,6 +325,7 @@ const StudentDetail = () => {
     const [loading, setLoading] = useState(true);
     const [studentData, setStudentData] = useState(null);
     const [selectedHomework, setSelectedHomework] = useState(null);
+    const [selectedExam, setSelectedExam] = useState(null);
     const [isPushing, setIsPushing] = useState(false);
 
     useEffect(() => {
@@ -303,7 +370,8 @@ const StudentDetail = () => {
                         listening: 60, speaking: 60, reading: 60, writing: 60
                     },
                     aiDiagnosis: "⚠️ 网络连接失败，无法获取实时 AI 诊断数据。请检查后端服务是否正常运行。",
-                    homeworks: state.student.homeworks || []
+                    homeworks: state.student.homeworks || [],
+                    exams: state.student.exams || []
                 };
                 setStudentData(fallbackData);
             } else {
@@ -374,21 +442,21 @@ const StudentDetail = () => {
     }
 
     if (!studentData) {
-        return <div className="min-h-screen flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 dark:text-gray-500">
-            <AlertCircle size={48} className="text-gray-300 mb-4" />
+        return <div className="min-h-screen flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+            <AlertCircle size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
             <p className="mb-4">未找到学生数据，请检查网络或接口配置</p>
             <button onClick={() => navigate(-1)} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">返回上一页</button>
         </div>;
     }
 
     // 安全解构
-    const { info, ability, aiDiagnosis, homeworks } = studentData;
+    const { info, ability, aiDiagnosis, homeworks, exams } = studentData;
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
             <div className="max-w-5xl mx-auto space-y-6">
                 {/* 顶部导航 */}
-                <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400 font-medium transition-colors mb-4">
+                <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:text-indigo-400 font-medium transition-colors mb-4">
                     <ArrowLeft size={20} className="mr-2" /> 返回仪表盘
                 </button>
 
@@ -399,7 +467,7 @@ const StudentDetail = () => {
                     </div>
                     <div className="flex-1 text-center md:text-left space-y-2">
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{info.name}</h1>
-                        <div className="text-gray-500 dark:text-gray-400 dark:text-gray-500 flex items-center justify-center md:justify-start gap-4">
+                        <div className="text-gray-500 dark:text-gray-400 flex items-center justify-center md:justify-start gap-4">
                             <span>学号: {info.uid}</span><span>•</span><span>{info.class || '软件工程'}</span>
                         </div>
                         <div className="flex items-center justify-center md:justify-start gap-3 mt-4">
@@ -451,17 +519,17 @@ const StudentDetail = () => {
                         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <FileText className="text-indigo-600 dark:text-indigo-400" /> 作业完成记录
                         </h2>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900 px-3 py-1 rounded-lg">共 {homeworks?.length || 0} 项</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 px-3 py-1 rounded-lg">共 {homeworks?.length || 0} 项</div>
                     </div>
                     <div className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-xl">
                         <table className="w-full">
                             <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">作业标题</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">提交日期</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">状态</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">得分</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">操作</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">作业标题</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">提交日期</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">状态</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">得分</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">操作</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-800">
@@ -472,7 +540,7 @@ const StudentDetail = () => {
                                                 {hw.id === 102 ? <Mic size={16} className="text-purple-500" /> : <FileText size={16} className="text-blue-500" />}
                                                 {hw.title}
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500"><span className="flex items-center gap-1"><Clock size={14} /> {hw.date}</span></td>
+                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400"><span className="flex items-center gap-1"><Clock size={14} /> {hw.date}</span></td>
                                             <td className="px-6 py-4">{renderStatus(hw.status)}</td>
                                             <td className={`px-6 py-4 text-sm font-bold ${getScoreColor(hw.score)}`}>{hw.score ? `${hw.score} 分` : '-'}</td>
                                             <td className="px-6 py-4 text-sm">
@@ -491,9 +559,62 @@ const StudentDetail = () => {
                         </table>
                     </div>
                 </div>
+
+                {/* 4. 考试记录 */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                            <CheckCircle className="text-indigo-600 dark:text-indigo-400" /> 千人千面考试记录
+                        </h2>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 px-3 py-1 rounded-lg">共 {exams?.length || 0} 项</div>
+                    </div>
+                    <div className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-xl">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">考试代码</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">生成策略</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">分配日期</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">题目数</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-800">
+                                {exams && exams.length > 0 ? (
+                                    exams.map((ex) => (
+                                        <tr key={ex.id} className="hover:bg-gray-50 dark:bg-gray-900 transition-colors group">
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                                <FileText size={16} className="text-indigo-500" />
+                                                {ex.examCode}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${ex.strategy === 'personalized' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-700'}`}>
+                                                    {ex.strategy === 'personalized' ? '千人千面 (个性化)' : '统一标准'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400"><span className="flex items-center gap-1"><Clock size={14} /> {ex.assignedAt}</span></td>
+                                            <td className="px-6 py-4 text-sm font-bold text-gray-700 dark:text-gray-300">{ex.content ? ex.content.length : 0} 题</td>
+                                            <td className="px-6 py-4 text-sm">
+                                                <button onClick={() => setSelectedExam(ex)} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-medium hover:underline flex items-center gap-1">
+                                                    查看专属试卷 <ArrowLeft size={14} className="rotate-180" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="5" className="px-6 py-12 text-center text-gray-400 dark:text-gray-500">暂无考试记录</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
             {/* 挂载模态框 */}
             <HomeworkModal isOpen={!!selectedHomework} onClose={() => setSelectedHomework(null)} homework={selectedHomework} toast={toast} />
+            <ExamModal isOpen={!!selectedExam} onClose={() => setSelectedExam(null)} exam={selectedExam} />
         </div>
     );
 };

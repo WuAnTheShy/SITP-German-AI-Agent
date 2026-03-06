@@ -81,7 +81,7 @@ const ToastItem = ({ toast, onClose }) => {
         >
             {style.icon}
             <p className={`text-sm font-medium leading-relaxed flex-1 ${style.text}`}>{toast.message}</p>
-            <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 shrink-0">
+            <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 shrink-0">
                 <X size={16} />
             </button>
         </div>

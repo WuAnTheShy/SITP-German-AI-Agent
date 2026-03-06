@@ -126,7 +126,18 @@ def startup_event():
             if not result.fetchone():
                 print("[Server] Missing 'content' column in 'exams' table. Applying patch...")
                 conn.execute(text("ALTER TABLE exams ADD COLUMN content JSONB DEFAULT '[]'::jsonb NOT NULL;"))
-                print("[Server] Database patch applied successfully.")
+                print("[Server] Database patch applied successfully to exams.")
+            
+            # 检查 personalized_content 是否已存在于 exam_assignments
+            result2 = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='exam_assignments' AND column_name='personalized_content';
+            """))
+            if not result2.fetchone():
+                print("[Server] Missing 'personalized_content' in 'exam_assignments'. Applying patch...")
+                conn.execute(text("ALTER TABLE exam_assignments ADD COLUMN personalized_content JSONB;"))
+                print("[Server] Database patch applied successfully to exam_assignments.")
             else:
                 print("[Server] Database schema is up to date.")
     except Exception as e:
@@ -646,14 +657,17 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
         
         # ----------- 使用 AI 实时生成题目 -----------
         focus_desc = "、".join(cfg.get("focusAreas", [])) or "综合考察"
-        strategy_desc = "个性化差异出题" if cfg.get("strategy") == "personalized" else "统一标准出题"
+        strategy = cfg.get("strategy", "personalized")
+        strategy_desc = "个性化差异出题" if strategy == "personalized" else "统一标准出题"
 
-        prompt = f"""你是一个专业的德语考试出题系统。请根据以下配置生成德语考试试卷：
+        def _generate_questions_for_student(student_info: str = "") -> list:
+            prompt = f"""你是一个专业的德语考试出题系统。请根据以下配置生成德语考试试卷：
 
 - 语法题数量：{grammar_count} 题
 - 写作题数量：{writing_count} 题
 - 出题策略：{strategy_desc}
 - 重点考察领域：{focus_desc}
+{student_info}
 
 要求：
 1. 每道语法题都必须**不同**，涵盖不同语法考点（如动词变位、格变化、被动语态、虚拟式、从句语序、介词搭配等）
@@ -683,82 +697,116 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
 
 请确保生成 {grammar_count} 道语法题和 {writing_count} 道写作题。"""
 
-        print(f"[试卷生成] 正在调用 AI 生成 {grammar_count} 道语法题 + {writing_count} 道写作题...", flush=True)
+            print(f"[试卷生成] 正在调用 AI 生成 {grammar_count} 道语法题 + {writing_count} 道写作题...", flush=True)
 
-        ai_questions = None
-        try:
-            resp = _gemini_client.models.generate_content(
-                model=_MODEL_ID,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction="你是专业的德语考试出题助手，只返回JSON格式数据。",
-                    http_options={"timeout": 90_000},
-                ),
-            )
-            text = resp.text.strip()
-            # 清洗 markdown 代码块
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            ai_questions = json.loads(text.strip())
-            print(f"[试卷生成] AI 成功生成 {len(ai_questions)} 道题目", flush=True)
-        except Exception as e:
-            print(f"[试卷生成] AI 生成失败: {type(e).__name__}: {e}", flush=True)
+            ai_questions = None
+            try:
+                resp = _gemini_client.models.generate_content(
+                    model=_MODEL_ID,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction="你是专业的德语考试出题助手，只返回JSON格式数据。",
+                        http_options={"timeout": 90_000},
+                    ),
+                )
+                text = resp.text.strip()
+                # 清洗 markdown 代码块
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+                ai_questions = json.loads(text.strip())
+                print(f"[试卷生成] AI 成功生成 {len(ai_questions)} 道题目", flush=True)
+            except Exception as e:
+                print(f"[试卷生成] AI 生成失败: {type(e).__name__}: {e}", flush=True)
 
-        # AI 生成失败时使用基础 fallback
-        if not ai_questions or not isinstance(ai_questions, list):
-            print("[试卷生成] 使用 fallback 基础题目", flush=True)
-            ai_questions = []
-            grammar_topics = [
-                ("动词变位", "Ich ___ gestern ins Kino gegangen.", ["A. bin", "B. habe", "C. war", "D. wurde"], "A"),
-                ("格变化", "Er gibt ___ Freund ein Buch.", ["A. sein", "B. seinem", "C. seinen", "D. seiner"], "B"),
-                ("被动语态", "Das Haus ___ letztes Jahr gebaut.", ["A. hat", "B. ist", "C. wird", "D. wurde"], "D"),
-                ("虚拟式", "Wenn ich reich ___, würde ich reisen.", ["A. bin", "B. wäre", "C. war", "D. sei"], "B"),
-                ("从句语序", "Ich weiß, dass er morgen nach Berlin ___.", ["A. fahrt", "B. fährt", "C. gefahren", "D. fahren"], "B"),
-                ("介词搭配", "Wir warten ___ den Bus.", ["A. für", "B. auf", "C. an", "D. um"], "B"),
-                ("冠词", "Das ist ___ interessantes Buch.", ["A. ein", "B. eine", "C. einen", "D. einem"], "A"),
-                ("反身动词", "Er ___ sich für Musik.", ["A. interessiert", "B. interessieren", "C. interessiere", "D. interessierst"], "A"),
-            ]
-            for i in range(grammar_count):
-                t = grammar_topics[i % len(grammar_topics)]
-                ai_questions.append({
-                    "type": "grammar", "id": f"G-{i+1}",
-                    "instruction": f"语法题 {i+1}（考点：{t[0]}）：请选择正确的选项填空。",
-                    "content": t[1], "options": t[2], "answer": t[3], "score": 2
-                })
-            writing_topics = [
-                "你的一位德国朋友即将来中国旅行，请给他写一封邮件，推荐几个必去的城市，并说明理由。字数要求：100-150词。",
-                "请描述你理想的大学生活，包括学习、社交和课外活动。字数要求：100-150词。",
-                "请写一篇短文，介绍你最喜欢的一道中国菜的做法和它的文化意义。字数要求：100-150词。",
-            ]
-            for i in range(writing_count):
-                ai_questions.append({
-                    "type": "writing", "id": f"W-{i+1}",
-                    "instruction": f"写作题 {i+1}：请根据以下情景进行写作。",
-                    "content": writing_topics[i % len(writing_topics)], "score": 15
-                })
-        # ----------------------------------------------------
-
-        exam = ExamCRUD.create(
-            db,
-            ExamCreate(
-                exam_code=exam_code,
-                teacher_user_id=teacher.id,
-                grammar_items=grammar_count,
-                writing_items=writing_count,
-                strategy=cfg.get("strategy", "personalized"),
-                focus_areas=cfg.get("focusAreas", []),
-                content=ai_questions,
-            ),
-        )
+            # AI 生成失败时使用基础 fallback
+            if not ai_questions or not isinstance(ai_questions, list):
+                print("[试卷生成] 使用 fallback 基础题目", flush=True)
+                ai_questions = []
+                grammar_topics = [
+                    ("动词变位", "Ich ___ gestern ins Kino gegangen.", ["A. bin", "B. habe", "C. war", "D. wurde"], "A"),
+                    ("格变化", "Er gibt ___ Freund ein Buch.", ["A. sein", "B. seinem", "C. seinen", "D. seiner"], "B"),
+                    ("被动语态", "Das Haus ___ letztes Jahr gebaut.", ["A. hat", "B. ist", "C. wird", "D. wurde"], "D"),
+                    ("虚拟式", "Wenn ich reich ___, würde ich reisen.", ["A. bin", "B. wäre", "C. war", "D. sei"], "B"),
+                    ("从句语序", "Ich weiß, dass er morgen nach Berlin ___.", ["A. fahrt", "B. fährt", "C. gefahren", "D. fahren"], "B"),
+                    ("介词搭配", "Wir warten ___ den Bus.", ["A. für", "B. auf", "C. an", "D. um"], "B"),
+                    ("冠词", "Das ist ___ interessantes Buch.", ["A. ein", "B. eine", "C. einen", "D. einem"], "A"),
+                    ("反身动词", "Er ___ sich für Musik.", ["A. interessiert", "B. interessieren", "C. interessiere", "D. interessierst"], "A"),
+                ]
+                for i in range(grammar_count):
+                    t = grammar_topics[i % len(grammar_topics)]
+                    ai_questions.append({
+                        "type": "grammar", "id": f"G-{i+1}",
+                        "instruction": f"语法题 {i+1}（考点：{t[0]}）：请选择正确的选项填空。",
+                        "content": t[1], "options": t[2], "answer": t[3], "score": 2
+                    })
+                writing_topics = [
+                    "你的一位德国朋友即将来中国旅行，请给他写一封邮件，推荐几个必去的城市，并说明理由。字数要求：100-150词。",
+                    "请描述你理想的大学生活，包括学习、社交和课外活动。字数要求：100-150词。",
+                    "请写一篇短文，介绍你最喜欢的一道中国菜的做法和它的文化意义。字数要求：100-150词。",
+                ]
+                for i in range(writing_count):
+                    ai_questions.append({
+                        "type": "writing", "id": f"W-{i+1}",
+                        "instruction": f"写作题 {i+1}：请根据以下情景进行写作。",
+                        "content": writing_topics[i % len(writing_topics)], "score": 15
+                    })
+            return ai_questions
 
         students = StudentCRUD.list_by_class(db, classroom.id)
-        for s in students:
-            ExamAssignmentCRUD.create_or_get(
+
+        if strategy != "personalized":
+            ai_questions = _generate_questions_for_student()
+            exam = ExamCRUD.create(
                 db,
-                ExamAssignmentCreate(exam_id=exam.id, student_id=s.id, status="assigned"),
+                ExamCreate(
+                    exam_code=exam_code,
+                    teacher_user_id=teacher.id,
+                    grammar_items=grammar_count,
+                    writing_items=writing_count,
+                    strategy=strategy,
+                    focus_areas=cfg.get("focusAreas", []),
+                    content=ai_questions,
+                ),
             )
+            for s in students:
+                ExamAssignmentCRUD.create_or_get(
+                    db,
+                    ExamAssignmentCreate(exam_id=exam.id, student_id=s.id, status="assigned"),
+                )
+        else:
+            exam = ExamCRUD.create(
+                db,
+                ExamCreate(
+                    exam_code=exam_code,
+                    teacher_user_id=teacher.id,
+                    grammar_items=grammar_count,
+                    writing_items=writing_count,
+                    strategy=strategy,
+                    focus_areas=cfg.get("focusAreas", []),
+                    content=[], 
+                ),
+            )
+            for s in students:
+                ability = StudentAbilityCRUD.get_by_student_id(db, s.id)
+                student_info = f"\n- 针对学生情况：该学生在【{s.weak_point or '其他'}】有薄弱点。"
+                if ability and ability.ai_diagnosis:
+                    student_info += f"\n- AI诊断信息：{ability.ai_diagnosis}"
+                student_info += "\n**请务必针对该学生的薄弱点设计题目，体现出个性化！**"
+                
+                print(f"[千人千面] 正在为学生 {s.name}({s.uid}) 生成个性化试卷...", flush=True)
+                personalized_q = _generate_questions_for_student(student_info)
+                
+                ExamAssignmentCRUD.create_or_get(
+                    db,
+                    ExamAssignmentCreate(
+                        exam_id=exam.id, 
+                        student_id=s.id, 
+                        status="assigned", 
+                        personalized_content=personalized_q
+                    ),
+                )
 
         return ok({"examId": exam.exam_code, "studentCount": len(students)}, "试卷生成成功")
     except Exception as e:
@@ -842,6 +890,25 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
 
         ability = StudentAbilityCRUD.get_by_student_id(db, student.id)
         homeworks = HomeworkCRUD.list_by_student(db, student.id)
+        
+        # 获取考试分配记录
+        from sqlalchemy import select
+        from models.entities import ExamAssignment, Exam
+        exam_assignments = list(db.scalars(
+            select(ExamAssignment).where(ExamAssignment.student_id == student.id).order_by(ExamAssignment.assigned_at.desc())
+        ))
+        exams_data = []
+        for ea in exam_assignments:
+            exam = ExamCRUD.get_by_id(db, ea.exam_id)
+            if exam:
+                exams_data.append({
+                    "id": ea.id,
+                    "examId": exam.id,
+                    "examCode": exam.exam_code,
+                    "strategy": exam.strategy,
+                    "assignedAt": ea.assigned_at.strftime("%Y-%m-%d"),
+                    "content": ea.personalized_content if exam.strategy == "personalized" else exam.content,
+                })
 
         data = {
             "info": {
@@ -869,6 +936,7 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
                 }
                 for h in homeworks
             ],
+            "exams": exams_data,
         }
         return ok(data)
     except Exception as e:

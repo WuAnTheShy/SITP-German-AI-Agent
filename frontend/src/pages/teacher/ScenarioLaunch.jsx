@@ -72,14 +72,14 @@ const ScenarioLaunch = () => {
             <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {/* 顶部导航 */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 dark:text-gray-500 transition-colors">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
                         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <MessageSquare className="text-purple-600" /> 发布情景模拟任务
                         </h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">配置 AI 陪练角色与场景参数</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">配置 AI 陪练角色与场景参数</p>
                     </div>
                 </div>
 
@@ -141,7 +141,7 @@ const ScenarioLaunch = () => {
                         <div className="space-y-3">
                             <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
-                                    type="checkbox"
+                                    className="dark:text-white" type="checkbox"
                                     checked={goals.perfectTense}
                                     onChange={(e) => setGoals({ ...goals, perfectTense: e.target.checked })}
                                     className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
@@ -150,7 +150,7 @@ const ScenarioLaunch = () => {
                             </label>
                             <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
-                                    type="checkbox"
+                                    className="dark:text-white" type="checkbox"
                                     checked={goals.b1Vocab}
                                     onChange={(e) => setGoals({ ...goals, b1Vocab: e.target.checked })}
                                     className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
@@ -166,7 +166,7 @@ const ScenarioLaunch = () => {
                     <button
                         onClick={() => navigate(-1)}
                         disabled={isProcessing}
-                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
                     >
                         取消
                     </button>

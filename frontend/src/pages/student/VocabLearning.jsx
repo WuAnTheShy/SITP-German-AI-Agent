@@ -72,15 +72,15 @@ const VocabLearning = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">📚 德语词汇专项学习</h1>
-            <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500">闪卡记忆 + 列表浏览，高效掌握德语词汇</p>
+            <p className="text-gray-500 dark:text-gray-400">闪卡记忆 + 列表浏览，高效掌握德语词汇</p>
           </div>
           <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             <button onClick={() => setMode('flashcard')} disabled={loadingVocab}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'flashcard' ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200'}`}>
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'flashcard' ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:text-gray-200'}`}>
               闪卡模式
             </button>
             <button onClick={() => setMode('list')} disabled={loadingVocab}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'list' ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200'}`}>
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'list' ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:text-gray-200'}`}>
               列表模式
             </button>
           </div>
@@ -103,7 +103,7 @@ const VocabLearning = () => {
                   ) : (
                     <>
                       <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-400 mb-2">{currentVocab.chinese}</h2>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 italic">{currentVocab.example}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 italic">{currentVocab.example}</p>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">点击返回单词</p>
                     </>
                   )}
@@ -111,7 +111,7 @@ const VocabLearning = () => {
                 <div className="flex gap-3 mt-6">
                   <button onClick={handlePrevCard} disabled={currentCardIndex <= 0}
                     className="px-5 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">上一个</button>
-                  <span className="px-4 py-2 text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{currentCardIndex + 1} / {vocabList.length}</span>
+                  <span className="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">{currentCardIndex + 1} / {vocabList.length}</span>
                   <button onClick={handleNextCard} disabled={currentCardIndex >= vocabList.length - 1}
                     className="px-5 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">下一个</button>
                   <button onClick={() => handleCollectVocab(currentVocab.id)} disabled={collecting}
@@ -130,10 +130,10 @@ const VocabLearning = () => {
                 ) : vocabList.map(item => (
                   <div key={item.id} className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:shadow-sm dark:shadow-gray-900/50 transition-shadow">
                     <div className="font-bold text-lg text-gray-800 dark:text-gray-200 w-40">{item.german}</div>
-                    <div className="text-gray-600 dark:text-gray-400 dark:text-gray-500 w-32">{item.chinese}</div>
-                    <div className="flex-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 italic">{item.example}</div>
+                    <div className="text-gray-600 dark:text-gray-400 w-32">{item.chinese}</div>
+                    <div className="flex-1 text-sm text-gray-500 dark:text-gray-400 italic">{item.example}</div>
                     <button onClick={() => handleCollectVocab(item.id)} disabled={collecting}
-                      className={`px-4 py-2 rounded-lg text-sm transition-colors shrink-0 ${collectedIds.has(item.id) ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-blue-100 hover:text-blue-700 dark:text-blue-400'}`}>
+                      className={`px-4 py-2 rounded-lg text-sm transition-colors shrink-0 ${collectedIds.has(item.id) ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-blue-100 hover:text-blue-700 dark:text-blue-400'}`}>
                       {collectedIds.has(item.id) ? '⭐ 已收藏' : '收藏'}
                     </button>
                   </div>

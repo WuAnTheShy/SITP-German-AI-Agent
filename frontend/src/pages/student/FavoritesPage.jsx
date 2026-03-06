@@ -68,7 +68,7 @@ const FavoritesPage = () => {
       <div className="flex-1 overflow-y-auto p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">⭐ 我的学习收藏夹</h1>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500">收藏重点知识点，AI一键拓展，高效复习</p>
+          <p className="text-gray-500 dark:text-gray-400">收藏重点知识点，AI一键拓展，高效复习</p>
         </div>
 
         {/* 分类切换 */}
@@ -95,9 +95,9 @@ const FavoritesPage = () => {
               <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                 <div className="mb-3">
                   <p className="font-medium text-gray-800 dark:text-gray-200 text-lg">{item.content}</p>
-                  {item.translate && <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-1">💡 释义：{item.translate}</p>}
-                  {item.rule && <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-1">📚 规则：{item.rule}</p>}
-                  {item.note && <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">📝 备注：{item.note}</p>}
+                  {item.translate && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">💡 释义：{item.translate}</p>}
+                  {item.rule && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">📚 规则：{item.rule}</p>}
+                  {item.note && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">📝 备注：{item.note}</p>}
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => handleAIExtend(item)} disabled={aiLoading}

@@ -183,6 +183,7 @@ class ExamAssignmentCreate(BaseModel):
     exam_id: int
     student_id: int
     status: str = "assigned"
+    personalized_content: list[Any] | None = None
 
 
 class ExamAssignmentRead(ORMBase):
@@ -191,6 +192,7 @@ class ExamAssignmentRead(ORMBase):
     student_id: int
     assigned_at: datetime
     status: str
+    personalized_content: list[Any] | None = None
 
 
 # =====================================================================
