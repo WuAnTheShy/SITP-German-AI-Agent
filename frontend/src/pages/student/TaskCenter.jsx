@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import request from '../../api/request';
-import { CheckCircle, Clock, FileText, MessageSquare, Play, RotateCw } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, FileText, MessageSquare, Play, RotateCw } from 'lucide-react';
 
 const TaskCenter = () => {
     const navigate = useNavigate();
@@ -84,7 +84,7 @@ const TaskCenter = () => {
                     )}
                     {isExam && isCompleted && (
                         <button
-                            onClick={() => navigate(`/student/${userId}/error-book`)}
+                            onClick={() => navigate(`/student/${userId}/exam-result/${task.assignment_id}`)}
                             className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                         >
                             查看作业记录
@@ -115,7 +115,15 @@ const TaskCenter = () => {
     return (
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">📋 任务中心</h1>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => navigate(`/student/${userId}/home`)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 transition"
+                    >
+                        <ArrowLeft size={24} />
+                    </button>
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">📋 任务中心</h1>
+                </div>
                 <button
                     onClick={fetchTasks}
                     disabled={loading}

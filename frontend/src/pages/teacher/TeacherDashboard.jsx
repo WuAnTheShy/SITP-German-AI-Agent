@@ -112,10 +112,10 @@ const TeacherDashboard = () => {
                             <Plus size={18} /> 发布情景任务
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/ai')}
-                            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50"
+                            onClick={() => navigate('/teacher/exam')}
+                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
                         >
-                            <Bot size={18} /> AI 教研助手
+                            <GraduationCap size={18} /> 生成试卷
                         </button>
                         <button
                             onClick={() => navigate('/teacher/history')}
@@ -124,10 +124,10 @@ const TeacherDashboard = () => {
                             <FileText size={18} /> 发布记录
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/exam')}
-                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
+                            onClick={() => navigate('/teacher/ai')}
+                            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50"
                         >
-                            <GraduationCap size={18} /> 生成试卷
+                            <Bot size={18} /> AI 教研助手
                         </button>
                         {/* 🟢 登出按钮 */}
                         <button

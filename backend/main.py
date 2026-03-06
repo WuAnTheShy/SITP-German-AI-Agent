@@ -1,5 +1,6 @@
 import json
 import os
+import io
 from datetime import date, datetime, timedelta, timezone
 from statistics import mean
 from uuid import uuid4
@@ -10,7 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import StreamingResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
@@ -47,7 +49,7 @@ from crud.repositories import (
     WritingSessionCRUD,
 )
 from db.session import get_db
-from models.entities import ChatSession as ChatSessionModel, ExamAssignment, Exam, ScenarioPush, Scenario
+from models.entities import ChatSession as ChatSessionModel, ExamAssignment, Exam, ScenarioPush, Scenario, Homework
 from schemas.entities import (
     ChatMessageCreate,
     ChatSessionCreate,
@@ -146,6 +148,17 @@ def startup_event():
                 print("[Server] Dropped restrictive homeworks file_type check constraints.")
             except Exception as e:
                 print(f"[Server] Note: Could not drop constraint, it might not exist. {e}")
+
+            # 检查 exam_assignment_id 是否已存在于 homeworks
+            result3 = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='homeworks' AND column_name='exam_assignment_id';
+            """))
+            if not result3.fetchone():
+                print("[Server] Missing 'exam_assignment_id' in 'homeworks'. Applying patch...")
+                conn.execute(text("ALTER TABLE homeworks ADD COLUMN exam_assignment_id INTEGER;"))
+                print("[Server] Database patch applied successfully to homeworks.")
                 
             print("[Server] Database schema checks completed.")
     except Exception as e:
@@ -960,12 +973,17 @@ def get_homework_detail(id: int, request: Request = None, db: Session = Depends(
         if not hw:
             return fail("作业不存在", 404)
 
+        file_url = hw.file_url
+        if hw.file_type == "json_exam":
+            # 如果是试卷类型，跳转到专门的下载接口生成文本
+            file_url = f"/api/homework/download/{hw.id}"
+
         data = {
             "type": hw.file_type or "text",
             "meta": {
-                "fileUrl": hw.file_url,
-                "fileName": hw.file_name or f"homework-{hw.id}",
-                "fileSize": hw.file_size or "Unknown",
+                "fileUrl": file_url,
+                "fileName": hw.file_name or f"homework-{hw.id}.txt",
+                "fileSize": hw.file_size or "自动生成",
                 "uploadTime": (hw.submitted_at or hw.created_at).strftime("%Y-%m-%d %H:%M"),
             },
             "aiComment": hw.ai_comment or "暂无 AI 评价数据。",
@@ -973,6 +991,110 @@ def get_homework_detail(id: int, request: Request = None, db: Session = Depends(
         return ok(data)
     except Exception as e:
         return fail(f"获取作业详情失败: {e}")
+
+
+@app.get("/api/homework/download/{id}")
+def download_homework_as_text(id: int, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        require_teacher(request, db)
+        hw = HomeworkCRUD.get_by_id(db, id)
+        if not hw:
+            raise HTTPException(status_code=404, detail="作业不存在")
+
+        if hw.file_type != "json_exam":
+            # 非试卷类型直接重定向到原始 URL（如果是文件的话）
+            if hw.file_url and hw.file_url.startswith("http"):
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url=hw.file_url)
+            raise HTTPException(status_code=400, detail="该作业类型不支持直接下载文本")
+
+        # 获取试卷内容
+        assignment = None
+        if hw.exam_assignment_id:
+            assignment = db.scalar(select(ExamAssignment).where(ExamAssignment.id == hw.exam_assignment_id))
+        
+        if not assignment:
+             raise HTTPException(status_code=404, detail="找不到对应的试卷分配记录")
+
+        exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
+        if not exam:
+            raise HTTPException(status_code=404, detail="找不到对应的原始试卷")
+
+        content = assignment.personalized_content if assignment.personalized_content else exam.content
+        
+        # 解析答案
+        answers = {}
+        try:
+            if hw.file_url:
+                answers = json.loads(hw.file_url)
+        except Exception:
+            pass
+
+        student = StudentCRUD.get_by_id(db, hw.student_id)
+        
+        # 生成导出文本
+        buffer = io.StringIO()
+        buffer.write(f"学生姓名: {student.name if student else '未知'}\n")
+        buffer.write(f"试卷代码: {exam.exam_code or 'N/A'}\n")
+        buffer.write(f"提交时间: {hw.submitted_at.strftime('%Y-%m-%d %H:%M:%S') if hw.submitted_at else '未知'}\n")
+        buffer.write(f"最终得分: {hw.score if hw.score is not None else '未评分'}\n")
+        buffer.write("=" * 40 + "\n\n")
+
+        for idx, q in enumerate(content or []):
+            q_type = q.get('type', '未知')
+            buffer.write(f"题目 {idx + 1} [{q_type}]\n")
+            buffer.write(f"要求: {q.get('instruction', '')}\n")
+            buffer.write(f"内容: {q.get('content', '')}\n")
+            
+            if q_type == 'grammar':
+                buffer.write("选项:\n")
+                for opt in q.get('options', []):
+                    buffer.write(f"  - {opt}\n")
+                
+                correct_ans = str(q.get('answer', ''))
+                student_ans = str(answers.get(str(idx), ''))
+                buffer.write(f"正确答案: {correct_ans}\n")
+                buffer.write(f"学生答案: {student_ans}\n")
+                
+                # 简单校验
+                is_correct = False
+                if student_ans.strip().upper() == correct_ans.strip().upper() or \
+                   (student_ans.startswith(correct_ans) and (len(student_ans) == len(correct_ans) or student_ans[len(correct_ans)] in '. ')):
+                    is_correct = True
+                
+                buffer.write(f"判定: {'正确 ✅' if is_correct else '错误 ❌'}\n")
+            else:
+                student_ans = answers.get(str(idx), '')
+                buffer.write(f"学生回答:\n{student_ans}\n")
+            
+            buffer.write("-" * 20 + "\n\n")
+
+        buffer.write("AI 评价与反馈:\n")
+        buffer.write(hw.ai_comment or "暂无反馈")
+        buffer.write("\n")
+
+        content_str = buffer.getvalue()
+        buffer.close()
+
+        import urllib.parse
+        student_name = student.name if student else "student"
+        exam_code = exam.exam_code or "EXAM"
+        filename = f"答卷_{exam_code}_{student_name}.txt"
+        encoded_filename = urllib.parse.quote(filename)
+
+        return StreamingResponse(
+            io.BytesIO(content_str.encode('utf-8')),
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"下载生成失败: {str(e)}")
 
 
 @app.post("/api/homework/save")
@@ -1997,7 +2119,8 @@ def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session
             score=float(earned_score),
             file_type="json_exam",
             file_url=json.dumps(req.answers, ensure_ascii=False),
-            ai_comment="\n".join(ai_comment_lines) if ai_comment_lines else "语法全对！大题待教师评分。"
+            ai_comment="\n".join(ai_comment_lines) if ai_comment_lines else "语法全对！大题待教师评分。",
+            exam_assignment_id=assignment.id
         ))
         db.commit()
         
@@ -2007,6 +2130,34 @@ def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session
         trace = traceback.format_exc()
         print(f"Error in submit_exam_answers: {trace}")
         return fail(f"Server error: {str(e)}", 500)
+
+@app.get("/api/student/exam/result/{assignment_id}")
+def get_exam_result(assignment_id: int, request: Request, db: Session = Depends(get_db)):
+    student = _current_student(request, db)
+    if not student: return fail("未授权", 401)
+    
+    assignment = db.scalar(select(ExamAssignment).where(ExamAssignment.id == assignment_id, ExamAssignment.student_id == student.id))
+    if not assignment: return fail("该记录不存在")
+    
+    exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
+    content = assignment.personalized_content if assignment.personalized_content else exam.content
+    
+    # 获取对应的 homework 记录以提取答案
+    homework = db.scalar(select(Homework).where(Homework.exam_assignment_id == assignment_id, Homework.student_id == student.id))
+    answers = {}
+    if homework and homework.file_url:
+        try:
+            answers = json.loads(homework.file_url)
+        except:
+            pass
+            
+    return ok({
+        "exam_code": exam.exam_code,
+        "content": content,
+        "answers": answers,
+        "score": homework.score if homework else 0,
+        "ai_comment": homework.ai_comment if homework else ""
+    })
 
 
 @app.post("/api/student/task/complete")

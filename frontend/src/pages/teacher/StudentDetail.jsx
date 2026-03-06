@@ -77,8 +77,8 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
         }
     }, [isOpen, homework]);
 
-    // 🟢 功能：真实文件下载
-    const handleDownload = () => {
+    // 🟢 功能：真实文件下载 (支持授权)
+    const handleDownload = async () => {
         const fileUrl = data?.meta?.fileUrl;
         const fileName = data?.meta?.fileName || 'download_file';
 
@@ -88,16 +88,26 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
         }
 
         try {
+            // 使用 request 实例以携带 Authorization Header
+            const response = await request.get(fileUrl, {
+                responseType: 'blob'
+            });
+
+            const blob = new Blob([response.data], { type: response.headers['content-type'] });
+            const downloadUrl = window.URL.createObjectURL(blob);
+
             const link = document.createElement('a');
-            link.href = fileUrl;
+            link.href = downloadUrl;
             link.setAttribute('download', fileName);
-            link.target = "_blank";
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+
+            // 清理
+            link.remove();
+            window.URL.revokeObjectURL(downloadUrl);
         } catch (err) {
-            console.error("下载触发失败:", err);
-            toast.error('下载触发失败，请检查浏览器拦截设置');
+            console.error("下载失败:", err);
+            toast.error('下载失败：' + (err.response?.data?.message || err.message || '网络错误'));
         }
     };
 
