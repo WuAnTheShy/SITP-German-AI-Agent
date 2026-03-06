@@ -55,10 +55,10 @@ const Login = () => {
                         Tongji University
                     </span>
                 </div>
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                     <span className="shimmer-text">AI 智能体德语助教</span>
                 </h1>
-                <p className="text-gray-400 text-lg font-medium tracking-wide">
+                <p className="text-gray-400 dark:text-gray-300 text-lg font-medium tracking-wide">
                     个性化学习路径探究系统 · Personalisiertes Lernsystem
                 </p>
             </div>
@@ -91,7 +91,7 @@ const Login = () => {
                                     </p>
                                 </div>
                             </div>
-                            <ChevronRight className="text-gray-500 group-hover:text-blue-400 transform group-hover:translate-x-1 transition-all" />
+                            <ChevronRight className="text-gray-500 dark:text-gray-400 group-hover:text-blue-400 transform group-hover:translate-x-1 transition-all" />
                         </div>
                     </button>
 
@@ -115,7 +115,7 @@ const Login = () => {
                                     </p>
                                 </div>
                             </div>
-                            <ChevronRight className="text-gray-500 group-hover:text-indigo-400 transform group-hover:translate-x-1 transition-all" />
+                            <ChevronRight className="text-gray-500 dark:text-gray-400 group-hover:text-indigo-400 transform group-hover:translate-x-1 transition-all" />
                         </div>
                     </button>
                 </div>

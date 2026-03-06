@@ -57,14 +57,14 @@ const ExamGenerator = () => {
             <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 dark:text-gray-500 transition-colors">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
                         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <Wand2 className="text-blue-600 dark:text-blue-400" /> 智能试卷生成引擎
                         </h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">基于学情数据的差异化出题系统</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">基于学情数据的差异化出题系统</p>
                     </div>
                 </div>
 
@@ -92,13 +92,13 @@ const ExamGenerator = () => {
                                     <div className="bg-blue-100 p-3 rounded-lg text-blue-600 dark:text-blue-400"><FileText size={20} /></div>
                                     <div>
                                         <div className="font-bold text-gray-800 dark:text-gray-200">语法填空 (Grammatik)</div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">侧重变格与动词变位</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">侧重变格与动词变位</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-lg group-hover:bg-blue-50 dark:bg-blue-900/30 transition-colors">
                                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300 w-12 text-right">{grammarCount} 题</span>
                                     <input
-                                        type="range" min="5" max="30" step="5"
+                                        className="dark:text-white" type="range" min="5" max="30" step="5"
                                         value={grammarCount}
                                         onChange={(e) => setGrammarCount(e.target.value)}
                                         className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
@@ -112,13 +112,13 @@ const ExamGenerator = () => {
                                     <div className="bg-purple-100 p-3 rounded-lg text-purple-600"><MessageSquare size={20} /></div>
                                     <div>
                                         <div className="font-bold text-gray-800 dark:text-gray-200">情景改写 (Schreiben)</div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">侧重句子重构能力</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">侧重句子重构能力</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-lg group-hover:bg-purple-50 dark:bg-purple-900/30 transition-colors">
                                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300 w-12 text-right">{writingCount} 篇</span>
                                     <input
-                                        type="range" min="1" max="5" step="1"
+                                        className="dark:text-white" type="range" min="1" max="5" step="1"
                                         value={writingCount}
                                         onChange={(e) => setWritingCount(e.target.value)}
                                         className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
@@ -144,7 +144,7 @@ const ExamGenerator = () => {
                                 </div>
                                 <div>
                                     <div className={`font-bold ${strategy === 'personalized' ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300'}`}>千人千面 (推荐)</div>
-                                    <div className={`text-xs mt-1 ${strategy === 'personalized' ? 'text-blue-700 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}>
+                                    <div className={`text-xs mt-1 ${strategy === 'personalized' ? 'text-blue-700 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                         AI 根据每位学生的弱点自动替换 30% 的题目，实现精准打击。
                                     </div>
                                 </div>
@@ -167,7 +167,7 @@ const ExamGenerator = () => {
                                 </div>
                                 <div>
                                     <div className="font-bold text-gray-700 dark:text-gray-300">统一试卷</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">全班使用完全相同的标准试卷，便于横向对比成绩。</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">全班使用完全相同的标准试卷，便于横向对比成绩。</div>
                                 </div>
                             </div>
                         </div>
@@ -179,7 +179,7 @@ const ExamGenerator = () => {
                     <button
                         onClick={() => navigate(-1)}
                         disabled={isProcessing}
-                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
                     >
                         取消
                     </button>

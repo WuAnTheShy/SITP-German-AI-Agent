@@ -110,6 +110,10 @@ class StudentCRUD:
     def list_by_class(db: Session, class_id: int) -> list[Student]:
         return list(db.scalars(select(Student).where(Student.class_id == class_id)))
 
+    @staticmethod
+    def get_by_id(db: Session, student_id: int) -> Student | None:
+        return db.scalar(select(Student).where(Student.id == student_id))
+
 
 class StudentAbilityCRUD:
     @staticmethod

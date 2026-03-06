@@ -89,6 +89,7 @@ class HomeworkCreate(BaseModel):
     file_name: str | None = None
     file_size: str | None = None
     ai_comment: str | None = None
+    exam_assignment_id: int | None = None
 
 
 class HomeworkRead(ORMBase):
@@ -103,6 +104,7 @@ class HomeworkRead(ORMBase):
     file_name: str | None = None
     file_size: str | None = None
     ai_comment: str | None = None
+    exam_assignment_id: int | None = None
 
 
 class HomeworkReviewCreate(BaseModel):
@@ -183,6 +185,7 @@ class ExamAssignmentCreate(BaseModel):
     exam_id: int
     student_id: int
     status: str = "assigned"
+    personalized_content: list[Any] | None = None
 
 
 class ExamAssignmentRead(ORMBase):
@@ -191,6 +194,7 @@ class ExamAssignmentRead(ORMBase):
     student_id: int
     assigned_at: datetime
     status: str
+    personalized_content: list[Any] | None = None
 
 
 # =====================================================================

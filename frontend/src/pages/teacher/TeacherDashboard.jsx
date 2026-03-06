@@ -73,7 +73,7 @@ const TeacherDashboard = () => {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
                 <Loader2 size={40} className="text-indigo-600 dark:text-indigo-400 animate-spin mb-4" />
-                <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium">正在同步班级学情数据...</p>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">正在同步班级学情数据...</p>
             </div>
         );
     }
@@ -90,18 +90,18 @@ const TeacherDashboard = () => {
                             <LayoutDashboard className="text-indigo-600 dark:text-indigo-400" />
                             教师控制台
                             {/* 🟢 动态班级名称 */}
-                            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 dark:text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-md">
+                            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-md">
                                 {data?.className || '加载中...'}
                             </span>
                         </h1>
-                        <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态待处理。</p>
+                        <p className="text-gray-500 dark:text-gray-400 mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态待处理。</p>
                     </div>
                     <div className="flex gap-3">
                         {/* 🟢 刷新按钮 */}
                         <button
                             onClick={() => fetchDashboardData(true)}
                             disabled={refreshing}
-                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:bg-gray-900 transition-all flex items-center gap-2 disabled:opacity-50"
+                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:bg-gray-900 transition-all flex items-center gap-2 disabled:opacity-50"
                         >
                             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新
                         </button>
@@ -112,10 +112,10 @@ const TeacherDashboard = () => {
                             <Plus size={18} /> 发布情景任务
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/ai')}
-                            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50"
+                            onClick={() => navigate('/teacher/exam')}
+                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
                         >
-                            <Bot size={18} /> AI 教研助手
+                            <GraduationCap size={18} /> 生成试卷
                         </button>
                         <button
                             onClick={() => navigate('/teacher/history')}
@@ -124,10 +124,10 @@ const TeacherDashboard = () => {
                             <FileText size={18} /> 发布记录
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/exam')}
-                            className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 dark:bg-indigo-900/30 transition-all flex items-center gap-2"
+                            onClick={() => navigate('/teacher/ai')}
+                            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-100 transition-all flex items-center gap-2 shadow-sm dark:shadow-gray-900/50"
                         >
-                            <GraduationCap size={18} /> 生成试卷
+                            <Bot size={18} /> AI 教研助手
                         </button>
                         {/* 🟢 登出按钮 */}
                         <button
@@ -188,7 +188,7 @@ const TeacherDashboard = () => {
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                             <input
-                                type="text"
+                                className="dark:text-white" type="text"
                                 placeholder="搜索姓名或学号..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -202,11 +202,11 @@ const TeacherDashboard = () => {
                         <table className="w-full">
                             <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wider">学生信息</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wider">活跃度</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wider">综合评分</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wider">薄弱环节</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wider">操作</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">学生信息</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">活跃度</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">综合评分</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">薄弱环节</th>
+                                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">操作</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -223,7 +223,7 @@ const TeacherDashboard = () => {
                                                 </div>
                                                 <div className="ml-4">
                                                     <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{student.name || '匿名用户'}</div>
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{student.uid || '无学号'}</div>
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">{student.uid || '无学号'}</div>
                                                 </div>
                                             </div>
                                         </td>
@@ -232,7 +232,7 @@ const TeacherDashboard = () => {
                                                 <div className="w-16 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                                                     <div className="h-full bg-green-500" style={{ width: `${student.active}% ` }}></div>
                                                 </div>
-                                                <span className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">{student.active}%</span>
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">{student.active}%</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -243,7 +243,7 @@ const TeacherDashboard = () => {
                                                 {student.score} 分
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             <span className="flex items-center gap-1 text-red-500 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
                                                 <Activity size={12} /> {student.weak || '暂无'}
                                             </span>
@@ -259,7 +259,7 @@ const TeacherDashboard = () => {
                         </table>
                     </div>
                     {filteredStudents.length === 0 && (
-                        <div className="p-12 text-center text-gray-500 dark:text-gray-400 dark:text-gray-500">未找到匹配的学生</div>
+                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">未找到匹配的学生</div>
                     )}
                 </div>
             </div>
@@ -276,12 +276,12 @@ const StatCard = ({ icon, label, value, trend, bg }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 hover:shadow-md dark:shadow-gray-900/50 transition-shadow">
             <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${bg}`}>{icon}</div>
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900'}`}>
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900'}`}>
                     {trend}
                 </span>
             </div>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{value}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{label}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
         </div>
     );
 };

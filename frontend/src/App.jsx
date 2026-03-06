@@ -22,6 +22,9 @@ import LearningProgress from './pages/student/LearningProgress';
 import ListeningSpeaking from './pages/student/ListeningSpeaking';
 import VocabLearning from './pages/student/VocabLearning';
 import WritingAssistant from './pages/student/WritingAssistant';
+import TaskCenter from './pages/student/TaskCenter';
+import TakeExam from './pages/student/TakeExam';
+import ExamResult from './pages/student/ExamResult';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // 文件路径: src/App.jsx
@@ -40,6 +43,9 @@ function App() {
                     <Route path="/student/login" element={<StudentLogin />} />
                     <Route path="/student/register" element={<StudentRegister />} />
                     {/* 以下学生端页面需要登录 + 学生角色，并带有唯一 userId */}
+                    <Route path="/student/:userId/tasks" element={<ProtectedRoute requiredRole="student"><TaskCenter /></ProtectedRoute>} />
+                    <Route path="/student/:userId/take-exam/:assignmentId" element={<ProtectedRoute requiredRole="student"><TakeExam /></ProtectedRoute>} />
+                    <Route path="/student/:userId/exam-result/:assignmentId" element={<ProtectedRoute requiredRole="student"><ExamResult /></ProtectedRoute>} />
                     <Route path="/student/:userId/home" element={<ProtectedRoute requiredRole="student"><StudentHome /></ProtectedRoute>} />
                     <Route path="/student/:userId/ai-scene-chat" element={<ProtectedRoute requiredRole="student"><AISceneChat /></ProtectedRoute>} />
                     <Route path="/student/:userId/error-book" element={<ProtectedRoute requiredRole="student"><ErrorBookReview /></ProtectedRoute>} />

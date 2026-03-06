@@ -77,7 +77,7 @@ const ErrorBookReview = () => {
       <div className="flex-1 overflow-y-auto p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">📝 德语错题本与复习</h1>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500">收集所有错题，AI针对性生成复习计划，精准补漏</p>
+          <p className="text-gray-500 dark:text-gray-400">收集所有错题，AI针对性生成复习计划，精准补漏</p>
         </div>
 
         {/* 分类选择 */}
@@ -88,7 +88,7 @@ const ErrorBookReview = () => {
             <button key={cate.id} onClick={() => handleSelectCate(cate)} disabled={loading.operate}
               className={`px-4 py-3 rounded-lg border-2 transition-all ${selectedCate?.id === cate.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 text-gray-700 dark:text-gray-300'
                 }`}>
-              {cate.name} <span className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 ml-1">({cate.count}道)</span>
+              {cate.name} <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">({cate.count}道)</span>
             </button>
           ))}
         </div>
@@ -101,7 +101,7 @@ const ErrorBookReview = () => {
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium">
               {loading.review ? '正在开启复习...' : '🤖 开始AI针对性复习'}
             </button>
-            <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">当前模式：
+            <span className="text-sm text-gray-500 dark:text-gray-400">当前模式：
               <span className={`font-medium ${reviewMode === 'review' ? 'text-green-600' : 'text-gray-700 dark:text-gray-300'}`}>
                 {reviewMode === 'browse' ? '错题浏览' : '专项复习'}
               </span>
@@ -133,7 +133,7 @@ const ErrorBookReview = () => {
                         <span className="text-green-700">{error.correctAnswer}</span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-3"><span className="font-medium">解析：</span>{error.analysis}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3"><span className="font-medium">解析：</span>{error.analysis}</p>
                     <div className="flex gap-3">
                       <button onClick={() => handleRemoveError(error.id, true)} disabled={loading.operate}
                         className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors text-sm">

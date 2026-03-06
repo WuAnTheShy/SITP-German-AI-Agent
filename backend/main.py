@@ -1,5 +1,6 @@
 import json
 import os
+import io
 from datetime import date, datetime, timedelta, timezone
 from statistics import mean
 from uuid import uuid4
@@ -10,7 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import StreamingResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
@@ -47,7 +49,7 @@ from crud.repositories import (
     WritingSessionCRUD,
 )
 from db.session import get_db
-from models.entities import ChatSession as ChatSessionModel
+from models.entities import ChatSession as ChatSessionModel, ExamAssignment, Exam, ScenarioPush, Scenario, Homework
 from schemas.entities import (
     ChatMessageCreate,
     ChatSessionCreate,
@@ -126,9 +128,39 @@ def startup_event():
             if not result.fetchone():
                 print("[Server] Missing 'content' column in 'exams' table. Applying patch...")
                 conn.execute(text("ALTER TABLE exams ADD COLUMN content JSONB DEFAULT '[]'::jsonb NOT NULL;"))
-                print("[Server] Database patch applied successfully.")
-            else:
-                print("[Server] Database schema is up to date.")
+                print("[Server] Database patch applied successfully to exams.")
+            
+            # 检查 personalized_content 是否已存在于 exam_assignments
+            result2 = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='exam_assignments' AND column_name='personalized_content';
+            """))
+            if not result2.fetchone():
+                print("[Server] Missing 'personalized_content' in 'exam_assignments'. Applying patch...")
+                conn.execute(text("ALTER TABLE exam_assignments ADD COLUMN personalized_content JSONB;"))
+                print("[Server] Database patch applied successfully to exam_assignments.")
+                
+            # 移除 homeworks 表的 file_type 检查约束，以便支持 JSON 类型的试卷
+            try:
+                conn.execute(text("ALTER TABLE homeworks DROP CONSTRAINT IF EXISTS ck_homeworks_file_type;"))
+                conn.execute(text("ALTER TABLE homeworks DROP CONSTRAINT IF EXISTS homeworks_file_type_check;"))
+                print("[Server] Dropped restrictive homeworks file_type check constraints.")
+            except Exception as e:
+                print(f"[Server] Note: Could not drop constraint, it might not exist. {e}")
+
+            # 检查 exam_assignment_id 是否已存在于 homeworks
+            result3 = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='homeworks' AND column_name='exam_assignment_id';
+            """))
+            if not result3.fetchone():
+                print("[Server] Missing 'exam_assignment_id' in 'homeworks'. Applying patch...")
+                conn.execute(text("ALTER TABLE homeworks ADD COLUMN exam_assignment_id INTEGER;"))
+                print("[Server] Database patch applied successfully to homeworks.")
+                
+            print("[Server] Database schema checks completed.")
     except Exception as e:
         print(f"[Server] Database migration failed (might be handled by alembic): {e}")
 
@@ -646,14 +678,17 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
         
         # ----------- 使用 AI 实时生成题目 -----------
         focus_desc = "、".join(cfg.get("focusAreas", [])) or "综合考察"
-        strategy_desc = "个性化差异出题" if cfg.get("strategy") == "personalized" else "统一标准出题"
+        strategy = cfg.get("strategy", "personalized")
+        strategy_desc = "个性化差异出题" if strategy == "personalized" else "统一标准出题"
 
-        prompt = f"""你是一个专业的德语考试出题系统。请根据以下配置生成德语考试试卷：
+        def _generate_questions_for_student(student_info: str = "") -> list:
+            prompt = f"""你是一个专业的德语考试出题系统。请根据以下配置生成德语考试试卷：
 
 - 语法题数量：{grammar_count} 题
 - 写作题数量：{writing_count} 题
 - 出题策略：{strategy_desc}
 - 重点考察领域：{focus_desc}
+{student_info}
 
 要求：
 1. 每道语法题都必须**不同**，涵盖不同语法考点（如动词变位、格变化、被动语态、虚拟式、从句语序、介词搭配等）
@@ -683,82 +718,116 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
 
 请确保生成 {grammar_count} 道语法题和 {writing_count} 道写作题。"""
 
-        print(f"[试卷生成] 正在调用 AI 生成 {grammar_count} 道语法题 + {writing_count} 道写作题...", flush=True)
+            print(f"[试卷生成] 正在调用 AI 生成 {grammar_count} 道语法题 + {writing_count} 道写作题...", flush=True)
 
-        ai_questions = None
-        try:
-            resp = _gemini_client.models.generate_content(
-                model=_MODEL_ID,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction="你是专业的德语考试出题助手，只返回JSON格式数据。",
-                    http_options={"timeout": 90_000},
-                ),
-            )
-            text = resp.text.strip()
-            # 清洗 markdown 代码块
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            ai_questions = json.loads(text.strip())
-            print(f"[试卷生成] AI 成功生成 {len(ai_questions)} 道题目", flush=True)
-        except Exception as e:
-            print(f"[试卷生成] AI 生成失败: {type(e).__name__}: {e}", flush=True)
+            ai_questions = None
+            try:
+                resp = _gemini_client.models.generate_content(
+                    model=_MODEL_ID,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction="你是专业的德语考试出题助手，只返回JSON格式数据。",
+                        http_options={"timeout": 90_000},
+                    ),
+                )
+                text = resp.text.strip()
+                # 清洗 markdown 代码块
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+                ai_questions = json.loads(text.strip())
+                print(f"[试卷生成] AI 成功生成 {len(ai_questions)} 道题目", flush=True)
+            except Exception as e:
+                print(f"[试卷生成] AI 生成失败: {type(e).__name__}: {e}", flush=True)
 
-        # AI 生成失败时使用基础 fallback
-        if not ai_questions or not isinstance(ai_questions, list):
-            print("[试卷生成] 使用 fallback 基础题目", flush=True)
-            ai_questions = []
-            grammar_topics = [
-                ("动词变位", "Ich ___ gestern ins Kino gegangen.", ["A. bin", "B. habe", "C. war", "D. wurde"], "A"),
-                ("格变化", "Er gibt ___ Freund ein Buch.", ["A. sein", "B. seinem", "C. seinen", "D. seiner"], "B"),
-                ("被动语态", "Das Haus ___ letztes Jahr gebaut.", ["A. hat", "B. ist", "C. wird", "D. wurde"], "D"),
-                ("虚拟式", "Wenn ich reich ___, würde ich reisen.", ["A. bin", "B. wäre", "C. war", "D. sei"], "B"),
-                ("从句语序", "Ich weiß, dass er morgen nach Berlin ___.", ["A. fahrt", "B. fährt", "C. gefahren", "D. fahren"], "B"),
-                ("介词搭配", "Wir warten ___ den Bus.", ["A. für", "B. auf", "C. an", "D. um"], "B"),
-                ("冠词", "Das ist ___ interessantes Buch.", ["A. ein", "B. eine", "C. einen", "D. einem"], "A"),
-                ("反身动词", "Er ___ sich für Musik.", ["A. interessiert", "B. interessieren", "C. interessiere", "D. interessierst"], "A"),
-            ]
-            for i in range(grammar_count):
-                t = grammar_topics[i % len(grammar_topics)]
-                ai_questions.append({
-                    "type": "grammar", "id": f"G-{i+1}",
-                    "instruction": f"语法题 {i+1}（考点：{t[0]}）：请选择正确的选项填空。",
-                    "content": t[1], "options": t[2], "answer": t[3], "score": 2
-                })
-            writing_topics = [
-                "你的一位德国朋友即将来中国旅行，请给他写一封邮件，推荐几个必去的城市，并说明理由。字数要求：100-150词。",
-                "请描述你理想的大学生活，包括学习、社交和课外活动。字数要求：100-150词。",
-                "请写一篇短文，介绍你最喜欢的一道中国菜的做法和它的文化意义。字数要求：100-150词。",
-            ]
-            for i in range(writing_count):
-                ai_questions.append({
-                    "type": "writing", "id": f"W-{i+1}",
-                    "instruction": f"写作题 {i+1}：请根据以下情景进行写作。",
-                    "content": writing_topics[i % len(writing_topics)], "score": 15
-                })
-        # ----------------------------------------------------
-
-        exam = ExamCRUD.create(
-            db,
-            ExamCreate(
-                exam_code=exam_code,
-                teacher_user_id=teacher.id,
-                grammar_items=grammar_count,
-                writing_items=writing_count,
-                strategy=cfg.get("strategy", "personalized"),
-                focus_areas=cfg.get("focusAreas", []),
-                content=ai_questions,
-            ),
-        )
+            # AI 生成失败时使用基础 fallback
+            if not ai_questions or not isinstance(ai_questions, list):
+                print("[试卷生成] 使用 fallback 基础题目", flush=True)
+                ai_questions = []
+                grammar_topics = [
+                    ("动词变位", "Ich ___ gestern ins Kino gegangen.", ["A. bin", "B. habe", "C. war", "D. wurde"], "A"),
+                    ("格变化", "Er gibt ___ Freund ein Buch.", ["A. sein", "B. seinem", "C. seinen", "D. seiner"], "B"),
+                    ("被动语态", "Das Haus ___ letztes Jahr gebaut.", ["A. hat", "B. ist", "C. wird", "D. wurde"], "D"),
+                    ("虚拟式", "Wenn ich reich ___, würde ich reisen.", ["A. bin", "B. wäre", "C. war", "D. sei"], "B"),
+                    ("从句语序", "Ich weiß, dass er morgen nach Berlin ___.", ["A. fahrt", "B. fährt", "C. gefahren", "D. fahren"], "B"),
+                    ("介词搭配", "Wir warten ___ den Bus.", ["A. für", "B. auf", "C. an", "D. um"], "B"),
+                    ("冠词", "Das ist ___ interessantes Buch.", ["A. ein", "B. eine", "C. einen", "D. einem"], "A"),
+                    ("反身动词", "Er ___ sich für Musik.", ["A. interessiert", "B. interessieren", "C. interessiere", "D. interessierst"], "A"),
+                ]
+                for i in range(grammar_count):
+                    t = grammar_topics[i % len(grammar_topics)]
+                    ai_questions.append({
+                        "type": "grammar", "id": f"G-{i+1}",
+                        "instruction": f"语法题 {i+1}（考点：{t[0]}）：请选择正确的选项填空。",
+                        "content": t[1], "options": t[2], "answer": t[3], "score": 2
+                    })
+                writing_topics = [
+                    "你的一位德国朋友即将来中国旅行，请给他写一封邮件，推荐几个必去的城市，并说明理由。字数要求：100-150词。",
+                    "请描述你理想的大学生活，包括学习、社交和课外活动。字数要求：100-150词。",
+                    "请写一篇短文，介绍你最喜欢的一道中国菜的做法和它的文化意义。字数要求：100-150词。",
+                ]
+                for i in range(writing_count):
+                    ai_questions.append({
+                        "type": "writing", "id": f"W-{i+1}",
+                        "instruction": f"写作题 {i+1}：请根据以下情景进行写作。",
+                        "content": writing_topics[i % len(writing_topics)], "score": 15
+                    })
+            return ai_questions
 
         students = StudentCRUD.list_by_class(db, classroom.id)
-        for s in students:
-            ExamAssignmentCRUD.create_or_get(
+
+        if strategy != "personalized":
+            ai_questions = _generate_questions_for_student()
+            exam = ExamCRUD.create(
                 db,
-                ExamAssignmentCreate(exam_id=exam.id, student_id=s.id, status="assigned"),
+                ExamCreate(
+                    exam_code=exam_code,
+                    teacher_user_id=teacher.id,
+                    grammar_items=grammar_count,
+                    writing_items=writing_count,
+                    strategy=strategy,
+                    focus_areas=cfg.get("focusAreas", []),
+                    content=ai_questions,
+                ),
             )
+            for s in students:
+                ExamAssignmentCRUD.create_or_get(
+                    db,
+                    ExamAssignmentCreate(exam_id=exam.id, student_id=s.id, status="assigned"),
+                )
+        else:
+            exam = ExamCRUD.create(
+                db,
+                ExamCreate(
+                    exam_code=exam_code,
+                    teacher_user_id=teacher.id,
+                    grammar_items=grammar_count,
+                    writing_items=writing_count,
+                    strategy=strategy,
+                    focus_areas=cfg.get("focusAreas", []),
+                    content=[], 
+                ),
+            )
+            for s in students:
+                ability = StudentAbilityCRUD.get_by_student_id(db, s.id)
+                student_info = f"\n- 针对学生情况：该学生在【{s.weak_point or '其他'}】有薄弱点。"
+                if ability and ability.ai_diagnosis:
+                    student_info += f"\n- AI诊断信息：{ability.ai_diagnosis}"
+                student_info += "\n**请务必针对该学生的薄弱点设计题目，体现出个性化！**"
+                
+                print(f"[千人千面] 正在为学生 {s.name}({s.uid}) 生成个性化试卷...", flush=True)
+                personalized_q = _generate_questions_for_student(student_info)
+                
+                ExamAssignmentCRUD.create_or_get(
+                    db,
+                    ExamAssignmentCreate(
+                        exam_id=exam.id, 
+                        student_id=s.id, 
+                        status="assigned", 
+                        personalized_content=personalized_q
+                    ),
+                )
 
         return ok({"examId": exam.exam_code, "studentCount": len(students)}, "试卷生成成功")
     except Exception as e:
@@ -842,6 +911,25 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
 
         ability = StudentAbilityCRUD.get_by_student_id(db, student.id)
         homeworks = HomeworkCRUD.list_by_student(db, student.id)
+        
+        # 获取考试分配记录
+        from sqlalchemy import select
+        from models.entities import ExamAssignment, Exam
+        exam_assignments = list(db.scalars(
+            select(ExamAssignment).where(ExamAssignment.student_id == student.id).order_by(ExamAssignment.assigned_at.desc())
+        ))
+        exams_data = []
+        for ea in exam_assignments:
+            exam = ExamCRUD.get_by_id(db, ea.exam_id)
+            if exam:
+                exams_data.append({
+                    "id": ea.id,
+                    "examId": exam.id,
+                    "examCode": exam.exam_code,
+                    "strategy": exam.strategy,
+                    "assignedAt": ea.assigned_at.strftime("%Y-%m-%d"),
+                    "content": ea.personalized_content if exam.strategy == "personalized" else exam.content,
+                })
 
         data = {
             "info": {
@@ -869,6 +957,7 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
                 }
                 for h in homeworks
             ],
+            "exams": exams_data,
         }
         return ok(data)
     except Exception as e:
@@ -884,12 +973,17 @@ def get_homework_detail(id: int, request: Request = None, db: Session = Depends(
         if not hw:
             return fail("作业不存在", 404)
 
+        file_url = hw.file_url
+        if hw.file_type == "json_exam":
+            # 如果是试卷类型，跳转到专门的下载接口生成文本
+            file_url = f"/api/homework/download/{hw.id}"
+
         data = {
             "type": hw.file_type or "text",
             "meta": {
-                "fileUrl": hw.file_url,
-                "fileName": hw.file_name or f"homework-{hw.id}",
-                "fileSize": hw.file_size or "Unknown",
+                "fileUrl": file_url,
+                "fileName": hw.file_name or f"homework-{hw.id}.txt",
+                "fileSize": hw.file_size or "自动生成",
                 "uploadTime": (hw.submitted_at or hw.created_at).strftime("%Y-%m-%d %H:%M"),
             },
             "aiComment": hw.ai_comment or "暂无 AI 评价数据。",
@@ -897,6 +991,110 @@ def get_homework_detail(id: int, request: Request = None, db: Session = Depends(
         return ok(data)
     except Exception as e:
         return fail(f"获取作业详情失败: {e}")
+
+
+@app.get("/api/homework/download/{id}")
+def download_homework_as_text(id: int, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        require_teacher(request, db)
+        hw = HomeworkCRUD.get_by_id(db, id)
+        if not hw:
+            raise HTTPException(status_code=404, detail="作业不存在")
+
+        if hw.file_type != "json_exam":
+            # 非试卷类型直接重定向到原始 URL（如果是文件的话）
+            if hw.file_url and hw.file_url.startswith("http"):
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url=hw.file_url)
+            raise HTTPException(status_code=400, detail="该作业类型不支持直接下载文本")
+
+        # 获取试卷内容
+        assignment = None
+        if hw.exam_assignment_id:
+            assignment = db.scalar(select(ExamAssignment).where(ExamAssignment.id == hw.exam_assignment_id))
+        
+        if not assignment:
+             raise HTTPException(status_code=404, detail="找不到对应的试卷分配记录")
+
+        exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
+        if not exam:
+            raise HTTPException(status_code=404, detail="找不到对应的原始试卷")
+
+        content = assignment.personalized_content if assignment.personalized_content else exam.content
+        
+        # 解析答案
+        answers = {}
+        try:
+            if hw.file_url:
+                answers = json.loads(hw.file_url)
+        except Exception:
+            pass
+
+        student = StudentCRUD.get_by_id(db, hw.student_id)
+        
+        # 生成导出文本
+        buffer = io.StringIO()
+        buffer.write(f"学生姓名: {student.name if student else '未知'}\n")
+        buffer.write(f"试卷代码: {exam.exam_code or 'N/A'}\n")
+        buffer.write(f"提交时间: {hw.submitted_at.strftime('%Y-%m-%d %H:%M:%S') if hw.submitted_at else '未知'}\n")
+        buffer.write(f"最终得分: {hw.score if hw.score is not None else '未评分'}\n")
+        buffer.write("=" * 40 + "\n\n")
+
+        for idx, q in enumerate(content or []):
+            q_type = q.get('type', '未知')
+            buffer.write(f"题目 {idx + 1} [{q_type}]\n")
+            buffer.write(f"要求: {q.get('instruction', '')}\n")
+            buffer.write(f"内容: {q.get('content', '')}\n")
+            
+            if q_type == 'grammar':
+                buffer.write("选项:\n")
+                for opt in q.get('options', []):
+                    buffer.write(f"  - {opt}\n")
+                
+                correct_ans = str(q.get('answer', ''))
+                student_ans = str(answers.get(str(idx), ''))
+                buffer.write(f"正确答案: {correct_ans}\n")
+                buffer.write(f"学生答案: {student_ans}\n")
+                
+                # 简单校验
+                is_correct = False
+                if student_ans.strip().upper() == correct_ans.strip().upper() or \
+                   (student_ans.startswith(correct_ans) and (len(student_ans) == len(correct_ans) or student_ans[len(correct_ans)] in '. ')):
+                    is_correct = True
+                
+                buffer.write(f"判定: {'正确 ✅' if is_correct else '错误 ❌'}\n")
+            else:
+                student_ans = answers.get(str(idx), '')
+                buffer.write(f"学生回答:\n{student_ans}\n")
+            
+            buffer.write("-" * 20 + "\n\n")
+
+        buffer.write("AI 评价与反馈:\n")
+        buffer.write(hw.ai_comment or "暂无反馈")
+        buffer.write("\n")
+
+        content_str = buffer.getvalue()
+        buffer.close()
+
+        import urllib.parse
+        student_name = student.name if student else "student"
+        exam_code = exam.exam_code or "EXAM"
+        filename = f"答卷_{exam_code}_{student_name}.txt"
+        encoded_filename = urllib.parse.quote(filename)
+
+        return StreamingResponse(
+            io.BytesIO(content_str.encode('utf-8')),
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"下载生成失败: {str(e)}")
 
 
 @app.post("/api/homework/save")
@@ -1793,6 +1991,187 @@ def learning_progress(request: Request, db: Session = Depends(get_db)):
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "SITP German Agent 后端正在运行中! 🚀"}
+
+# ╔═══════════════════════════════════════════════════════╗
+# ║  8. 学生端任务中心 (Student Tasks)                     ║
+# ╚═══════════════════════════════════════════════════════╝
+
+@app.get("/api/student/tasks")
+def get_student_tasks(request: Request, db: Session = Depends(get_db)):
+    student = _current_student(request, db)
+    if not student: return fail("请先登录", 401)
+    
+    tasks = []
+    
+    # 获取试卷任务 ExamAssignments
+    assignments = db.scalars(
+        select(ExamAssignment)
+        .where(ExamAssignment.student_id == student.id)
+        .order_by(ExamAssignment.assigned_at.desc())
+    ).all()
+    for a in assignments:
+        exam = db.scalar(select(Exam).where(Exam.id == a.exam_id))
+        if exam:
+            tasks.append({
+                "id": f"exam_{a.id}",
+                "type": "exam",
+                "exam_id": exam.id,
+                "assignment_id": a.id,
+                "title": f"📝 测验: {exam.exam_code} ({exam.strategy == 'personalized' and '千人千面' or '基础出题'})",
+                "createdAt": a.assigned_at.isoformat() if a.assigned_at else None,
+                "status": "completed" if a.status == "completed" else "pending",
+                "isPersonalized": exam.strategy == "personalized"
+            })
+            
+    # 获取情景任务 ScenarioPush
+    pushes = db.scalars(
+        select(ScenarioPush)
+        .where(ScenarioPush.student_id == student.id)
+        .order_by(ScenarioPush.pushed_at.desc())
+    ).all()
+    for p in pushes:
+        scenario = db.scalar(select(Scenario).where(Scenario.id == p.scenario_id))
+        if scenario:
+            tasks.append({
+                "id": f"scenario_{p.id}",
+                "type": "scenario",
+                "scenario_id": scenario.id,
+                "push_id": p.id,
+                "title": f"💬 对话任务: {scenario.theme} - {scenario.persona}",
+                "createdAt": p.pushed_at.isoformat() if p.pushed_at else None,
+                "status": "completed" if p.push_status == "completed" else "pending",
+                "difficulty": scenario.difficulty
+            })
+            
+    tasks.sort(key=lambda x: x["createdAt"] or "", reverse=True)
+    return ok(tasks)
+
+
+@app.get("/api/student/exam/assignment/{assignment_id}")
+def get_exam_for_student(assignment_id: int, request: Request, db: Session = Depends(get_db)):
+    student = _current_student(request, db)
+    if not student: return fail("未授权", 401)
+    
+    assignment = db.scalar(select(ExamAssignment).where(ExamAssignment.id == assignment_id, ExamAssignment.student_id == student.id))
+    if not assignment: return fail("找不到该试卷分配记录")
+    
+    exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
+    if not exam: return fail("找不到对应试卷")
+    
+    content = assignment.personalized_content if assignment.personalized_content else exam.content
+    return ok({
+        "assignment_id": assignment.id,
+        "exam_id": exam.id,
+        "exam_code": exam.exam_code,
+        "strategy": exam.strategy,
+        "content": content,
+        "status": assignment.status
+    })
+
+
+class StudentExamSubmitReq(BaseModel):
+    assignment_id: int
+    answers: dict
+
+class TaskCompleteReq(BaseModel):
+    task_type: str
+    task_id: int
+
+@app.post("/api/student/exam/submit")
+def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session = Depends(get_db)):
+    try:
+        student = _current_student(request, db)
+        if not student: return fail("未授权", 401)
+        
+        assignment = db.scalar(select(ExamAssignment).where(ExamAssignment.id == req.assignment_id, ExamAssignment.student_id == student.id))
+        if not assignment: return fail("任务不存在")
+        if assignment.status == "completed": return fail("该试卷已提交过")
+        
+        exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
+        content = assignment.personalized_content if assignment.personalized_content else exam.content
+        
+        if not content:
+            content = []
+            
+        earned_score = 0
+        ai_comment_lines = []
+        
+        for idx, q_data in enumerate(content):
+            q_score = q_data.get("score", 0)
+            u_ans = req.answers.get(str(idx), "")
+            
+            if q_data.get("type") == "grammar":
+                correct_ans = str(q_data.get("answer", ""))
+                if correct_ans and (u_ans.startswith(correct_ans + '.') or u_ans.startswith(correct_ans + ' ') or u_ans == correct_ans or correct_ans.startswith(u_ans) or u_ans.startswith(correct_ans)):
+                    earned_score += q_score
+                else:
+                    ai_comment_lines.append(f"第 {idx + 1} 题(语法): 答错了，你的答案 [{u_ans}]；正确答案 [{correct_ans}]")
+            else:
+                ai_comment_lines.append(f"第 {idx + 1} 题(写作): 已记录答案，待教师或AI后续评分。")
+                
+        assignment.status = "completed"
+        
+        HomeworkCRUD.create(db, HomeworkCreate(
+            student_id=student.id,
+            title=f"[随堂测验] {exam.exam_code} 的答卷",
+            status="已完成",
+            submitted_at=datetime.now(),
+            score=float(earned_score),
+            file_type="json_exam",
+            file_url=json.dumps(req.answers, ensure_ascii=False),
+            ai_comment="\n".join(ai_comment_lines) if ai_comment_lines else "语法全对！大题待教师评分。",
+            exam_assignment_id=assignment.id
+        ))
+        db.commit()
+        
+        return ok({"score": earned_score, "message": "提交成功"})
+    except Exception as e:
+        import traceback
+        trace = traceback.format_exc()
+        print(f"Error in submit_exam_answers: {trace}")
+        return fail(f"Server error: {str(e)}", 500)
+
+@app.get("/api/student/exam/result/{assignment_id}")
+def get_exam_result(assignment_id: int, request: Request, db: Session = Depends(get_db)):
+    student = _current_student(request, db)
+    if not student: return fail("未授权", 401)
+    
+    assignment = db.scalar(select(ExamAssignment).where(ExamAssignment.id == assignment_id, ExamAssignment.student_id == student.id))
+    if not assignment: return fail("该记录不存在")
+    
+    exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
+    content = assignment.personalized_content if assignment.personalized_content else exam.content
+    
+    # 获取对应的 homework 记录以提取答案
+    homework = db.scalar(select(Homework).where(Homework.exam_assignment_id == assignment_id, Homework.student_id == student.id))
+    answers = {}
+    if homework and homework.file_url:
+        try:
+            answers = json.loads(homework.file_url)
+        except:
+            pass
+            
+    return ok({
+        "exam_code": exam.exam_code,
+        "content": content,
+        "answers": answers,
+        "score": homework.score if homework else 0,
+        "ai_comment": homework.ai_comment if homework else ""
+    })
+
+
+@app.post("/api/student/task/complete")
+def complete_task(req: TaskCompleteReq, request: Request, db: Session = Depends(get_db)):
+    student = _current_student(request, db)
+    if not student: return fail("未授权", 401)
+    
+    if req.task_type == "scenario":
+        p = db.scalar(select(ScenarioPush).where(ScenarioPush.id == req.task_id, ScenarioPush.student_id == student.id))
+        if p and p.push_status != "completed":
+            p.push_status = "completed"
+            db.commit()
+    return ok()
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

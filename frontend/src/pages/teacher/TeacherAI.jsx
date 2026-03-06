@@ -60,14 +60,14 @@ const TeacherAI = () => {
                         className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:bg-gray-800 transition"
                         title="返回控制台"
                     >
-                        <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400 dark:text-gray-500" />
+                        <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
                     </button>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <Bot size={28} className="text-indigo-600 dark:text-indigo-400" />
                             AI 教研助手
                         </h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">智能分析学情，自动化教务辅助</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">智能分析学情，自动化教务辅助</p>
                     </div>
                 </div>
 
@@ -96,7 +96,7 @@ const TeacherAI = () => {
                                     <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center shadow-sm dark:shadow-gray-900/50">
                                         <Bot size={24} className="text-indigo-600 dark:text-indigo-400" />
                                     </div>
-                                    <div className="p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-gray-400 dark:text-gray-500 flex items-center gap-2">
+                                    <div className="p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-gray-400 flex items-center gap-2">
                                         <Loader2 className="animate-spin text-indigo-500" size={18} /> AI 助教正在分析您的需求...
                                     </div>
                                 </div>
@@ -122,7 +122,7 @@ const TeacherAI = () => {
                     {/* 下部输入区 */}
                     <div className="p-5 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
                         <div className="flex max-w-5xl mx-auto items-center gap-3">
-                            <input type="text" value={input}
+                            <input className="dark:text-white" type="text" value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                                 placeholder={loading ? "正在处理请求..." : "输入您要咨询的教研问题或指令..."}
@@ -130,7 +130,7 @@ const TeacherAI = () => {
                                 className="flex-1 px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:bg-gray-800 transition-all disabled:bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                             />
                             <button onClick={handleSend} disabled={loading}
-                                className={`px-6 py-4 rounded-xl font-bold transition-colors shadow-sm dark:shadow-gray-900/50 flex items-center gap-2 ${loading ? 'bg-gray-300 text-gray-500 dark:text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
+                                className={`px-6 py-4 rounded-xl font-bold transition-colors shadow-sm dark:shadow-gray-900/50 flex items-center gap-2 ${loading ? 'bg-gray-300 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
                                 {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                                 发送
                             </button>

@@ -90,6 +90,7 @@ class Homework(Base):
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     file_size: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ai_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exam_assignment_id: Mapped[int | None] = mapped_column(ForeignKey("exam_assignments.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -169,6 +170,7 @@ class ExamAssignment(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="assigned", nullable=False)
+    personalized_content: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("exam_id", "student_id", name="uq_exam_assignments_exam_student"),

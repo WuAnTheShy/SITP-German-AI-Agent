@@ -11,6 +11,7 @@ import {
   BookX,
   Star,
   LogOut,
+  ClipboardList,
 } from "lucide-react";
 
 const StudentLayout = ({ children }) => {
@@ -30,6 +31,7 @@ const StudentLayout = ({ children }) => {
   };
 
   const navItems = [
+    { label: "任务中心", icon: ClipboardList, path: `/student/${userId}/tasks` },
     { label: "智能对话", icon: Bot, path: `/student/${userId}/home` },
     { label: "场景对话", icon: MessageSquare, path: `/student/${userId}/ai-scene-chat` },
     { label: "语法练习", icon: ScrollText, path: `/student/${userId}/grammar-practice` },
@@ -60,7 +62,7 @@ const StudentLayout = ({ children }) => {
                 onClick={() => navigate(item.path)}
                 className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-colors ${isActive
                   ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                  : "text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:bg-gray-900"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:bg-gray-900"
                   }`}
               >
                 <Icon size={18} /> {item.label}

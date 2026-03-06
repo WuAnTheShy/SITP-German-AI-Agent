@@ -117,11 +117,10 @@ const StudentHome = () => {
                   )}
                 </div>
                 <div
-                  className={`p-4 rounded-2xl whitespace-pre-wrap ${
-                    msg.sender === "user"
+                  className={`p-4 rounded-2xl whitespace-pre-wrap ${msg.sender === "user"
                       ? "bg-blue-600 text-white rounded-tr-none"
-                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-gray-200"
-                  }`}
+                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-white"
+                    }`}
                 >
                   {msg.text}
                 </div>
@@ -134,7 +133,7 @@ const StudentHome = () => {
                 <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
                   <Bot size={16} className="text-white" />
                 </div>
-                <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-gray-400 dark:text-gray-500 flex items-center gap-2">
+                <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-white flex items-center gap-2">
                   <Loader2 className="animate-spin" size={16} /> AI 正在思考...
                 </div>
               </div>
@@ -175,7 +174,7 @@ const StudentHome = () => {
                 loading ? "请等待 AI 回复..." : "请输入德语与 AI 对话..."
               }
               disabled={loading}
-              className="w-full pl-4 pr-32 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-800 transition-all disabled:bg-gray-100 dark:bg-gray-800"
+              className="dark:text-white w-full pl-4 pr-32 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-800 transition-all disabled:bg-gray-100 dark:bg-gray-800"
             />
             <div className="absolute right-2 top-2 bottom-2 flex items-center gap-1">
               <button className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-900/30 rounded-lg transition-colors">

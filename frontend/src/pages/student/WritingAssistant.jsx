@@ -46,7 +46,7 @@ const WritingAssistant = () => {
         {/* 页面标题 */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">✍️ AI德语写作辅助</h1>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500">实时语法检查、智能润色、范文生成，轻松搞定德语写作</p>
+          <p className="text-gray-500 dark:text-gray-400">实时语法检查、智能润色、范文生成，轻松搞定德语写作</p>
         </div>
 
         {/* 输入区 */}
@@ -57,7 +57,7 @@ const WritingAssistant = () => {
             onChange={(e) => setUserText(e.target.value)}
             rows={8}
             disabled={isChecking || isGenerating}
-            className="w-full p-4 border border-gray-200 dark:border-gray-700 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder-gray-400"
+            className="dark:text-white w-full p-4 border border-gray-200 dark:border-gray-700 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 dark:bg-gray-900 text-gray-800 placeholder-gray-400"
           />
           <div className="flex gap-3 mt-4">
             <button onClick={handleCheckGrammar} disabled={isChecking || isGenerating}
@@ -89,7 +89,7 @@ const WritingAssistant = () => {
             </div>
             <div>
               <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">润色后的文本：</h4>
-              <p className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 text-gray-800 dark:text-gray-200 leading-relaxed">{correctionResult.polishedText}</p>
+              <p className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 text-gray-800 dark:text-white leading-relaxed">{correctionResult.polishedText}</p>
             </div>
           </div>
         )}
@@ -98,7 +98,7 @@ const WritingAssistant = () => {
         {sampleEssay && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 mb-4">📄 AI生成范文</h3>
-            <p className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800/50 text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">{sampleEssay}</p>
+            <p className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800/50 text-gray-800 dark:text-white leading-relaxed whitespace-pre-wrap">{sampleEssay}</p>
           </div>
         )}
       </div>
