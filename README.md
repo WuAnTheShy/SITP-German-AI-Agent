@@ -347,11 +347,22 @@ docker system df
 
 ---
 
-## 📚 用户手册
+## 📚 项目文档 (Documentation)
 
-详细的操作指南请参考 [`doc/User_Manuals/`](doc/User_Manuals/) 目录：
+详细的系统设计与操作指南请参考 [`doc/`](doc/) 目录：
 
-- [教师端后台操作手册](doc/User_Manuals/教师端后台手册.md) — 涵盖登录、仪表盘、情景发布、试卷生成、学生管理全流程
+### 👤 用户手册 (User Manuals)
+- [教师端后台操作手册](doc/User_Manuals/教师端后台手册.md) — 涵盖登录、仪表盘、情景发布、试卷生成、作业批改等全流程。
+- [学生端应用手册](doc/User_Manuals/学生端应用手册.md) — 介绍任务中心、AI 语伴对话、考试系统及专项学习工具。
+
+### 🔧 技术文档 (Technical Docs)
+- [系统流程与架构](doc/Technical/系统流程与架构.md) — 核心业务流程图（Mermaid）与数据流转说明。
+- [数据库架构说明](doc/Database/数据库开发使用说明.md) — 详述 27 张核心数据表的结构与关联。
+- [API 接口参考手册](doc/Technical/API参考手册.md) — 各端点功能、请求方法及响应格式列表。
+- [AI 智能体集成说明](doc/Technical/AI智能体集成说明.md) — 深入讲解提示词工程、Gemini 集成与结构化输出处理。
+
+### 🚀 运维指南 (Maintenance)
+- [环境部署与维护指南](doc/Maintenance/环境部署与维护指南.md) — Docker 部署、数据备份、代理配置及安全建议。
 
 ---
 
