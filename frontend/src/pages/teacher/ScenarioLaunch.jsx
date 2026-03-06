@@ -68,7 +68,7 @@ const ScenarioLaunch = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 md:p-8">
             <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {/* 顶部导航 */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
@@ -84,7 +84,7 @@ const ScenarioLaunch = () => {
                 </div>
 
                 {/* 核心表单区 */}
-                <div className="p-8 space-y-8">
+                <div className="p-4 md:p-8 space-y-6 md:space-y-8">
                     {/* 1. 主题选择 (点击卡片切换状态) */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">选择情景主题 (Szenario)</label>
@@ -141,19 +141,19 @@ const ScenarioLaunch = () => {
                         <div className="space-y-3">
                             <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
-                                    className="dark:text-white" type="checkbox"
+                                    type="checkbox"
                                     checked={goals.perfectTense}
                                     onChange={(e) => setGoals({ ...goals, perfectTense: e.target.checked })}
-                                    className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                                    className="w-5 h-5 text-purple-600 dark:text-purple-400 dark:bg-gray-700 rounded focus:ring-purple-500"
                                 />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">强制使用完成时态 (Perfekt)</span>
                             </label>
                             <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
-                                    className="dark:text-white" type="checkbox"
+                                    type="checkbox"
                                     checked={goals.b1Vocab}
                                     onChange={(e) => setGoals({ ...goals, b1Vocab: e.target.checked })}
-                                    className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                                    className="w-5 h-5 text-purple-600 dark:text-purple-400 dark:bg-gray-700 rounded focus:ring-purple-500"
                                 />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">包含至少 5 个 B1 级词汇</span>
                             </label>

@@ -53,7 +53,7 @@ const ExamGenerator = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 md:p-8">
             <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
@@ -68,7 +68,7 @@ const ExamGenerator = () => {
                     </div>
                 </div>
 
-                <div className="p-8 space-y-8">
+                <div className="p-4 md:p-8 space-y-6 md:space-y-8">
                     {/* AI 建议 */}
                     <div className="bg-indigo-50 dark:bg-indigo-900/30 p-5 rounded-xl flex gap-4 items-start border border-indigo-100 dark:border-indigo-800/50">
                         <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm dark:shadow-gray-900/50 text-indigo-600 dark:text-indigo-400">
@@ -98,10 +98,10 @@ const ExamGenerator = () => {
                                 <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-lg group-hover:bg-blue-50 dark:bg-blue-900/30 transition-colors">
                                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300 w-12 text-right">{grammarCount} 题</span>
                                     <input
-                                        className="dark:text-white" type="range" min="5" max="30" step="5"
+                                        type="range" min="5" max="30" step="5"
                                         value={grammarCount}
                                         onChange={(e) => setGrammarCount(e.target.value)}
-                                        className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                        className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600 dark:accent-blue-400"
                                     />
                                 </div>
                             </div>
@@ -118,10 +118,10 @@ const ExamGenerator = () => {
                                 <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-lg group-hover:bg-purple-50 dark:bg-purple-900/30 transition-colors">
                                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300 w-12 text-right">{writingCount} 篇</span>
                                     <input
-                                        className="dark:text-white" type="range" min="1" max="5" step="1"
+                                        type="range" min="1" max="5" step="1"
                                         value={writingCount}
                                         onChange={(e) => setWritingCount(e.target.value)}
-                                        className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                                        className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-600 dark:accent-purple-400"
                                     />
                                 </div>
                             </div>

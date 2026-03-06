@@ -98,14 +98,14 @@ const StudentHome = () => {
     <StudentLayout>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* 聊天消息区 */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6 custom-scrollbar">
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`flex items-start gap-3 max-w-2xl ${msg.sender === "user" ? "flex-row-reverse" : ""}`}
+                className={`flex items-start gap-2 md:gap-3 max-w-[90%] md:max-w-2xl ${msg.sender === "user" ? "flex-row-reverse" : ""}`}
               >
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.sender === "user" ? "bg-blue-600" : "bg-green-600"}`}
@@ -117,8 +117,8 @@ const StudentHome = () => {
                   )}
                 </div>
                 <div
-                  className={`p-4 rounded-2xl whitespace-pre-wrap ${msg.sender === "user"
-                    ? "bg-blue-600 text-white rounded-tr-none"
+                  className={`p-3 md:p-4 rounded-2xl whitespace-pre-wrap text-sm md:text-base ${msg.sender === "user"
+                    ? "bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-500/10"
                     : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-white"
                     }`}
                 >
@@ -133,7 +133,7 @@ const StudentHome = () => {
                 <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
                   <Bot size={16} className="text-white" />
                 </div>
-                <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-white flex items-center gap-2">
+                <div className="p-3 md:p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-white flex items-center gap-2 text-sm md:text-base">
                   <Loader2 className="animate-spin" size={16} /> AI 正在思考...
                 </div>
               </div>
@@ -162,7 +162,7 @@ const StudentHome = () => {
         </div>
 
         {/* 输入区 */}
-        <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-3 md:p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 pb-safe">
           <div className="max-w-4xl mx-auto relative">
             <input
               ref={inputRef}
