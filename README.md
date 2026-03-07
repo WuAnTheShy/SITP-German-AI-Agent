@@ -145,7 +145,7 @@ SITP-German-AI-Agent/
 
 ### 前置准备：环境变量与网络
 
-**1. 配置 Gemini API Key**
+** 配置 Gemini API Key**
 
 在项目根目录创建 `.env` 文件：
 
@@ -155,27 +155,6 @@ echo GOOGLE_API_KEY=你的_Google_Gemini_API_密钥 > .env
 
 > 💡 Gemini API Key 获取方式：访问 [Google AI Studio](https://aistudio.google.com/apikey) 申请免费密钥。
 
-**2. 配置网络代理（国内环境必需）**
-
-本项目的 AI 功能依赖 Google Gemini API，其服务器在国内无法直连。**在国内开发必须配置科学上网代理，否则所有 AI 相关功能将无法使用**（前端页面和数据库功能不受影响）。
-
-在 `.env` 文件中追加以下两行，将端口号改为你本机代理工具实际使用的端口：
-
-```dotenv
-HTTP_PROXY=http://127.0.0.1:你的代理端口
-HTTPS_PROXY=http://127.0.0.1:你的代理端口
-```
-
-常见代理工具的默认端口参考：
-
-| 代理工具                        | 默认 HTTP 端口          |
-| ------------------------------- | ----------------------- |
-| Clash for Windows / Clash Verge | `7890` 或你实际的端口号 |
-| v2rayN                          | `10809`                 |
-
-> 💡 如何确认端口？打开你的代理客户端，在设置中查看 **HTTP 代理端口**（不是 SOCKS 端口）。
->
-> 如果你在海外或不需要代理，不写这两行即可，后端代码已做兼容处理，不会报错。
 
 ---
 
@@ -186,16 +165,6 @@ HTTPS_PROXY=http://127.0.0.1:你的代理端口
 ```bash
 docker compose up -d --build
 ```
-
-启动后访问：
-
-| 服务             | 地址                             |
-| ---------------- | -------------------------------- |
-| 🌐 前端首页      | http://localhost                 |
-| 🎓 教师端登录    | http://localhost/#/teacher/login |
-| 📚 学生端登录    | http://localhost/#/student/login |
-| 📡 后端 API 文档 | http://localhost:9000/docs       |
-| 🔍 后端健康检查  | http://localhost:9000/           |
 
 > 💡 Docker 模式下，前端 Nginx 会自动将 `/api` 请求反向代理到后端容器，无需任何额外配置。无论是本地 Docker 还是服务器 Docker，前端代码完全一致。
 
