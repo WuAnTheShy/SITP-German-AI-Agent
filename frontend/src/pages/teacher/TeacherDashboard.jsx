@@ -117,6 +117,12 @@ const TeacherDashboard = () => {
                             <GraduationCap size={18} /> 生成试卷
                         </button>
                         <button
+                            onClick={() => navigate('/teacher/ai')}
+                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                        >
+                            <Bot size={18} /> AI 助手
+                        </button>
+                        <button
                             onClick={() => navigate('/teacher/history')}
                             className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                         >
