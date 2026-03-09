@@ -20,9 +20,14 @@ const StudentLogin = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // 🔐 验证码状态
+    // 🔐 验证码与锁定状态
     const [showCaptcha, setShowCaptcha] = useState(() => localStorage.getItem('captcha_student') === 'true');
     const [captcha, setCaptcha] = useState({ code: '', dataUrl: '' });
+
+    // 🚦 登录限制状态
+    const [failedAttempts, setFailedAttempts] = useState(() => parseInt(localStorage.getItem('failed_attempts_student') || '0', 10));
+    const [lockoutUntil, setLockoutUntil] = useState(() => parseInt(localStorage.getItem('lockout_until_student') || '0', 10));
+    const [lockoutRemaining, setLockoutRemaining] = useState(0);
 
     const [formData, setFormData] = useState({
         studentId: '',
@@ -78,8 +83,43 @@ const StudentLogin = () => {
         refreshCaptcha();
     }, []);
 
+    // 倒计时逻辑
+    useEffect(() => {
+        let timer;
+        if (lockoutUntil > 0) {
+            const updateTimer = () => {
+                const now = Date.now();
+                if (now >= lockoutUntil) {
+                    setLockoutUntil(0);
+                    setFailedAttempts(0);
+                    setLockoutRemaining(0);
+                    localStorage.removeItem('lockout_until_student');
+                    localStorage.removeItem('failed_attempts_student');
+                } else {
+                    setLockoutRemaining(Math.ceil((lockoutUntil - now) / 1000));
+                }
+            };
+
+            updateTimer(); // Initial call
+            timer = setInterval(updateTimer, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [lockoutUntil]);
+
+    const formatTime = (seconds) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m > 0 ? m + '分' : ''}${s}秒`;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (lockoutUntil > Date.now()) {
+            setError(`由于多次尝试失败，账号已锁定。请在 ${formatTime(lockoutRemaining)} 后重试`);
+            return;
+        }
+
         setLoading(true);
         setError('');
 
@@ -118,27 +158,44 @@ const StudentLogin = () => {
             localStorage.setItem('authToken', token);
             localStorage.setItem('userInfo', JSON.stringify(displayUser));
             localStorage.removeItem('captcha_student');
+            localStorage.removeItem('failed_attempts_student');
+            localStorage.removeItem('lockout_until_student');
 
             navigate(`/student/${displayUser.id}/home`);
 
         } catch (err) {
             console.error('🔴 学生登录错误:', err);
-            setShowCaptcha(true);
-            localStorage.setItem('captcha_student', 'true');
-            refreshCaptcha();
-            setFormData(prev => ({ ...prev, captchaInput: '' }));
 
-            if (err.response) {
-                setError(`登录失败: ${err.response.data.message || '账号或密码错误'}`);
-            } else if (err.request) {
-                setError('无法连接服务器 (网络/跨域错误)');
+            const newAttempts = failedAttempts + 1;
+            setFailedAttempts(newAttempts);
+            localStorage.setItem('failed_attempts_student', newAttempts.toString());
+
+            if (newAttempts >= 5) {
+                const unlockTime = Date.now() + 2 * 60 * 1000; // 2 minutes
+                setLockoutUntil(unlockTime);
+                localStorage.setItem('lockout_until_student', unlockTime.toString());
+                setError(`密码错误次数过多，请在 2分钟 后重试`);
             } else {
-                setError(err.message || '未知错误');
+                setShowCaptcha(true);
+                localStorage.setItem('captcha_student', 'true');
+                refreshCaptcha();
+
+                if (err.response) {
+                    setError(`登录失败: ${err.response.data.message || '账号或密码错误'} (剩余尝试次数: ${5 - newAttempts})`);
+                } else if (err.request) {
+                    setError('无法连接服务器 (网络/跨域错误)');
+                } else {
+                    setError(err.message || '未知错误');
+                }
             }
+
+            setFormData(prev => ({ ...prev, captchaInput: '' }));
         } finally {
             setLoading(false);
         }
     };
+
+    const isLocked = lockoutRemaining > 0;
 
     return (
         <div className="min-h-screen theme-bg-premium flex flex-col items-center justify-center p-4 relative">
@@ -276,10 +333,12 @@ const StudentLogin = () => {
                         <button
                             id="btn-student-login"
                             type="submit"
-                            disabled={loading}
-                            className={`w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white btn-gradient-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            disabled={loading || isLocked}
+                            className={`w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white ${isLocked ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed' : 'btn-gradient-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900'} ${loading ? 'opacity-70 cursor-not-allowed' : ''} transition-all duration-300`}
                         >
-                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录 / Anmelden</span>}
+                            {isLocked ? (
+                                <span className="flex items-center"><Lock className="mr-2 h-5 w-5" /> 锁定中 ({formatTime(lockoutRemaining)})</span>
+                            ) : loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录 / Anmelden</span>}
                         </button>
                     </form>
 
