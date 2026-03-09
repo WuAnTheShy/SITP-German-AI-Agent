@@ -19,6 +19,7 @@ const TeacherLogin = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showCaptcha, setShowCaptcha] = useState(() => localStorage.getItem('captcha_teacher') === 'true');
 
     const [captcha, setCaptcha] = useState({ code: '', dataUrl: '' });
 
@@ -80,7 +81,7 @@ const TeacherLogin = () => {
         setLoading(true);
         setError('');
 
-        if (formData.captchaInput.toUpperCase() !== captcha.code) {
+        if (showCaptcha && formData.captchaInput.toUpperCase() !== captcha.code) {
             setError('验证码错误，请重新输入');
             setLoading(false);
             refreshCaptcha();
@@ -114,11 +115,14 @@ const TeacherLogin = () => {
 
             localStorage.setItem('authToken', token);
             localStorage.setItem('userInfo', JSON.stringify(displayUser));
+            localStorage.removeItem('captcha_teacher');
 
             navigate(`/teacher/${formData.employeeId}/dashboard`);
 
         } catch (err) {
             console.error('🔴 登录错误:', err);
+            setShowCaptcha(true);
+            localStorage.setItem('captcha_teacher', 'true');
             refreshCaptcha();
             setFormData(prev => ({ ...prev, captchaInput: '' }));
 
@@ -232,36 +236,38 @@ const TeacherLogin = () => {
                         </div>
 
                         {/* 验证码区域 */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">验证码 / Captcha</label>
-                            <div className="flex gap-3">
-                                <div className="relative flex-1">
-                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                        <ShieldCheck className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        {showCaptcha && (
+                            <div className="animate-fade-in-up">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">验证码 / Captcha</label>
+                                <div className="flex gap-3">
+                                    <div className="relative flex-1">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <ShieldCheck className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                        </div>
+                                        <input
+                                            id="input-teacher-captcha"
+                                            type="text"
+                                            required={showCaptcha}
+                                            maxLength={4}
+                                            className="input-glow block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm tracking-widest uppercase transition-all"
+                                            placeholder="验证码"
+                                            value={formData.captchaInput}
+                                            onChange={(e) => setFormData({ ...formData, captchaInput: e.target.value })}
+                                        />
                                     </div>
-                                    <input
-                                        id="input-teacher-captcha"
-                                        type="text"
-                                        required
-                                        maxLength={4}
-                                        className="input-glow block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm tracking-widest uppercase transition-all"
-                                        placeholder="验证码"
-                                        value={formData.captchaInput}
-                                        onChange={(e) => setFormData({ ...formData, captchaInput: e.target.value })}
-                                    />
-                                </div>
-                                <div className="relative group cursor-pointer" onClick={refreshCaptcha}>
-                                    <img
-                                        src={captcha.dataUrl || null}
-                                        alt="Captcha"
-                                        className="h-[46px] w-[120px] rounded-xl border border-gray-200 dark:border-white/10 object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <RefreshCw className="text-white drop-shadow-md" size={20} />
+                                    <div className="relative group cursor-pointer" onClick={refreshCaptcha}>
+                                        <img
+                                            src={captcha.dataUrl || null}
+                                            alt="Captcha"
+                                            className="h-[46px] w-[120px] rounded-xl border border-gray-200 dark:border-white/10 object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <RefreshCw className="text-white drop-shadow-md" size={20} />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         <button
                             id="btn-teacher-login"

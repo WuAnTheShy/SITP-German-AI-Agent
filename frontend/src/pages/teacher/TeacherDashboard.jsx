@@ -98,50 +98,62 @@ const TeacherDashboard = () => {
                         </h1>
                         <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态。</p>
                     </div>
-                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 md:gap-3 w-full lg:w-auto">
-                        <button
-                            onClick={() => fetchDashboardData(true)}
-                            disabled={refreshing}
-                            className="h-10 md:h-11 px-3 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-                        >
-                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新数据
-                        </button>
-                        <button
-                            onClick={() => navigate(`/teacher/${userInfo.id}/scenario`)}
-                            className="h-10 md:h-11 px-4 md:px-6 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-sm dark:shadow-indigo-900/20 text-sm md:text-base border border-transparent"
-                        >
-                            <Plus size={18} /> 发布任务
-                        </button>
-                        <button
-                            onClick={() => navigate(`/teacher/${userInfo.id}/exam`)}
-                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
-                        >
-                            <GraduationCap size={18} /> 生成试卷
-                        </button>
-                        <button
-                            onClick={() => navigate(`/teacher/${userInfo.id}/ai`)}
-                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
-                        >
-                            <Bot size={18} /> AI 助手
-                        </button>
-                        <button
-                            onClick={() => navigate(`/teacher/${userInfo.id}/history`)}
-                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
-                        >
-                            <FileText size={18} /> 发布记录
-                        </button>
-                        <button
-                            onClick={() => setIsPasswordModalOpen(true)}
-                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
-                        >
-                            <Key size={18} /> 修改密码
-                        </button>
-                        <button
-                            onClick={handleLogout}
-                            className="h-10 md:h-11 px-3 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/40 col-span-2 sm:col-span-1"
-                        >
-                            <LogOut size={16} /> 退出登录
-                        </button>
+                    {/* 3. 操作按钮区 (重新组织布局) */}
+                    <div className="flex flex-col xl:flex-row items-end xl:items-center gap-3 w-full lg:w-auto mt-4 lg:mt-0">
+
+                        {/* 辅助操作与账号管理 (次要按钮) */}
+                        <div className="flex flex-wrap items-center gap-2 order-2 xl:order-1 w-full xl:w-auto justify-end">
+                            <button
+                                onClick={() => fetchDashboardData(true)}
+                                disabled={refreshing}
+                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 shadow-sm"
+                            >
+                                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新数据
+                            </button>
+                            <button
+                                onClick={() => navigate(`/teacher/${userInfo.id}/history`)}
+                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+                            >
+                                <FileText size={16} /> 发布记录
+                            </button>
+                            <button
+                                onClick={() => setIsPasswordModalOpen(true)}
+                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+                            >
+                                <Key size={16} /> 修改密码
+                            </button>
+                            <button
+                                onClick={handleLogout}
+                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800/30 hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm"
+                            >
+                                <LogOut size={16} /> 退出登录
+                            </button>
+                        </div>
+
+                        {/* 分隔线 (仅超大屏幕显示) */}
+                        <div className="hidden xl:block w-px h-8 bg-gray-200 dark:bg-gray-700 order-2"></div>
+
+                        {/* 核心教务功能 (主要按钮) */}
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3 order-1 xl:order-3 w-full xl:w-auto justify-end">
+                            <button
+                                onClick={() => navigate(`/teacher/${userInfo.id}/ai`)}
+                                className="h-10 md:h-11 px-4 rounded-xl font-bold flex items-center gap-2 transition-colors text-sm md:text-base bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-100 dark:border-purple-800/30 shadow-sm"
+                            >
+                                <Bot size={18} /> AI 助手
+                            </button>
+                            <button
+                                onClick={() => navigate(`/teacher/${userInfo.id}/exam`)}
+                                className="h-10 md:h-11 px-4 rounded-xl font-bold flex items-center gap-2 transition-colors text-sm md:text-base bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-100 dark:border-blue-800/30 shadow-sm"
+                            >
+                                <GraduationCap size={18} /> 生成试卷
+                            </button>
+                            <button
+                                onClick={() => navigate(`/teacher/${userInfo.id}/scenario`)}
+                                className="h-10 md:h-11 px-5 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm shadow-indigo-200 dark:shadow-none text-sm md:text-base"
+                            >
+                                <Plus size={18} /> 发布任务
+                            </button>
+                        </div>
                     </div>
                 </div>
 
