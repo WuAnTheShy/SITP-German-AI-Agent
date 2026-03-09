@@ -14,12 +14,15 @@ import {
   ClipboardList,
   Menu,
   X,
+  Key,
 } from "lucide-react";
+import PasswordChangeModal from "./PasswordChangeModal";
 
 const StudentLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
 
   // 从 localStorage 获取实际登录用户信息
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -121,6 +124,12 @@ const StudentLayout = ({ children }) => {
             </div>
           </div>
           <button
+            onClick={() => setIsPasswordModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all border border-gray-200 dark:border-gray-700 shadow-sm"
+          >
+            <Key size={18} /> 修改密码
+          </button>
+          <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-all border border-red-100 dark:border-red-900/30 shadow-sm"
           >
@@ -131,6 +140,12 @@ const StudentLayout = ({ children }) => {
 
       {/* 右侧内容区 */}
       <div className="flex-1 flex flex-col overflow-hidden pt-16 md:pt-0">{children}</div>
+
+      {/* 修改密码弹窗 */}
+      <PasswordChangeModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
   );
 };

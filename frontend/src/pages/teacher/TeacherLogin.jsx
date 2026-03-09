@@ -115,7 +115,7 @@ const TeacherLogin = () => {
             localStorage.setItem('authToken', token);
             localStorage.setItem('userInfo', JSON.stringify(displayUser));
 
-            navigate('/teacher/dashboard');
+            navigate(`/teacher/${formData.employeeId}/dashboard`);
 
         } catch (err) {
             console.error('🔴 登录错误:', err);

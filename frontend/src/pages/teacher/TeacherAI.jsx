@@ -6,6 +6,7 @@ import { Send, Bot, User, ArrowLeft, Loader2, BookOpen, Brain, Activity } from '
 
 const TeacherAI = () => {
     const navigate = useNavigate();
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const [messages, setMessages] = useState([
         { id: 1, sender: 'ai', text: '您好，老师！我是您的 AI 教研助手。我可以帮您分析学情数据、制定教学计划或自动生成德语试卷，请问今天需要什么协助？' }
     ]);
@@ -56,7 +57,7 @@ const TeacherAI = () => {
                 {/* 顶部 Header 区 */}
                 <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
                     <button
-                        onClick={() => navigate('/teacher/dashboard')}
+                        onClick={() => navigate(`/teacher/${userInfo.id}/dashboard`)}
                         className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:bg-gray-800 transition"
                         title="返回控制台"
                     >

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award } from 'lucide-react';
+import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key } from 'lucide-react';
 import { API_DASHBOARD } from '../../api/config';
 import { useToast } from '../../components/Toast';
+import PasswordChangeModal from '../../components/PasswordChangeModal';
 
 const TeacherDashboard = () => {
     const navigate = useNavigate();
@@ -15,6 +16,7 @@ const TeacherDashboard = () => {
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     // 🟢 从 localStorage 读取教师名称
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -105,28 +107,34 @@ const TeacherDashboard = () => {
                             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新数据
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/scenario')}
+                            onClick={() => navigate(`/teacher/${userInfo.id}/scenario`)}
                             className="h-10 md:h-11 px-4 md:px-6 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-sm dark:shadow-indigo-900/20 text-sm md:text-base border border-transparent"
                         >
                             <Plus size={18} /> 发布任务
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/exam')}
+                            onClick={() => navigate(`/teacher/${userInfo.id}/exam`)}
                             className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                         >
                             <GraduationCap size={18} /> 生成试卷
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/ai')}
+                            onClick={() => navigate(`/teacher/${userInfo.id}/ai`)}
                             className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                         >
                             <Bot size={18} /> AI 助手
                         </button>
                         <button
-                            onClick={() => navigate('/teacher/history')}
+                            onClick={() => navigate(`/teacher/${userInfo.id}/history`)}
                             className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                         >
                             <FileText size={18} /> 发布记录
+                        </button>
+                        <button
+                            onClick={() => setIsPasswordModalOpen(true)}
+                            className="h-10 md:h-11 px-4 md:px-5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm md:text-base bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                        >
+                            <Key size={18} /> 修改密码
                         </button>
                         <button
                             onClick={handleLogout}
@@ -261,6 +269,11 @@ const TeacherDashboard = () => {
                     )}
                 </div>
             </div>
+
+            <PasswordChangeModal
+                isOpen={isPasswordModalOpen}
+                onClose={() => setIsPasswordModalOpen(false)}
+            />
         </div>
     );
 };

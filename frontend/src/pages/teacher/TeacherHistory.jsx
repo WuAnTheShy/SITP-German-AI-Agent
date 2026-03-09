@@ -6,6 +6,7 @@ import { API_TEACHER_SCENARIO_LIST, API_TEACHER_EXAM_LIST, API_TEACHER_EXAM_DETA
 
 const TeacherHistory = () => {
     const navigate = useNavigate();
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const [activeTab, setActiveTab] = useState('scenarios');
     const [scenarios, setScenarios] = useState([]);
     const [exams, setExams] = useState([]);
@@ -93,7 +94,7 @@ const TeacherHistory = () => {
                 <div className="flex justify-between items-center w-full">
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={() => navigate('/teacher/dashboard')}
+                            onClick={() => navigate(`/teacher/${userInfo.id}/dashboard`)}
                             className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                             title="返回控制台"
                         >
