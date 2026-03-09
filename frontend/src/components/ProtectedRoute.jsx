@@ -42,7 +42,18 @@ const ProtectedRoute = ({ requiredRole, children }) => {
         }
     }
 
-    // 4. 通过校验，渲染子组件
+    // 4. 教师端 URL 的 teacherId 校验（确保每位教师只能访问自己的页面）
+    if (userRole === 'teacher' && params.teacherId) {
+        // 当前登录教师的工号
+        const loggedInTid = userInfo.id;
+        if (params.teacherId !== loggedInTid) {
+            // 如果访问别人的页面，强制重定向到自己的页面
+            const redirectPath = location.pathname.replace(`/teacher/${params.teacherId}`, `/teacher/${loggedInTid}`);
+            return <Navigate to={redirectPath} replace />;
+        }
+    }
+
+    // 5. 通过校验，渲染子组件
     return children;
 };
 

@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast';
 const ScenarioLaunch = () => {
     const navigate = useNavigate();
     const toast = useToast();
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const [isProcessing, setIsProcessing] = useState(false);
 
     // 🟢 1. 状态管理：实时捕获"点击的配置"
@@ -54,7 +55,7 @@ const ScenarioLaunch = () => {
             if (response.data.code === 200) {
                 const scenarioId = response.data.data?.scenarioId || 'N/A';
                 toast.success(`任务发布成功！ID: ${scenarioId}，主题: ${selectedTheme}`);
-                setTimeout(() => navigate('/teacher/dashboard'), 1500);
+                setTimeout(() => navigate(`/teacher/${userInfo.id}/dashboard`), 1500);
             } else {
                 throw new Error(response.data.message || '发布失败');
             }

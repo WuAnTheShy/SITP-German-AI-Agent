@@ -20,7 +20,14 @@ const TeacherLogin = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // 🔐 验证码与锁定状态
+    const [showCaptcha, setShowCaptcha] = useState(() => localStorage.getItem('captcha_teacher') === 'true');
     const [captcha, setCaptcha] = useState({ code: '', dataUrl: '' });
+
+    // 🚦 登录限制状态
+    const [failedAttempts, setFailedAttempts] = useState(() => parseInt(localStorage.getItem('failed_attempts_teacher') || '0', 10));
+    const [lockoutUntil, setLockoutUntil] = useState(() => parseInt(localStorage.getItem('lockout_until_teacher') || '0', 10));
+    const [lockoutRemaining, setLockoutRemaining] = useState(0);
 
     const [formData, setFormData] = useState({
         employeeId: '',
@@ -75,12 +82,47 @@ const TeacherLogin = () => {
         refreshCaptcha();
     }, []);
 
+    // 倒计时逻辑
+    useEffect(() => {
+        let timer;
+        if (lockoutUntil > 0) {
+            const updateTimer = () => {
+                const now = Date.now();
+                if (now >= lockoutUntil) {
+                    setLockoutUntil(0);
+                    setFailedAttempts(0);
+                    setLockoutRemaining(0);
+                    localStorage.removeItem('lockout_until_teacher');
+                    localStorage.removeItem('failed_attempts_teacher');
+                } else {
+                    setLockoutRemaining(Math.ceil((lockoutUntil - now) / 1000));
+                }
+            };
+
+            updateTimer(); // Initial call
+            timer = setInterval(updateTimer, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [lockoutUntil]);
+
+    const formatTime = (seconds) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m > 0 ? m + '分' : ''}${s}秒`;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (lockoutUntil > Date.now()) {
+            setError(`由于多次尝试失败，账号已锁定。请在 ${formatTime(lockoutRemaining)} 后重试`);
+            return;
+        }
+
         setLoading(true);
         setError('');
 
-        if (formData.captchaInput.toUpperCase() !== captcha.code) {
+        if (showCaptcha && formData.captchaInput.toUpperCase() !== captcha.code) {
             setError('验证码错误，请重新输入');
             setLoading(false);
             refreshCaptcha();
@@ -114,25 +156,45 @@ const TeacherLogin = () => {
 
             localStorage.setItem('authToken', token);
             localStorage.setItem('userInfo', JSON.stringify(displayUser));
+            localStorage.removeItem('captcha_teacher');
+            localStorage.removeItem('failed_attempts_teacher');
+            localStorage.removeItem('lockout_until_teacher');
 
-            navigate('/teacher/dashboard');
+            navigate(`/teacher/${formData.employeeId}/dashboard`);
 
         } catch (err) {
             console.error('🔴 登录错误:', err);
-            refreshCaptcha();
-            setFormData(prev => ({ ...prev, captchaInput: '' }));
 
-            if (err.response) {
-                setError(`登录失败: ${err.response.data.message || '服务器拒绝'}`);
-            } else if (err.request) {
-                setError('无法连接服务器 (网络/跨域错误)');
+            const newAttempts = failedAttempts + 1;
+            setFailedAttempts(newAttempts);
+            localStorage.setItem('failed_attempts_teacher', newAttempts.toString());
+
+            if (newAttempts >= 5) {
+                const unlockTime = Date.now() + 2 * 60 * 1000; // 2 minutes
+                setLockoutUntil(unlockTime);
+                localStorage.setItem('lockout_until_teacher', unlockTime.toString());
+                setError(`密码错误次数过多，请在 2分钟 后重试`);
             } else {
-                setError(err.message || '未知错误');
+                setShowCaptcha(true);
+                localStorage.setItem('captcha_teacher', 'true');
+                refreshCaptcha();
+
+                if (err.response) {
+                    setError(`登录失败: ${err.response.data.message || '服务器拒绝'} (剩余尝试次数: ${5 - newAttempts})`);
+                } else if (err.request) {
+                    setError('无法连接服务器 (网络/跨域错误)');
+                } else {
+                    setError(err.message || '未知错误');
+                }
             }
+
+            setFormData(prev => ({ ...prev, captchaInput: '' }));
         } finally {
             setLoading(false);
         }
     };
+
+    const isLocked = lockoutUntil > Date.now();
 
     return (
         <div className="min-h-screen theme-bg-premium flex flex-col items-center justify-center p-4 relative">
@@ -232,44 +294,48 @@ const TeacherLogin = () => {
                         </div>
 
                         {/* 验证码区域 */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">验证码 / Captcha</label>
-                            <div className="flex gap-3">
-                                <div className="relative flex-1">
-                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                        <ShieldCheck className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        {showCaptcha && (
+                            <div className="animate-fade-in-up">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">验证码 / Captcha</label>
+                                <div className="flex gap-3">
+                                    <div className="relative flex-1">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <ShieldCheck className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                        </div>
+                                        <input
+                                            id="input-teacher-captcha"
+                                            type="text"
+                                            required={showCaptcha}
+                                            maxLength={4}
+                                            className="input-glow block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm tracking-widest uppercase transition-all"
+                                            placeholder="验证码"
+                                            value={formData.captchaInput}
+                                            onChange={(e) => setFormData({ ...formData, captchaInput: e.target.value })}
+                                        />
                                     </div>
-                                    <input
-                                        id="input-teacher-captcha"
-                                        type="text"
-                                        required
-                                        maxLength={4}
-                                        className="input-glow block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm tracking-widest uppercase transition-all"
-                                        placeholder="验证码"
-                                        value={formData.captchaInput}
-                                        onChange={(e) => setFormData({ ...formData, captchaInput: e.target.value })}
-                                    />
-                                </div>
-                                <div className="relative group cursor-pointer" onClick={refreshCaptcha}>
-                                    <img
-                                        src={captcha.dataUrl || null}
-                                        alt="Captcha"
-                                        className="h-[46px] w-[120px] rounded-xl border border-gray-200 dark:border-white/10 object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <RefreshCw className="text-white drop-shadow-md" size={20} />
+                                    <div className="relative group cursor-pointer" onClick={refreshCaptcha}>
+                                        <img
+                                            src={captcha.dataUrl || null}
+                                            alt="Captcha"
+                                            className="h-[46px] w-[120px] rounded-xl border border-gray-200 dark:border-white/10 object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <RefreshCw className="text-white drop-shadow-md" size={20} />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         <button
                             id="btn-teacher-login"
                             type="submit"
-                            disabled={loading}
-                            className={`w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white btn-gradient-indigo focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-900 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            disabled={loading || isLocked}
+                            className={`w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white ${isLocked ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed' : 'btn-gradient-indigo focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-900'} ${loading ? 'opacity-70 cursor-not-allowed' : ''} transition-all duration-300`}
                         >
-                            {loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录 / Anmelden</span>}
+                            {isLocked ? (
+                                <span className="flex items-center"><Lock className="mr-2 h-5 w-5" /> 锁定中 ({formatTime(lockoutRemaining)})</span>
+                            ) : loading ? '登录中...' : <span className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5" /> 登录 / Anmelden</span>}
                         </button>
                     </form>
 

@@ -185,6 +185,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PasswordUpdateReq(BaseModel):
+    oldPassword: str
+    newPassword: str
+
+
 class RegisterRequest(BaseModel):
     username: str
     password: str
@@ -556,6 +561,43 @@ def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depen
     except Exception as e:
         print(f"[教师AI] Gemini调用失败: {type(e).__name__}: {e}", flush=True)
         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {type(e).__name__}"}
+
+
+@app.put("/api/user/password")
+def update_user_password(req_body: PasswordUpdateReq, req: Request, db: Session = Depends(get_db)):
+    try:
+        auth = req.headers.get("authorization", "")
+        if not auth.startswith("Bearer "):
+            return fail("未登录", 401)
+        
+        token = auth.replace("Bearer ", "")
+        parts = token.split("-")
+        
+        user = None
+        if token.startswith("teacher-token-") and len(parts) >= 4:
+            try:
+                user_id = int(parts[2])
+                user = UserCRUD.get_by_id(db, user_id)
+            except ValueError:
+                pass
+        elif token.startswith("student-token-") and len(parts) >= 4:
+            uid = parts[2]
+            student = StudentCRUD.get_by_uid(db, uid)
+            if student:
+                user = UserCRUD.get_by_id(db, student.user_id)
+                
+        if not user:
+            return fail("无效的令牌或用户不存在", 401)
+            
+        if user.password_hash != req_body.oldPassword:
+            return fail("原密码错误", 400)
+            
+        user.password_hash = req_body.newPassword
+        db.commit()
+        
+        return ok(message="密码修改成功")
+    except Exception as e:
+        return fail(f"修改密码失败: {e}")
 
 
 @app.post("/api/auth/login")

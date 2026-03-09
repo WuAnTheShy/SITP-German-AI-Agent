@@ -57,15 +57,16 @@ function App() {
                     <Route path="/student/:userId/writing-assistant" element={<ProtectedRoute requiredRole="student"><WritingAssistant /></ProtectedRoute>} />
 
                     {/* ── 教师端路由 ── */}
+                    <Route path="/teacher" element={<Navigate to="/teacher/login" replace />} />
                     <Route path="/teacher/login" element={<TeacherLogin />} />
                     <Route path="/teacher/register" element={<TeacherRegister />} />
-                    {/* 以下教师端页面需要登录 + 教师角色 */}
-                    <Route path="/teacher/dashboard" element={<ProtectedRoute requiredRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
-                    <Route path="/teacher/scenario" element={<ProtectedRoute requiredRole="teacher"><ScenarioLaunch /></ProtectedRoute>} />
-                    <Route path="/teacher/exam" element={<ProtectedRoute requiredRole="teacher"><ExamGenerator /></ProtectedRoute>} />
-                    <Route path="/teacher/history" element={<ProtectedRoute requiredRole="teacher"><TeacherHistory /></ProtectedRoute>} />
-                    <Route path="/teacher/ai" element={<ProtectedRoute requiredRole="teacher"><TeacherAI /></ProtectedRoute>} />
-                    <Route path="/teacher/student/:id" element={<ProtectedRoute requiredRole="teacher"><StudentDetail /></ProtectedRoute>} />
+                    {/* 以下教师端页面需要登录 + 教师角色，并带有唯一 teacherId */}
+                    <Route path="/teacher/:teacherId/dashboard" element={<ProtectedRoute requiredRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
+                    <Route path="/teacher/:teacherId/scenario" element={<ProtectedRoute requiredRole="teacher"><ScenarioLaunch /></ProtectedRoute>} />
+                    <Route path="/teacher/:teacherId/exam" element={<ProtectedRoute requiredRole="teacher"><ExamGenerator /></ProtectedRoute>} />
+                    <Route path="/teacher/:teacherId/history" element={<ProtectedRoute requiredRole="teacher"><TeacherHistory /></ProtectedRoute>} />
+                    <Route path="/teacher/:teacherId/ai" element={<ProtectedRoute requiredRole="teacher"><TeacherAI /></ProtectedRoute>} />
+                    <Route path="/teacher/:teacherId/student/:id" element={<ProtectedRoute requiredRole="teacher"><StudentDetail /></ProtectedRoute>} />
                 </Routes>
             </HashRouter>
         </ThemeProvider>

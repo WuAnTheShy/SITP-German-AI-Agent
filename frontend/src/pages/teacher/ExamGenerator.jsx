@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast';
 const ExamGenerator = () => {
     const navigate = useNavigate();
     const toast = useToast();
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const [isProcessing, setIsProcessing] = useState(false);
 
     // 🟢 1. 状态管理：全量捕获配置
@@ -39,7 +40,7 @@ const ExamGenerator = () => {
                 const { examId, studentCount } = response.data.data || {};
                 const strategyLabel = strategy === 'personalized' ? '千人千面 (差异化)' : '统一标准';
                 toast.success(`试卷生成完毕！ID: ${examId || 'N/A'}，已分发 ${studentCount || 0} 名学生，策略: ${strategyLabel}`);
-                setTimeout(() => navigate('/teacher/dashboard'), 1500);
+                setTimeout(() => navigate(`/teacher/${userInfo.id}/dashboard`), 1500);
             } else {
                 throw new Error(response.data.message || '生成失败');
             }
