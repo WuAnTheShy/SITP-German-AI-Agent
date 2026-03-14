@@ -43,7 +43,15 @@ export const API_PUSH_SCHEME = `${API_BASE}/api/student/push-scheme`;
 // ---- AI 对话 ----
 export const API_CHAT = `${API_BASE}/api/chat`; // 教师专用
 export const API_STUDENT_CHAT = `${API_BASE}/api/student/chat`; // 学生专用
+export const API_STUDENT_CHAT_NEW = `${API_BASE}/api/student/chat/new-session`;
+export const API_STUDENT_CHAT_SESSIONS = `${API_BASE}/api/student/chat/sessions`;
+export const API_STUDENT_CHAT_MESSAGES = `${API_BASE}/api/student/chat/messages`;
+export const API_STUDENT_CHAT_SESSION = `${API_BASE}/api/student/chat/session`;
+export const API_TEACHER_CHAT_NEW = `${API_BASE}/api/teacher/chat/new-session`;
+export const API_TEACHER_CHAT_SESSIONS = `${API_BASE}/api/teacher/chat/sessions`;
 export const API_SCENE_CHAT = `${API_BASE}/api/student/scene-chat`;
+export const API_SCENE_CHAT_STATE = `${API_BASE}/api/student/scene-chat/state`;
+export const API_SCENE_CHAT_CLEAR = `${API_BASE}/api/student/scene-chat/clear`;
 
 // ---- 写作辅助 ----
 export const API_WRITING_CHECK = `${API_BASE}/api/student/writing/check`;

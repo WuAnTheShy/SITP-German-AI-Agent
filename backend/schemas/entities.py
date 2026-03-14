@@ -214,6 +214,7 @@ class ChatSessionCreate(BaseModel):
     student_id: int
     scene_id: int | None = None
     scene_name: str | None = None
+    title: str | None = None
 
 
 class ChatSessionRead(ORMBase):
@@ -221,7 +222,10 @@ class ChatSessionRead(ORMBase):
     student_id: int
     scene_id: int | None = None
     scene_name: str | None = None
+    title: str | None = None
+    closed_at: datetime | None = None
     created_at: datetime
+    updated_at: datetime | None = None
 
 
 class ChatMessageCreate(BaseModel):

@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { API_CHAT } from '../../api/config';
+import {
+  API_CHAT,
+  API_TEACHER_CHAT_NEW,
+  API_TEACHER_CHAT_SESSIONS,
+} from '../../api/config';
 import { Send, Bot, User, ArrowLeft, Loader2, BookOpen, Brain, Activity } from 'lucide-react';
 
 const TeacherAI = () => {
@@ -12,7 +16,16 @@ const TeacherAI = () => {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [sessionId, setSessionId] = useState(null);
+    const [sessions, setSessions] = useState([]);
     const messagesEndRef = useRef(null);
+
+    useEffect(() => {
+        request.get(API_TEACHER_CHAT_SESSIONS).then((r) => {
+            const list = r.data?.data ?? r.data ?? [];
+            setSessions(Array.isArray(list) ? list : []);
+        }).catch(() => {});
+    }, []);
 
     const promptTemplates = [
         { name: "分析学情", text: "请帮我分析一份班级平均分为78分的学情，指出学生普遍可能存在的薄弱环节，并给出教学建议。", icon: <Activity size={14} className="mr-1" /> },
@@ -34,8 +47,13 @@ const TeacherAI = () => {
         setInput('');
         setLoading(true);
         try {
-            const response = await request.post(API_CHAT, { message: userText }, { timeout: 60000 });
+            const response = await request.post(API_CHAT, {
+                message: userText,
+                session_id: sessionId || undefined,
+                new_thread: false,
+            }, { timeout: 60000 });
             const data = response.data;
+            if (data.session_id) setSessionId(data.session_id);
             setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: data.reply }]);
         } catch (error) {
             console.error("请求失败:", error);
@@ -49,6 +67,19 @@ const TeacherAI = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleNewChat = async () => {
+        try {
+            const r = await request.post(API_TEACHER_CHAT_NEW);
+            const id = r.data?.data?.session_id ?? r.data?.session_id;
+            if (id) setSessionId(id);
+            setMessages([{ id: 1, sender: 'ai', text: '您好，老师！我是您的 AI 教研助手。请问今天需要什么协助？' }]);
+            request.get(API_TEACHER_CHAT_SESSIONS).then((res) => {
+                const list = res.data?.data ?? res.data ?? [];
+                setSessions(Array.isArray(list) ? list : []);
+            });
+        } catch (e) { console.error(e); }
     };
 
     return (
@@ -106,6 +137,13 @@ const TeacherAI = () => {
                         <div ref={messagesEndRef} />
                     </div>
 
+                    <div className="p-3 flex flex-wrap gap-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                        <button type="button" onClick={handleNewChat} className="text-sm px-3 py-1.5 rounded-lg bg-indigo-600 text-white">新对话</button>
+                        <select className="text-sm border rounded-lg px-2 py-1 dark:bg-gray-800 max-w-xs" value={sessionId ?? ''} onChange={(e) => { const v = e.target.value; setSessionId(v ? Number(v) : null); setMessages([{ id: 1, sender: 'ai', text: '已切换会话，请继续提问。' }]); }}>
+                            <option value="">默认续接当前线程</option>
+                            {sessions.map(s => <option key={s.id} value={s.id}>#{s.id} {s.closed ? '已结束' : '进行中'}</option>)}
+                        </select>
+                    </div>
                     {/* 提示词模板 */}
                     <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
                         <div className="flex flex-wrap gap-3">
