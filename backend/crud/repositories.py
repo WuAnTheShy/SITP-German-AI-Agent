@@ -16,6 +16,8 @@ from models.entities import (
     ChatMessage,
     ChatScene,
     ChatSession,
+    TeacherChatMessage,
+    TeacherChatSession,
     ErrorBookCategory,
     ErrorBookEntry,
     Favorite,
@@ -45,6 +47,8 @@ from schemas.entities import (
     # V2 学生端
     ChatMessageCreate,
     ChatSessionCreate,
+    TeacherChatMessageCreate,
+    TeacherChatSessionCreate,
     ErrorBookEntryCreate,
     FavoriteCreate,
     GrammarSubmissionCreate,
@@ -312,6 +316,40 @@ class ChatMessageCRUD:
         return list(db.scalars(
             select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at)
         ))
+
+
+class TeacherChatSessionCRUD:
+    @staticmethod
+    def create(db: Session, payload: TeacherChatSessionCreate) -> TeacherChatSession:
+        obj = TeacherChatSession(**payload.model_dump())
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
+    @staticmethod
+    def get_by_id(db: Session, session_id: int) -> TeacherChatSession | None:
+        return db.scalar(select(TeacherChatSession).where(TeacherChatSession.id == session_id))
+
+
+class TeacherChatMessageCRUD:
+    @staticmethod
+    def create(db: Session, payload: TeacherChatMessageCreate) -> TeacherChatMessage:
+        obj = TeacherChatMessage(**payload.model_dump())
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
+    @staticmethod
+    def list_by_session(db: Session, session_id: int) -> list[TeacherChatMessage]:
+        return list(
+            db.scalars(
+                select(TeacherChatMessage)
+                .where(TeacherChatMessage.session_id == session_id)
+                .order_by(TeacherChatMessage.created_at)
+            )
+        )
 
 
 class VocabularyCRUD:

@@ -6,6 +6,8 @@
 
 - sql/001_init_schema.sql：初始化表结构与索引
 - sql/002_seed_demo.sql：本地演示数据
+- sql/003_student_schema.sql：学生端 V2 表（含 chat_sessions / chat_messages）
+- sql/004_teacher_chat.sql：教师教研助手对话表（按用户隔离；也可由后端启动时自动创建）
 
 ## FastAPI 代码骨架（已创建）
 

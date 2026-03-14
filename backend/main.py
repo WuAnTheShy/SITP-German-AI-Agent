@@ -23,6 +23,8 @@ from sqlalchemy.orm import Session
 from crud.repositories import (
     ChatMessageCRUD,
     ChatSessionCRUD,
+    TeacherChatMessageCRUD,
+    TeacherChatSessionCRUD,
     ClassroomCRUD,
     ErrorBookCategoryCRUD,
     ErrorBookEntryCRUD,
@@ -49,10 +51,20 @@ from crud.repositories import (
     WritingSessionCRUD,
 )
 from db.session import get_db
-from models.entities import ChatSession as ChatSessionModel, ExamAssignment, Exam, ScenarioPush, Scenario, Homework
+from models.entities import (
+    ChatSession as ChatSessionModel,
+    ExamAssignment,
+    Exam,
+    Homework,
+    Scenario,
+    ScenarioPush,
+    TeacherChatSession,
+)
 from schemas.entities import (
     ChatMessageCreate,
     ChatSessionCreate,
+    TeacherChatMessageCreate,
+    TeacherChatSessionCreate,
     ClassroomCreate,
     ErrorBookEntryCreate,
     ExamAssignmentCreate,
@@ -105,11 +117,6 @@ _STUDENT_SYSTEM = (
     "回复简洁、准确。除非用户要求中文，否则用德语回答并在括号内给出中文翻译。"
 )
 
-# 教师端多轮对话历史（简单内存存储）
-_teacher_chat_history: list[types.Content] = []
-# 学生端多轮对话历史（简单内存存储）
-_student_chat_history: list[types.Content] = []
-
 app = FastAPI()
 
 @app.on_event("startup")
@@ -159,6 +166,27 @@ def startup_event():
                 print("[Server] Missing 'exam_assignment_id' in 'homeworks'. Applying patch...")
                 conn.execute(text("ALTER TABLE homeworks ADD COLUMN exam_assignment_id INTEGER;"))
                 print("[Server] Database patch applied successfully to homeworks.")
+
+            # 教师教研助手对话表（按用户隔离）
+            r_tc = conn.execute(text(
+                "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='teacher_chat_sessions'"
+            ))
+            if not r_tc.fetchone():
+                print("[Server] Creating teacher_chat_sessions / teacher_chat_messages...")
+                conn.execute(text(
+                    "CREATE TABLE teacher_chat_sessions ("
+                    "id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
+                    "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
+                ))
+                conn.execute(text(
+                    "CREATE TABLE teacher_chat_messages ("
+                    "id BIGSERIAL PRIMARY KEY, session_id BIGINT NOT NULL REFERENCES teacher_chat_sessions(id) ON DELETE CASCADE, "
+                    "role VARCHAR(16) NOT NULL CHECK (role IN ('user','assistant')), content TEXT NOT NULL, "
+                    "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
+                ))
+                conn.execute(text("CREATE INDEX idx_teacher_chat_sessions_user ON teacher_chat_sessions(user_id)"))
+                conn.execute(text("CREATE INDEX idx_teacher_chat_messages_session ON teacher_chat_messages(session_id)"))
+                print("[Server] Teacher chat tables created.")
                 
             print("[Server] Database schema checks completed.")
     except Exception as e:
@@ -380,6 +408,34 @@ def _get_or_create_session(db: Session, student_id: int, scene_id: int | None, s
     )
 
 
+def _get_or_create_teacher_session(db: Session, user_id: int) -> TeacherChatSession:
+    """同一教师当天复用教研助手会话"""
+    today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
+    stmt = (
+        select(TeacherChatSession)
+        .where(
+            TeacherChatSession.user_id == user_id,
+            TeacherChatSession.created_at >= today_start,
+        )
+        .order_by(TeacherChatSession.created_at.desc())
+        .limit(1)
+    )
+    existing = db.scalar(stmt)
+    if existing:
+        return existing
+    return TeacherChatSessionCRUD.create(db, TeacherChatSessionCreate(user_id=user_id))
+
+
+def _history_to_gemini_contents(messages: list, max_turns: int = 12) -> list:
+    """将库中 user/assistant 消息转为 Gemini contents（每条为 user 或 model）"""
+    slice_msgs = messages[-(max_turns * 2) :] if len(messages) > max_turns * 2 else messages
+    out = []
+    for m in slice_msgs:
+        role = "user" if m.role == "user" else "model"
+        out.append(types.Content(role=role, parts=[types.Part.from_text(text=m.content)]))
+    return out
+
+
 # 学生端请求体模型
 class StudentLoginReq(BaseModel):
     username: str
@@ -532,19 +588,17 @@ def _ensure_demo_data(db: Session):
 
 @app.post("/api/chat")
 def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
-    # 教师端 AI 对话需要教师权限
-    require_teacher(req, db)
-    print(f"[教师AI] 收到前端消息: {request.message}", flush=True)
+    """教师端 AI：按教师用户隔离，历史落库"""
+    user = require_teacher(req, db)
+    print(f"[教师AI] user_id={user.id} 消息: {request.message[:80]!r}...", flush=True)
     try:
-        global _teacher_chat_history
-        # 限制历史长度，防止 token 超限导致请求变慢或失败
-        if len(_teacher_chat_history) > 20:
-            _teacher_chat_history = _teacher_chat_history[-20:]
-        
-        user_content = types.Content(role="user", parts=[types.Part.from_text(text=request.message)])
-        contents_to_send = _teacher_chat_history + [user_content]
-        
-        print(f"[教师AI] 开始调用 Gemini API (历史消息数: {len(_teacher_chat_history)})...", flush=True)
+        session = _get_or_create_teacher_session(db, user.id)
+        TeacherChatMessageCRUD.create(
+            db, TeacherChatMessageCreate(session_id=session.id, role="user", content=request.message)
+        )
+        history = TeacherChatMessageCRUD.list_by_session(db, session.id)
+        contents_to_send = _history_to_gemini_contents(history, max_turns=14)
+        print(f"[教师AI] 调用 Gemini（本会话消息条数 {len(history)}）...", flush=True)
         response = _gemini_client.models.generate_content(
             model=_MODEL_ID,
             contents=contents_to_send,
@@ -553,11 +607,12 @@ def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depen
                 http_options={"timeout": 90_000},
             ),
         )
-        print(f"[教师AI] Gemini API 返回成功", flush=True)
-        # 仅在成功后才更新历史，避免历史被污染
-        _teacher_chat_history.append(user_content)
-        _teacher_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
-        return {"reply": response.text}
+        reply_text = response.text or ""
+        TeacherChatMessageCRUD.create(
+            db, TeacherChatMessageCreate(session_id=session.id, role="assistant", content=reply_text)
+        )
+        print("[教师AI] Gemini 成功", flush=True)
+        return {"reply": reply_text}
     except Exception as e:
         print(f"[教师AI] Gemini调用失败: {type(e).__name__}: {e}", flush=True)
         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {type(e).__name__}"}
@@ -1333,50 +1388,25 @@ def teacher_register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 # ╔═══════════════════════════════════════════════════════╗
-# ║  6-8. 教师端教研助手 AI 对话 (Teacher Chat)             ║
-# ╚═══════════════════════════════════════════════════════╝
-
-
-@app.post("/api/chat")
-async def teacher_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
-    require_teacher(req, db)
-    print(f"收到教师端前端消息: {request.message}")
-    try:
-        global _teacher_chat_history
-        _teacher_chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=request.message)]))
-        response = _gemini_client.models.generate_content(
-            model=_MODEL_ID,
-            contents=_teacher_chat_history,
-            config=types.GenerateContentConfig(
-                system_instruction=_TEACHER_SYSTEM,
-            ),
-        )
-        _teacher_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
-        return {"reply": response.text}
-    except Exception as e:
-        print(f"Gemini调用失败(教师端): {e}")
-        return {"reply": "抱歉，教研助手遇到错误，请稍后再试。"}
-
-
-# ╔═══════════════════════════════════════════════════════╗
 # ║  7-1.5. 学生端大厅 AI 对话 (Student Chat)              ║
+# ║  按学生隔离，使用 chat_sessions + chat_messages        ║
 # ╚═══════════════════════════════════════════════════════╝
+
+STUDENT_LOBBY_SCENE_NAME = "大厅AI"
 
 
 @app.post("/api/student/chat")
 def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
-    require_student(req, db)
-    print(f"[学生AI] 收到前端消息: {request.message}", flush=True)
+    student = require_student(req, db)
+    print(f"[学生AI] student_id={student.id} 消息: {request.message[:80]!r}...", flush=True)
     try:
-        global _student_chat_history
-        # 限制历史长度，防止 token 超限导致请求变慢或失败
-        if len(_student_chat_history) > 20:
-            _student_chat_history = _student_chat_history[-20:]
-        
-        user_content = types.Content(role="user", parts=[types.Part.from_text(text=request.message)])
-        contents_to_send = _student_chat_history + [user_content]
-        
-        print(f"[学生AI] 开始调用 Gemini API...", flush=True)
+        session = _get_or_create_session(db, student.id, None, STUDENT_LOBBY_SCENE_NAME)
+        ChatMessageCRUD.create(
+            db, ChatMessageCreate(session_id=session.id, role="user", content=request.message)
+        )
+        history = ChatMessageCRUD.list_by_session(db, session.id)
+        contents_to_send = _history_to_gemini_contents(history, max_turns=14)
+        print(f"[学生AI] 调用 Gemini（本会话消息条数 {len(history)}）...", flush=True)
         response = _gemini_client.models.generate_content(
             model=_MODEL_ID,
             contents=contents_to_send,
@@ -1385,11 +1415,13 @@ def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session
                 http_options={"timeout": 90_000},
             ),
         )
-        print(f"[学生AI] Gemini API 返回成功", flush=True)
-        # 仅在成功后才更新历史，避免历史被污染
-        _student_chat_history.append(user_content)
-        _student_chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
-        return {"reply": response.text}
+        reply_text = response.text or ""
+        ChatMessageCRUD.create(
+            db,
+            ChatMessageCreate(session_id=session.id, role="assistant", content=reply_text, correction=None),
+        )
+        print("[学生AI] Gemini 成功", flush=True)
+        return {"reply": reply_text}
     except Exception as e:
         print(f"[学生AI] Gemini调用失败: {type(e).__name__}: {e}", flush=True)
         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {type(e).__name__}"}

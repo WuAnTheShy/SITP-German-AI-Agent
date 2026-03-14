@@ -240,6 +240,16 @@ class ChatMessageRead(ORMBase):
     created_at: datetime
 
 
+class TeacherChatSessionCreate(BaseModel):
+    user_id: int
+
+
+class TeacherChatMessageCreate(BaseModel):
+    session_id: int
+    role: str
+    content: str
+
+
 # ---------- 词汇学习 ----------
 
 class VocabularyCreate(BaseModel):

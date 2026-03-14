@@ -21,6 +21,8 @@ from schemas.entities import (
     UserRead,
     # V2 学生端
     ChatMessageCreate,
+    TeacherChatMessageCreate,
+    TeacherChatSessionCreate,
     ChatMessageRead,
     ChatSceneRead,
     ChatSessionCreate,
@@ -78,6 +80,8 @@ __all__ = [
     "ChatSessionRead",
     "ChatMessageCreate",
     "ChatMessageRead",
+    "TeacherChatSessionCreate",
+    "TeacherChatMessageCreate",
     "VocabularyCreate",
     "VocabularyRead",
     "StudentVocabCollectionCreate",
