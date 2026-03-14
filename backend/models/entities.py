@@ -219,6 +219,32 @@ class ChatMessage(Base):
     )
 
 
+class TeacherChatSession(Base):
+    """教师教研助手会话（按 users.id 隔离）"""
+    __tablename__ = "teacher_chat_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class TeacherChatMessage(Base):
+    """教师教研助手消息"""
+    __tablename__ = "teacher_chat_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("teacher_chat_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'assistant')", name="ck_teacher_chat_messages_role"),
+    )
+
+
 class Vocabulary(Base):
     """词汇库"""
     __tablename__ = "vocabularies"
