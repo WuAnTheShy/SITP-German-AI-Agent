@@ -1,7 +1,7 @@
 # Dockerfile (位于根目录)
 
 # --- 阶段 1: 构建 (Build) ---
-FROM node:20-alpine as build-stage
+FROM node:20-alpine AS build-stage
 
 # 设置工作目录
 WORKDIR /app
