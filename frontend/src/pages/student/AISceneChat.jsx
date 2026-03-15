@@ -1,8 +1,46 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import StudentLayout from "../../components/StudentLayout";
 import request from "../../api/request";
-import { API_SCENE_CHAT } from "../../api/config";
-import { Bot, User, Send, Loader2 } from "lucide-react";
+import {
+  API_SCENE_CHAT,
+  API_SCENE_CHAT_STATE,
+  API_SCENE_CHAT_CLEAR,
+} from "../../api/config";
+import { Bot, User, Send, Loader2, Trash2 } from "lucide-react";
+
+const WELCOME = (name) =>
+  `你好！现在进入【${name}】场景，开始用德语对话吧～我会纠正你的表达错误哦！（本情景一条连续对话，会自动接续上次练习）`;
+
+function mapServerMessagesToUi(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const out = [];
+  for (const m of rows) {
+    if (m.role === "user") {
+      out.push({
+        key: `u-${m.id}`,
+        sender: "我",
+        content: m.content,
+        time: "",
+      });
+    } else {
+      out.push({
+        key: `a-${m.id}`,
+        sender: "AI",
+        content: m.content,
+        time: "",
+      });
+      if (m.correction) {
+        out.push({
+          key: `c-${m.id}`,
+          sender: "系统",
+          content: `📝 语法纠错建议：${m.correction}`,
+          time: "",
+        });
+      }
+    }
+  }
+  return out;
+}
 
 const AISceneChat = () => {
   const [chatScenes] = useState([
@@ -11,68 +49,79 @@ const AISceneChat = () => {
     { id: 3, name: "留学面试沟通", desc: "德国大学入学面试常见问题" },
     { id: 4, name: "餐厅点餐对话", desc: "德国餐厅点餐、询问菜品" },
   ]);
-  const [selectedScene, setSelectedScene] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem("sceneChat_scene");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [messages, setMessages] = useState(() => {
-    try {
-      const scene = sessionStorage.getItem("sceneChat_scene");
-      if (!scene) return [];
-      const sceneId = JSON.parse(scene).id;
-      const saved = sessionStorage.getItem(`sceneChat_messages_${sceneId}`);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [selectedScene, setSelectedScene] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [inputMsg, setInputMsg] = useState("");
-
-  // 消息变化时按当前场景 ID 保存，切换场景 / 页面后可恢复
-  useEffect(() => {
-    if (selectedScene) {
-      sessionStorage.setItem(
-        `sceneChat_messages_${selectedScene.id}`,
-        JSON.stringify(messages),
-      );
-    }
-  }, [messages, selectedScene]);
-  useEffect(() => {
-    sessionStorage.setItem("sceneChat_scene", JSON.stringify(selectedScene));
-  }, [selectedScene]);
   const [loading, setLoading] = useState(false);
+  const [loadingScene, setLoadingScene] = useState(false);
   const chatContainerRef = useRef(null);
   const inputRef = useRef(null);
 
+  const loadSceneState = useCallback(async (scene) => {
+    if (!scene) return;
+    setLoadingScene(true);
+    try {
+      const r = await request.get(API_SCENE_CHAT_STATE, {
+        params: { scene_id: scene.id, scene_name: scene.name },
+      });
+      const payload = r.data?.data ?? r.data ?? {};
+      const msgs = payload.messages ?? [];
+      const ui = mapServerMessagesToUi(msgs);
+      if (ui.length === 0) {
+        setMessages([
+          {
+            key: "welcome",
+            sender: "AI",
+            content: WELCOME(scene.name),
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          },
+        ]);
+      } else {
+        setMessages(ui);
+      }
+    } catch (e) {
+      console.error(e);
+      setMessages([
+        {
+          key: "err",
+          sender: "系统",
+          content: "加载记录失败，请刷新重试。",
+          time: "",
+        },
+      ]);
+    } finally {
+      setLoadingScene(false);
+    }
+  }, []);
+
   const handleSelectScene = (scene) => {
     setSelectedScene(scene);
-    // 尝试加载该场景的历史记录，没有则显示欢迎语
+    loadSceneState(scene);
+  };
+
+  const handleClearScene = async () => {
+    if (!selectedScene) return;
+    if (
+      !window.confirm(
+        "确定清空本情景的全部对话记录？不可恢复，清空后从新对话开始。"
+      )
+    )
+      return;
     try {
-      const saved = sessionStorage.getItem(`sceneChat_messages_${scene.id}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.length > 0) {
-          setMessages(parsed);
-          return;
-        }
-      }
-    } catch {
-      /* ignore */
+      await request.delete(API_SCENE_CHAT_CLEAR, {
+        params: {
+          scene_id: selectedScene.id,
+          scene_name: selectedScene.name,
+        },
+      });
+      loadSceneState(selectedScene);
+    } catch (e) {
+      console.error(e);
+      alert("清空失败");
     }
-    setMessages([
-      {
-        sender: "AI",
-        content: `你好！现在进入【${scene.name}】场景，开始用德语对话吧～我会纠正你的表达错误哦！`,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      },
-    ]);
   };
 
   const handleSendMsg = async () => {
@@ -84,6 +133,7 @@ const AISceneChat = () => {
     setMessages((prev) => [
       ...prev,
       {
+        key: `local-${Date.now()}`,
         sender: "我",
         content: userContent,
         time: new Date().toLocaleTimeString([], {
@@ -95,28 +145,38 @@ const AISceneChat = () => {
     setInputMsg("");
     setLoading(true);
     try {
-      const response = await request.post(API_SCENE_CHAT, {
-        sceneId: selectedScene.id, sceneName: selectedScene.name, userMessage: userContent
-      }, { timeout: 60000 });
+      const response = await request.post(
+        API_SCENE_CHAT,
+        {
+          sceneId: selectedScene.id,
+          sceneName: selectedScene.name,
+          userMessage: userContent,
+        },
+        { timeout: 60000 }
+      );
       const data = response.data;
-      if (data.code === 200) {
+      const payload = data.data ?? data;
+      const code = data.code;
+      if (code === 200 || payload?.reply != null) {
         setMessages((prev) => [
           ...prev,
           {
+            key: `ai-${Date.now()}`,
             sender: "AI",
-            content: data.data.reply,
+            content: payload.reply,
             time: new Date().toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             }),
           },
         ]);
-        if (data.data.correction) {
+        if (payload.correction) {
           setMessages((prev) => [
             ...prev,
             {
+              key: `sys-${Date.now()}`,
               sender: "系统",
-              content: `📝 语法纠错建议：${data.data.correction}`,
+              content: `📝 语法纠错建议：${payload.correction}`,
               time: new Date().toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -132,8 +192,9 @@ const AISceneChat = () => {
       setMessages((prev) => [
         ...prev,
         {
+          key: `err-${Date.now()}`,
           sender: "系统",
-          content: `❌ ${error.message}`,
+          content: `❌ ${error.message || "网络错误"}`,
           time: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -149,7 +210,6 @@ const AISceneChat = () => {
     if (e.key === "Enter" && !loading) handleSendMsg();
   };
 
-  // AI 回复完成后自动聚焦输入框
   useEffect(() => {
     if (!loading) inputRef.current?.focus();
   }, [loading]);
@@ -163,21 +223,21 @@ const AISceneChat = () => {
   return (
     <StudentLayout>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* 标题 + 场景选择 */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-1">
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
             🗣️ 场景化AI德语对话
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            模拟真实场景练口语，AI实时纠错+互动
-          </p>
           <div className="flex gap-3 flex-wrap">
-            {chatScenes.map(scene => (
-              <button key={scene.id} onClick={() => handleSelectScene(scene)}
-                className={`px-4 py-3 rounded-lg border-2 text-left transition-all ${selectedScene?.id === scene.id
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 text-gray-700 dark:text-gray-300'
-                  }`}>
+            {chatScenes.map((scene) => (
+              <button
+                key={scene.id}
+                onClick={() => handleSelectScene(scene)}
+                className={`px-4 py-3 rounded-lg border-2 text-left transition-all ${
+                  selectedScene?.id === scene.id
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 text-gray-700 dark:text-gray-300"
+                }`}
+              >
                 <strong className="block text-sm">{scene.name}</strong>
                 <span className="text-xs opacity-70">{scene.desc}</span>
               </button>
@@ -185,99 +245,128 @@ const AISceneChat = () => {
           </div>
         </div>
 
-        {/* 对话区域 */}
         {selectedScene ? (
           <>
-            <div className="px-6 py-2 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-100 dark:border-blue-800/50">
-              <span className="text-sm text-blue-700 dark:text-blue-400 font-medium">
-                当前场景：{selectedScene.name}
-              </span>
+            <div className="px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 flex justify-end">
+              <button
+                type="button"
+                title="清空本情景对话记录"
+                aria-label="清空本情景"
+                onClick={handleClearScene}
+                disabled={loadingScene}
+                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40"
+              >
+                <Trash2 size={20} />
+              </button>
             </div>
-            <div
-              className="flex-1 overflow-y-auto p-6 space-y-4"
-              ref={chatContainerRef}
-            >
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex ${msg.sender === "我" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`flex items-start gap-3 max-w-xl ${msg.sender === "我" ? "flex-row-reverse" : ""}`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.sender === "我"
-                        ? "bg-blue-600"
-                        : msg.sender === "系统"
-                          ? "bg-yellow-500"
-                          : "bg-green-600"
-                        }`}
-                    >
-                      {msg.sender === "我" ? (
-                        <User size={14} className="text-white" />
-                      ) : (
-                        <Bot size={14} className="text-white" />
-                      )}
-                    </div>
-                    <div>
-                      <div className={`p-3 rounded-2xl whitespace-pre-wrap ${msg.sender === '我' ? 'bg-blue-600 text-white rounded-tr-none'
-                        : msg.sender === '系统' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 dark:text-yellow-200 rounded-tl-none'
-                          : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-white'
-                        }`}>
-                        {msg.content}
-                      </div>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 mt-1 block">
-                        {msg.time}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-                      <Bot size={14} className="text-white" />
-                    </div>
-                    <div className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-white flex items-center gap-2">
-                      <Loader2 className="animate-spin" size={16} />{" "}
-                      AI正在思考...
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 输入 */}
-            <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-              <div className="max-w-3xl mx-auto flex gap-3">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder={
-                    loading
-                      ? "AI正在回复，请稍候..."
-                      : "请输入德语内容（按回车发送）..."
-                  }
-                  value={inputMsg}
-                  onChange={(e) => setInputMsg(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={loading}
-                  className="dark:text-white flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-800 disabled:bg-gray-100 dark:bg-gray-800"
-                />
-                <button
-                  onClick={handleSendMsg}
-                  disabled={loading}
-                  className={`px-5 py-3 rounded-xl font-medium transition-colors ${loading ? "bg-gray-400 cursor-not-allowed text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
-                >
-                  {loading ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <Send size={18} />
-                  )}
-                </button>
+            {loadingScene ? (
+              <div className="flex-1 flex items-center justify-center text-gray-500">
+                <Loader2 className="animate-spin mr-2" /> 加载记录…
               </div>
-            </div>
+            ) : (
+              <>
+                <div
+                  className="flex-1 overflow-y-auto p-6 space-y-4"
+                  ref={chatContainerRef}
+                >
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.key}
+                      className={`flex ${
+                        msg.sender === "我" ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                      <div
+                        className={`flex items-start gap-3 max-w-xl ${
+                          msg.sender === "我" ? "flex-row-reverse" : ""
+                        }`}
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                            msg.sender === "我"
+                              ? "bg-blue-600"
+                              : msg.sender === "系统"
+                                ? "bg-yellow-500"
+                                : "bg-green-600"
+                          }`}
+                        >
+                          {msg.sender === "我" ? (
+                            <User size={14} className="text-white" />
+                          ) : (
+                            <Bot size={14} className="text-white" />
+                          )}
+                        </div>
+                        <div>
+                          <div
+                            className={`p-3 rounded-2xl whitespace-pre-wrap ${
+                              msg.sender === "我"
+                                ? "bg-blue-600 text-white rounded-tr-none"
+                                : msg.sender === "系统"
+                                  ? "bg-yellow-50 border border-yellow-200 text-yellow-800 dark:text-yellow-200 rounded-tl-none"
+                                  : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-white"
+                            }`}
+                          >
+                            {msg.content}
+                          </div>
+                          {msg.time ? (
+                            <span className="text-xs text-gray-400 dark:text-gray-500 mt-1 block">
+                              {msg.time}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {loading && (
+                    <div className="flex justify-start">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+                          <Bot size={14} className="text-white" />
+                        </div>
+                        <div className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-2xl rounded-tl-none text-gray-500 dark:text-white flex items-center gap-2">
+                          <Loader2 className="animate-spin" size={16} />{" "}
+                          AI正在思考...
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                  <div className="max-w-3xl mx-auto flex gap-3">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      placeholder={
+                        loading
+                          ? "AI正在回复，请稍候..."
+                          : "请输入德语内容（按回车发送）..."
+                      }
+                      value={inputMsg}
+                      onChange={(e) => setInputMsg(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      disabled={loading}
+                      className="dark:text-white flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-800 disabled:bg-gray-100 dark:bg-gray-800"
+                    />
+                    <button
+                      onClick={handleSendMsg}
+                      disabled={loading}
+                      className={`px-5 py-3 rounded-xl font-medium transition-colors ${
+                        loading
+                          ? "bg-gray-400 cursor-not-allowed text-white"
+                          : "bg-blue-600 hover:bg-blue-700 text-white"
+                      }`}
+                    >
+                      {loading ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Send size={18} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500 text-lg">

@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -187,6 +187,27 @@ def startup_event():
                 conn.execute(text("CREATE INDEX idx_teacher_chat_sessions_user ON teacher_chat_sessions(user_id)"))
                 conn.execute(text("CREATE INDEX idx_teacher_chat_messages_session ON teacher_chat_messages(session_id)"))
                 print("[Server] Teacher chat tables created.")
+
+            # Agent memory columns
+            for tbl, cols in [
+                ("chat_sessions", [("closed_at", "TIMESTAMPTZ NULL"), ("updated_at", "TIMESTAMPTZ NOT NULL DEFAULT NOW()"), ("title", "VARCHAR(128) NULL")]),
+                ("teacher_chat_sessions", [("closed_at", "TIMESTAMPTZ NULL"), ("updated_at", "TIMESTAMPTZ NOT NULL DEFAULT NOW()"), ("title", "VARCHAR(128) NULL")]),
+                ("students", [("long_memory_summary", "TEXT NULL"), ("memory_updated_at", "TIMESTAMPTZ NULL")]),
+                ("users", [("long_memory_summary", "TEXT NULL"), ("memory_updated_at", "TIMESTAMPTZ NULL")]),
+            ]:
+                for col_name, col_def in cols:
+                    r = conn.execute(text(
+                        "SELECT 1 FROM information_schema.columns WHERE table_name=:t AND column_name=:c"
+                    ), {"t": tbl, "c": col_name})
+                    if not r.fetchone():
+                        conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col_name} {col_def}"))
+                        print(f"[Server] Added {tbl}.{col_name}")
+            conn.execute(text(
+                "UPDATE chat_sessions SET updated_at = created_at WHERE updated_at < created_at OR updated_at IS NULL"
+            ))
+            conn.execute(text(
+                "UPDATE teacher_chat_sessions SET updated_at = created_at WHERE updated_at < created_at OR updated_at IS NULL"
+            ))
                 
             print("[Server] Database schema checks completed.")
     except Exception as e:
@@ -206,6 +227,18 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+
+
+class StudentChatReq(BaseModel):
+    message: str
+    new_thread: bool = False
+    session_id: int | None = None
+
+
+class TeacherChatReq(BaseModel):
+    message: str
+    new_thread: bool = False
+    session_id: int | None = None
 
 
 class LoginRequest(BaseModel):
@@ -370,60 +403,126 @@ def _match_error_category(grammar_name: str, error_cats: dict[str, int]) -> int 
     return next(iter(error_cats.values()), None) if error_cats else None
 
 
-def _get_or_create_session(db: Session, student_id: int, scene_id: int | None, scene_name: str):
-    """同一学生 + 同一场景(或自由对话) 当天复用会话，保持多轮对话历史"""
-    today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
-
-    if scene_id is not None:
-        stmt = (
-            select(ChatSessionModel)
-            .where(
-                ChatSessionModel.student_id == student_id,
-                ChatSessionModel.scene_id == scene_id,
-                ChatSessionModel.created_at >= today_start,
-            )
-            .order_by(ChatSessionModel.created_at.desc())
-            .limit(1)
+def _resolve_student_session(
+    db: Session,
+    student_id: int,
+    scene_id: int | None,
+    scene_name: str,
+    *,
+    new_thread: bool = False,
+    session_id: int | None = None,
+) -> ChatSessionModel:
+    """未关闭会话续接；new_thread 关闭旧会话并新建；可选指定 session_id 继续某开放会话"""
+    if new_thread:
+        ChatSessionCRUD.close_open_for_channel(db, student_id, scene_id, scene_name)
+        return ChatSessionCRUD.create(
+            db, ChatSessionCreate(student_id=student_id, scene_id=scene_id, scene_name=scene_name)
         )
-    else:
-        # 自由对话模式：按 student + scene_name + 当天 复用会话
-        stmt = (
-            select(ChatSessionModel)
-            .where(
-                ChatSessionModel.student_id == student_id,
-                ChatSessionModel.scene_id.is_(None),
-                ChatSessionModel.scene_name == scene_name,
-                ChatSessionModel.created_at >= today_start,
-            )
-            .order_by(ChatSessionModel.created_at.desc())
-            .limit(1)
-        )
-
-    existing = db.scalar(stmt)
-    if existing:
-        return existing
-
+    if session_id is not None:
+        s = ChatSessionCRUD.get_by_id(db, session_id)
+        if not s or s.student_id != student_id:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        if scene_id is None and (s.scene_name or "") != scene_name:
+            raise HTTPException(status_code=400, detail="会话与当前通道不符")
+        if scene_id is not None and s.scene_id != scene_id:
+            raise HTTPException(status_code=400, detail="会话与当前通道不符")
+        if getattr(s, "closed_at", None) is not None:
+            ChatSessionCRUD.reopen(db, s.id)
+        return ChatSessionCRUD.get_by_id(db, session_id) or s
+    open_s = ChatSessionCRUD.find_open_session(db, student_id, scene_id, scene_name)
+    if open_s:
+        return open_s
     return ChatSessionCRUD.create(
         db, ChatSessionCreate(student_id=student_id, scene_id=scene_id, scene_name=scene_name)
     )
 
 
-def _get_or_create_teacher_session(db: Session, user_id: int) -> TeacherChatSession:
-    """同一教师当天复用教研助手会话"""
-    today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
-    stmt = (
-        select(TeacherChatSession)
-        .where(
-            TeacherChatSession.user_id == user_id,
-            TeacherChatSession.created_at >= today_start,
-        )
-        .order_by(TeacherChatSession.created_at.desc())
-        .limit(1)
-    )
-    existing = db.scalar(stmt)
-    if existing:
-        return existing
+def _resolve_teacher_session(
+    db: Session, user_id: int, *, new_thread: bool = False, session_id: int | None = None
+) -> TeacherChatSession:
+    if new_thread:
+        TeacherChatSessionCRUD.close_open_for_user(db, user_id)
+        return TeacherChatSessionCRUD.create(db, TeacherChatSessionCreate(user_id=user_id))
+    if session_id is not None:
+        s = TeacherChatSessionCRUD.get_by_id(db, session_id)
+        if not s or s.user_id != user_id:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        if getattr(s, "closed_at", None) is not None:
+            TeacherChatSessionCRUD.reopen(db, s.id)
+        return TeacherChatSessionCRUD.get_by_id(db, session_id) or s
+    open_s = TeacherChatSessionCRUD.find_open_session(db, user_id)
+    if open_s:
+        return open_s
     return TeacherChatSessionCRUD.create(db, TeacherChatSessionCreate(user_id=user_id))
+
+
+MEMORY_REFRESH_EVERY = 16
+
+_MEMORY_SUMMARY_PROMPT = """You maintain a short learner profile (max 400 Chinese characters).
+Previous profile (may be empty):
+---
+{prev}
+---
+Recent dialogue (latest lines):
+---
+{dialogue}
+---
+Output ONLY the updated profile: level, goals, recurring mistakes, current topics. No markdown."""
+
+
+def _refresh_student_memory(student_id: int, session_id: int) -> None:
+    from db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        st = StudentCRUD.get_by_id(db, student_id)
+        if not st:
+            return
+        msgs = ChatMessageCRUD.list_by_session(db, session_id)
+        tail = msgs[-24:] if len(msgs) > 24 else msgs
+        dialogue = "\n".join(f"{'U' if m.role == 'user' else 'A'}: {m.content[:500]}" for m in tail)
+        prev = (st.long_memory_summary or "")[:1200]
+        prompt = _MEMORY_SUMMARY_PROMPT.format(prev=prev, dialogue=dialogue)
+        resp = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=prompt,
+            config=types.GenerateContentConfig(http_options={"timeout": 60_000}),
+        )
+        text = (resp.text or "").strip()[:2000]
+        if text:
+            StudentCRUD.update_long_memory(db, student_id, text)
+    except Exception as e:
+        print(f"[Memory] student refresh skip: {e}", flush=True)
+    finally:
+        db.close()
+
+
+def _refresh_teacher_memory(user_id: int, session_id: int) -> None:
+    from db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        u = UserCRUD.get_by_id(db, user_id)
+        if not u:
+            return
+        msgs = TeacherChatMessageCRUD.list_by_session(db, session_id)
+        tail = msgs[-24:] if len(msgs) > 24 else msgs
+        dialogue = "\n".join(f"{'U' if m.role == 'user' else 'A'}: {m.content[:500]}" for m in tail)
+        prev = (u.long_memory_summary or "")[:1200]
+        prompt = (
+            "Update a short teaching-assistant context (max 400 Chinese chars) for this teacher. "
+            "Previous:\n---\n" + prev + "\n---\nRecent:\n---\n" + dialogue + "\n---\nOutput only the summary."
+        )
+        resp = _gemini_client.models.generate_content(
+            model=_MODEL_ID,
+            contents=prompt,
+            config=types.GenerateContentConfig(http_options={"timeout": 60_000}),
+        )
+        text = (resp.text or "").strip()[:2000]
+        if text:
+            UserCRUD.update_long_memory(db, user_id, text)
+    except Exception as e:
+        print(f"[Memory] teacher refresh skip: {e}", flush=True)
+    finally:
+        db.close()
 
 
 def _history_to_gemini_contents(messages: list, max_turns: int = 12) -> list:
@@ -587,18 +686,33 @@ def _ensure_demo_data(db: Session):
 
 
 @app.post("/api/chat")
-def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
-    """教师端 AI：按教师用户隔离，历史落库"""
+def chat_endpoint(
+    bg: BackgroundTasks,
+    req: Request,
+    request: TeacherChatReq,
+    db: Session = Depends(get_db),
+):
+    """教师端 AI：跨天续接 + 长期摘要"""
     user = require_teacher(req, db)
     print(f"[教师AI] user_id={user.id} 消息: {request.message[:80]!r}...", flush=True)
     try:
-        session = _get_or_create_teacher_session(db, user.id)
+        session = _resolve_teacher_session(
+            db, user.id, new_thread=request.new_thread, session_id=request.session_id
+        )
         TeacherChatMessageCRUD.create(
             db, TeacherChatMessageCreate(session_id=session.id, role="user", content=request.message)
         )
+        TeacherChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
         history = TeacherChatMessageCRUD.list_by_session(db, session.id)
-        contents_to_send = _history_to_gemini_contents(history, max_turns=14)
-        print(f"[教师AI] 调用 Gemini（本会话消息条数 {len(history)}）...", flush=True)
+        contents_to_send = []
+        if getattr(user, "long_memory_summary", None):
+            contents_to_send.append(
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text="[Teaching context]\n" + user.long_memory_summary)],
+                )
+            )
+        contents_to_send.extend(_history_to_gemini_contents(history, max_turns=14))
         response = _gemini_client.models.generate_content(
             model=_MODEL_ID,
             contents=contents_to_send,
@@ -611,8 +725,13 @@ def chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depen
         TeacherChatMessageCRUD.create(
             db, TeacherChatMessageCreate(session_id=session.id, role="assistant", content=reply_text)
         )
-        print("[教师AI] Gemini 成功", flush=True)
-        return {"reply": reply_text}
+        TeacherChatSessionCRUD.touch(db, session.id)
+        n = len(history) + 2
+        if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
+            bg.add_task(_refresh_teacher_memory, user.id, session.id)
+        return {"reply": reply_text, "session_id": session.id}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[教师AI] Gemini调用失败: {type(e).__name__}: {e}", flush=True)
         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {type(e).__name__}"}
@@ -1396,17 +1515,37 @@ STUDENT_LOBBY_SCENE_NAME = "大厅AI"
 
 
 @app.post("/api/student/chat")
-def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session = Depends(get_db)):
+def student_chat_endpoint(
+    bg: BackgroundTasks,
+    req: Request,
+    request: StudentChatReq,
+    db: Session = Depends(get_db),
+):
     student = require_student(req, db)
     print(f"[学生AI] student_id={student.id} 消息: {request.message[:80]!r}...", flush=True)
     try:
-        session = _get_or_create_session(db, student.id, None, STUDENT_LOBBY_SCENE_NAME)
+        session = _resolve_student_session(
+            db,
+            student.id,
+            None,
+            STUDENT_LOBBY_SCENE_NAME,
+            new_thread=request.new_thread,
+            session_id=request.session_id,
+        )
         ChatMessageCRUD.create(
             db, ChatMessageCreate(session_id=session.id, role="user", content=request.message)
         )
+        ChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
         history = ChatMessageCRUD.list_by_session(db, session.id)
-        contents_to_send = _history_to_gemini_contents(history, max_turns=14)
-        print(f"[学生AI] 调用 Gemini（本会话消息条数 {len(history)}）...", flush=True)
+        contents_to_send = []
+        if getattr(student, "long_memory_summary", None):
+            contents_to_send.append(
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text="[Learner profile]\n" + student.long_memory_summary)],
+                )
+            )
+        contents_to_send.extend(_history_to_gemini_contents(history, max_turns=14))
         response = _gemini_client.models.generate_content(
             model=_MODEL_ID,
             contents=contents_to_send,
@@ -1420,16 +1559,199 @@ def student_chat_endpoint(request: ChatRequest, req: Request = None, db: Session
             db,
             ChatMessageCreate(session_id=session.id, role="assistant", content=reply_text, correction=None),
         )
-        print("[学生AI] Gemini 成功", flush=True)
-        return {"reply": reply_text}
+        ChatSessionCRUD.touch(db, session.id)
+        n = len(history) + 2
+        if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
+            bg.add_task(_refresh_student_memory, student.id, session.id)
+        return {"reply": reply_text, "session_id": session.id}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[学生AI] Gemini调用失败: {type(e).__name__}: {e}", flush=True)
         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {type(e).__name__}"}
 
 
+@app.post("/api/student/chat/new-session")
+def student_chat_new_session(req: Request, db: Session = Depends(get_db)):
+    """关闭当前大厅会话并返回新 session_id（下一条消息将写入新会话）"""
+    student = require_student(req, db)
+    ChatSessionCRUD.close_open_for_channel(db, student.id, None, STUDENT_LOBBY_SCENE_NAME)
+    s = ChatSessionCRUD.create(
+        db, ChatSessionCreate(student_id=student.id, scene_id=None, scene_name=STUDENT_LOBBY_SCENE_NAME)
+    )
+    return ok({"session_id": s.id})
+
+
+@app.get("/api/student/chat/sessions")
+def student_chat_sessions(req: Request, db: Session = Depends(get_db)):
+    student = require_student(req, db)
+    rows = ChatSessionCRUD.list_channel_sessions(
+        db, student.id, None, STUDENT_LOBBY_SCENE_NAME, limit=80
+    )
+    return ok(
+        [
+            {
+                "id": r.id,
+                "title": (r.title or "").strip() or None,
+                "closed": r.closed_at is not None,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+            for r in rows
+        ]
+    )
+
+
+@app.get("/api/student/chat/messages")
+def student_chat_messages(
+    req: Request,
+    db: Session = Depends(get_db),
+    session_id: int = Query(..., description="大厅会话 id"),
+):
+    """拉取某条大厅会话的全部消息（留痕查阅 / 切换会话展示）"""
+    student = require_student(req, db)
+    s = ChatSessionCRUD.get_by_id(db, session_id)
+    if not s or s.student_id != student.id:
+        return fail("会话不存在", 404)
+    if s.scene_id is not None or (s.scene_name or "") != STUDENT_LOBBY_SCENE_NAME:
+        return fail("仅支持大厅智能对话会话", 403)
+    msgs = ChatMessageCRUD.list_by_session(db, session_id)
+    return ok(
+        [
+            {"id": m.id, "role": m.role, "content": m.content}
+            for m in msgs
+        ]
+    )
+
+
+@app.delete("/api/student/chat/session/{session_id}")
+def student_chat_delete_session(
+    session_id: int,
+    req: Request,
+    db: Session = Depends(get_db),
+):
+    """删除指定大厅会话及全部消息（不可恢复）"""
+    student = require_student(req, db)
+    ok_del = ChatSessionCRUD.delete_lobby_session(
+        db, student.id, session_id, STUDENT_LOBBY_SCENE_NAME
+    )
+    if not ok_del:
+        return fail("会话不存在或无权删除", 404)
+    return ok(message="已删除")
+
+
+@app.post("/api/teacher/chat/new-session")
+def teacher_chat_new_session(req: Request, db: Session = Depends(get_db)):
+    user = require_teacher(req, db)
+    TeacherChatSessionCRUD.close_open_for_user(db, user.id)
+    s = TeacherChatSessionCRUD.create(db, TeacherChatSessionCreate(user_id=user.id))
+    return ok({"session_id": s.id})
+
+
+@app.get("/api/teacher/chat/sessions")
+def teacher_chat_sessions(req: Request, db: Session = Depends(get_db)):
+    user = require_teacher(req, db)
+    rows = TeacherChatSessionCRUD.list_by_user(db, user.id, limit=80)
+    return ok(
+        [
+            {
+                "id": r.id,
+                "title": (getattr(r, "title", None) or "").strip() or None,
+                "closed": r.closed_at is not None,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+            for r in rows
+        ]
+    )
+
+
+@app.get("/api/teacher/chat/messages")
+def teacher_chat_messages(
+    req: Request,
+    db: Session = Depends(get_db),
+    session_id: int = Query(..., description="会话 id"),
+):
+    """拉取某条教师会话的全部消息"""
+    user = require_teacher(req, db)
+    s = TeacherChatSessionCRUD.get_by_id(db, session_id)
+    if not s or s.user_id != user.id:
+        return fail("会话不存在", 404)
+    msgs = TeacherChatMessageCRUD.list_by_session(db, session_id)
+    return ok([{"id": m.id, "role": m.role, "content": m.content} for m in msgs])
+
+
+@app.delete("/api/teacher/chat/session/{session_id}")
+def teacher_chat_delete_session(
+    session_id: int,
+    req: Request,
+    db: Session = Depends(get_db),
+):
+    """删除指定教师会话及全部消息（不可恢复）"""
+    user = require_teacher(req, db)
+    ok_del = TeacherChatSessionCRUD.delete_session(db, user.id, session_id)
+    if not ok_del:
+        return fail("会话不存在或无权删除", 404)
+    return ok(message="已删除")
+
+
 # ╔═══════════════════════════════════════════════════════╗
-# ║  7-2. 场景对话 (AISceneChat)                         ║
+# ║  7-2. 场景对话 (AISceneChat) 每情景单线程、长期续接    ║
 # ╚═══════════════════════════════════════════════════════╝
+
+
+def _resolve_scene_single_thread(
+    db: Session, student_id: int, scene_id: int, scene_name: str
+):
+    """每情景一条线：优先沿用该情景下最近更新的会话（含已暂停则自动 reopen），否则新建。"""
+    rows = ChatSessionCRUD.list_channel_sessions(
+        db, student_id, scene_id, scene_name, limit=1
+    )
+    if rows:
+        s = rows[0]
+        if getattr(s, "closed_at", None) is not None:
+            ChatSessionCRUD.reopen(db, s.id)
+        return ChatSessionCRUD.get_by_id(db, s.id) or s
+    return ChatSessionCRUD.create(
+        db,
+        ChatSessionCreate(
+            student_id=student_id, scene_id=scene_id, scene_name=scene_name
+        ),
+    )
+
+
+@app.get("/api/student/scene-chat/state")
+def scene_chat_state(
+    request: Request,
+    db: Session = Depends(get_db),
+    scene_id: int = Query(...),
+    scene_name: str = Query(...),
+):
+    """当前情景下的连续对话：最近一条会话的全部消息（无则空）"""
+    student = require_student(request, db)
+    name = (scene_name or "").strip() or "自由对话"
+    rows = ChatSessionCRUD.list_channel_sessions(db, student.id, scene_id, name, limit=1)
+    if not rows:
+        return ok({"session_id": None, "messages": []})
+    sid = rows[0].id
+    msgs = ChatMessageCRUD.list_by_session(db, sid)
+    out = [
+        {"id": m.id, "role": m.role, "content": m.content, "correction": m.correction}
+        for m in msgs
+    ]
+    return ok({"session_id": sid, "messages": out})
+
+
+@app.delete("/api/student/scene-chat/clear")
+def scene_chat_clear(
+    request: Request,
+    db: Session = Depends(get_db),
+    scene_id: int = Query(...),
+    scene_name: str = Query(...),
+):
+    """清空该情景下全部历史（可选），下次发送会新开一条会话"""
+    student = require_student(request, db)
+    name = (scene_name or "").strip() or "自由对话"
+    n = ChatSessionCRUD.delete_all_channel_sessions(db, student.id, scene_id, name)
+    return ok({"deleted": n}, message="已清空本情景记录" if n else "暂无记录")
 
 
 @app.post("/api/student/scene-chat")
@@ -1440,11 +1762,16 @@ def scene_chat(req: SceneChatReq, request: Request, db: Session = Depends(get_db
             return fail("未找到学生信息", 401)
 
         scene_name = req.sceneName or "自由对话"
-        session = _get_or_create_session(db, student.id, req.sceneId, scene_name)
+        if req.sceneId is None:
+            return fail("场景对话需要 sceneId", 400)
+        session = _resolve_scene_single_thread(
+            db, student.id, req.sceneId, scene_name
+        )
 
         ChatMessageCRUD.create(
             db, ChatMessageCreate(session_id=session.id, role="user", content=req.userMessage)
         )
+        ChatSessionCRUD.set_title_if_empty(db, session.id, req.userMessage)
 
         history = ChatMessageCRUD.list_by_session(db, session.id)
         conv_lines = [
@@ -1470,8 +1797,9 @@ def scene_chat(req: SceneChatReq, request: Request, db: Session = Depends(get_db
                 session_id=session.id, role="assistant", content=reply, correction=correction
             ),
         )
+        ChatSessionCRUD.touch(db, session.id)
 
-        return ok({"reply": reply, "correction": correction})
+        return ok({"reply": reply, "correction": correction, "session_id": session.id})
     except Exception as e:
         return fail(f"对话失败: {e}")
 

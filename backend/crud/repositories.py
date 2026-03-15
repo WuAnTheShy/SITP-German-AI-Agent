@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import datetime, timezone
+
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from models.entities import (
@@ -78,6 +80,15 @@ class UserCRUD:
     def get_by_id(db: Session, user_id: int) -> User | None:
         return db.scalar(select(User).where(User.id == user_id))
 
+    @staticmethod
+    def update_long_memory(db: Session, user_id: int, summary: str) -> None:
+        db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(long_memory_summary=summary, memory_updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
 
 class ClassroomCRUD:
     @staticmethod
@@ -117,6 +128,15 @@ class StudentCRUD:
     @staticmethod
     def get_by_id(db: Session, student_id: int) -> Student | None:
         return db.scalar(select(Student).where(Student.id == student_id))
+
+    @staticmethod
+    def update_long_memory(db: Session, student_id: int, summary: str) -> None:
+        db.execute(
+            update(Student)
+            .where(Student.id == student_id)
+            .values(long_memory_summary=summary, memory_updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
 
 
 class StudentAbilityCRUD:
@@ -301,6 +321,149 @@ class ChatSessionCRUD:
             select(ChatSession).where(ChatSession.student_id == student_id).order_by(ChatSession.created_at.desc())
         ))
 
+    @staticmethod
+    def close_open_for_channel(
+        db: Session, student_id: int, scene_id: int | None, scene_name: str | None
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        w = [
+            ChatSession.student_id == student_id,
+            ChatSession.closed_at.is_(None),
+        ]
+        if scene_id is not None:
+            w.append(ChatSession.scene_id == scene_id)
+        else:
+            w.append(ChatSession.scene_id.is_(None))
+            w.append(ChatSession.scene_name == (scene_name or ""))
+        db.execute(update(ChatSession).where(*w).values(closed_at=now))
+        db.commit()
+
+    @staticmethod
+    def find_open_session(
+        db: Session, student_id: int, scene_id: int | None, scene_name: str | None
+    ) -> ChatSession | None:
+        q = select(ChatSession).where(
+            ChatSession.student_id == student_id,
+            ChatSession.closed_at.is_(None),
+        )
+        if scene_id is not None:
+            q = q.where(ChatSession.scene_id == scene_id)
+        else:
+            q = q.where(ChatSession.scene_id.is_(None), ChatSession.scene_name == scene_name)
+        q = q.order_by(ChatSession.updated_at.desc()).limit(1)
+        return db.scalar(q)
+
+    @staticmethod
+    def touch(db: Session, session_id: int) -> None:
+        db.execute(
+            update(ChatSession)
+            .where(ChatSession.id == session_id)
+            .values(updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def set_title_if_empty(db: Session, session_id: int, title: str) -> None:
+        s = db.scalar(select(ChatSession).where(ChatSession.id == session_id))
+        if not s or (s.title and str(s.title).strip()):
+            return
+        t = (title or "").strip().replace("\n", " ")[:80]
+        if not t:
+            return
+        db.execute(
+            update(ChatSession)
+            .where(ChatSession.id == session_id)
+            .values(title=t, updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def reopen(db: Session, session_id: int) -> None:
+        """已结束会话再次发消息时重新打开，保留教学留痕"""
+        db.execute(
+            update(ChatSession)
+            .where(ChatSession.id == session_id)
+            .values(closed_at=None, updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def delete_lobby_session(db: Session, student_id: int, session_id: int, lobby_scene_name: str) -> bool:
+        """删除大厅会话及级联消息；返回是否删除成功"""
+        s = db.scalar(
+            select(ChatSession).where(
+                ChatSession.id == session_id,
+                ChatSession.student_id == student_id,
+                ChatSession.scene_id.is_(None),
+                ChatSession.scene_name == lobby_scene_name,
+            )
+        )
+        if not s:
+            return False
+        db.delete(s)
+        db.commit()
+        return True
+
+    @staticmethod
+    def delete_scene_session(
+        db: Session,
+        student_id: int,
+        session_id: int,
+        scene_id: int,
+        scene_name: str,
+    ) -> bool:
+        """删除某场景通道下的会话及消息"""
+        s = db.scalar(
+            select(ChatSession).where(
+                ChatSession.id == session_id,
+                ChatSession.student_id == student_id,
+                ChatSession.scene_id == scene_id,
+                ChatSession.scene_name == scene_name,
+            )
+        )
+        if not s:
+            return False
+        db.delete(s)
+        db.commit()
+        return True
+
+    @staticmethod
+    def list_channel_sessions(
+        db: Session,
+        student_id: int,
+        scene_id: int | None,
+        scene_name: str | None,
+        limit: int = 30,
+    ) -> list[ChatSession]:
+        q = select(ChatSession).where(ChatSession.student_id == student_id)
+        if scene_id is not None:
+            q = q.where(ChatSession.scene_id == scene_id)
+        else:
+            q = q.where(ChatSession.scene_id.is_(None), ChatSession.scene_name == scene_name)
+        q = q.order_by(ChatSession.updated_at.desc()).limit(limit)
+        return list(db.scalars(q))
+
+    @staticmethod
+    def delete_all_channel_sessions(
+        db: Session,
+        student_id: int,
+        scene_id: int,
+        scene_name: str,
+    ) -> int:
+        """删除该情景下全部会话（清空本情景历史）；返回删除条数"""
+        q = select(ChatSession).where(
+            ChatSession.student_id == student_id,
+            ChatSession.scene_id == scene_id,
+            ChatSession.scene_name == scene_name,
+        )
+        rows = list(db.scalars(q))
+        n = len(rows)
+        for s in rows:
+            db.delete(s)
+        if n:
+            db.commit()
+        return n
+
 
 class ChatMessageCRUD:
     @staticmethod
@@ -317,6 +480,13 @@ class ChatMessageCRUD:
             select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at)
         ))
 
+    @staticmethod
+    def count_by_session(db: Session, session_id: int) -> int:
+        from sqlalchemy import func as sa_func
+        return db.scalar(
+            select(sa_func.count()).select_from(ChatMessage).where(ChatMessage.session_id == session_id)
+        ) or 0
+
 
 class TeacherChatSessionCRUD:
     @staticmethod
@@ -330,6 +500,85 @@ class TeacherChatSessionCRUD:
     @staticmethod
     def get_by_id(db: Session, session_id: int) -> TeacherChatSession | None:
         return db.scalar(select(TeacherChatSession).where(TeacherChatSession.id == session_id))
+
+    @staticmethod
+    def close_open_for_user(db: Session, user_id: int) -> None:
+        now = datetime.now(timezone.utc)
+        db.execute(
+            update(TeacherChatSession)
+            .where(TeacherChatSession.user_id == user_id, TeacherChatSession.closed_at.is_(None))
+            .values(closed_at=now)
+        )
+        db.commit()
+
+    @staticmethod
+    def find_open_session(db: Session, user_id: int) -> TeacherChatSession | None:
+        return db.scalar(
+            select(TeacherChatSession)
+            .where(TeacherChatSession.user_id == user_id, TeacherChatSession.closed_at.is_(None))
+            .order_by(TeacherChatSession.updated_at.desc())
+            .limit(1)
+        )
+
+    @staticmethod
+    def touch(db: Session, session_id: int) -> None:
+        db.execute(
+            update(TeacherChatSession)
+            .where(TeacherChatSession.id == session_id)
+            .values(updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def reopen(db: Session, session_id: int) -> None:
+        """已结束会话再次发消息时重新打开"""
+        db.execute(
+            update(TeacherChatSession)
+            .where(TeacherChatSession.id == session_id)
+            .values(closed_at=None, updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def set_title_if_empty(db: Session, session_id: int, title: str) -> None:
+        s = db.scalar(select(TeacherChatSession).where(TeacherChatSession.id == session_id))
+        if not s or (getattr(s, "title", None) and str(s.title).strip()):
+            return
+        t = (title or "").strip().replace("\n", " ")[:80]
+        if not t:
+            return
+        db.execute(
+            update(TeacherChatSession)
+            .where(TeacherChatSession.id == session_id)
+            .values(title=t, updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def delete_session(db: Session, user_id: int, session_id: int) -> bool:
+        """删除教师会话及消息，仅限本人"""
+        s = db.scalar(
+            select(TeacherChatSession).where(
+                TeacherChatSession.id == session_id,
+                TeacherChatSession.user_id == user_id,
+            )
+        )
+        if not s:
+            return False
+        db.delete(s)
+        db.commit()
+        return True
+
+    @staticmethod
+    def list_by_user(db: Session, user_id: int, limit: int = 30) -> list[TeacherChatSession]:
+        return list(
+            db.scalars(
+                select(TeacherChatSession)
+                .where(TeacherChatSession.user_id == user_id)
+                .order_by(TeacherChatSession.updated_at.desc())
+                .limit(limit)
+            )
+        )
 
 
 class TeacherChatMessageCRUD:

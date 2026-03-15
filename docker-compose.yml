@@ -15,6 +15,8 @@ services:
       - ./backend/db/sql/002_seed_demo.sql:/docker-entrypoint-initdb.d/2_seed_demo.sql
       - ./backend/db/sql/003_student_schema.sql:/docker-entrypoint-initdb.d/3_student_schema.sql
       - ./backend/db/sql/004_student_seed.sql:/docker-entrypoint-initdb.d/4_student_seed.sql
+      - ./backend/db/sql/004_teacher_chat.sql:/docker-entrypoint-initdb.d/4b_teacher_chat.sql
+      - ./backend/db/sql/005_agent_memory.sql:/docker-entrypoint-initdb.d/5_agent_memory.sql
       # 数据持久化，防止容器重启后数据丢失
       - pg_data:/var/lib/postgresql/data
     restart: always
