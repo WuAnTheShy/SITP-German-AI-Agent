@@ -191,7 +191,7 @@ def startup_event():
             # Agent memory columns
             for tbl, cols in [
                 ("chat_sessions", [("closed_at", "TIMESTAMPTZ NULL"), ("updated_at", "TIMESTAMPTZ NOT NULL DEFAULT NOW()"), ("title", "VARCHAR(128) NULL")]),
-                ("teacher_chat_sessions", [("closed_at", "TIMESTAMPTZ NULL"), ("updated_at", "TIMESTAMPTZ NOT NULL DEFAULT NOW()")]),
+                ("teacher_chat_sessions", [("closed_at", "TIMESTAMPTZ NULL"), ("updated_at", "TIMESTAMPTZ NOT NULL DEFAULT NOW()"), ("title", "VARCHAR(128) NULL")]),
                 ("students", [("long_memory_summary", "TEXT NULL"), ("memory_updated_at", "TIMESTAMPTZ NULL")]),
                 ("users", [("long_memory_summary", "TEXT NULL"), ("memory_updated_at", "TIMESTAMPTZ NULL")]),
             ]:
@@ -445,11 +445,11 @@ def _resolve_teacher_session(
         return TeacherChatSessionCRUD.create(db, TeacherChatSessionCreate(user_id=user_id))
     if session_id is not None:
         s = TeacherChatSessionCRUD.get_by_id(db, session_id)
-        if s and s.user_id == user_id and getattr(s, "closed_at", None) is None:
-            return s
-        if s and s.user_id == user_id:
-            raise HTTPException(status_code=400, detail="会话已结束")
-        raise HTTPException(status_code=404, detail="会话不存在")
+        if not s or s.user_id != user_id:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        if getattr(s, "closed_at", None) is not None:
+            TeacherChatSessionCRUD.reopen(db, s.id)
+        return TeacherChatSessionCRUD.get_by_id(db, session_id) or s
     open_s = TeacherChatSessionCRUD.find_open_session(db, user_id)
     if open_s:
         return open_s
@@ -702,6 +702,7 @@ def chat_endpoint(
         TeacherChatMessageCRUD.create(
             db, TeacherChatMessageCreate(session_id=session.id, role="user", content=request.message)
         )
+        TeacherChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
         history = TeacherChatMessageCRUD.list_by_session(db, session.id)
         contents_to_send = []
         if getattr(user, "long_memory_summary", None):
@@ -1649,17 +1650,47 @@ def teacher_chat_new_session(req: Request, db: Session = Depends(get_db)):
 @app.get("/api/teacher/chat/sessions")
 def teacher_chat_sessions(req: Request, db: Session = Depends(get_db)):
     user = require_teacher(req, db)
-    rows = TeacherChatSessionCRUD.list_by_user(db, user.id, limit=40)
+    rows = TeacherChatSessionCRUD.list_by_user(db, user.id, limit=80)
     return ok(
         [
             {
                 "id": r.id,
+                "title": (getattr(r, "title", None) or "").strip() or None,
                 "closed": r.closed_at is not None,
                 "updated_at": r.updated_at.isoformat() if r.updated_at else None,
             }
             for r in rows
         ]
     )
+
+
+@app.get("/api/teacher/chat/messages")
+def teacher_chat_messages(
+    req: Request,
+    db: Session = Depends(get_db),
+    session_id: int = Query(..., description="会话 id"),
+):
+    """拉取某条教师会话的全部消息"""
+    user = require_teacher(req, db)
+    s = TeacherChatSessionCRUD.get_by_id(db, session_id)
+    if not s or s.user_id != user.id:
+        return fail("会话不存在", 404)
+    msgs = TeacherChatMessageCRUD.list_by_session(db, session_id)
+    return ok([{"id": m.id, "role": m.role, "content": m.content} for m in msgs])
+
+
+@app.delete("/api/teacher/chat/session/{session_id}")
+def teacher_chat_delete_session(
+    session_id: int,
+    req: Request,
+    db: Session = Depends(get_db),
+):
+    """删除指定教师会话及全部消息（不可恢复）"""
+    user = require_teacher(req, db)
+    ok_del = TeacherChatSessionCRUD.delete_session(db, user.id, session_id)
+    if not ok_del:
+        return fail("会话不存在或无权删除", 404)
+    return ok(message="已删除")
 
 
 # ╔═══════════════════════════════════════════════════════╗

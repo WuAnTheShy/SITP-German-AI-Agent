@@ -530,6 +530,46 @@ class TeacherChatSessionCRUD:
         db.commit()
 
     @staticmethod
+    def reopen(db: Session, session_id: int) -> None:
+        """已结束会话再次发消息时重新打开"""
+        db.execute(
+            update(TeacherChatSession)
+            .where(TeacherChatSession.id == session_id)
+            .values(closed_at=None, updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def set_title_if_empty(db: Session, session_id: int, title: str) -> None:
+        s = db.scalar(select(TeacherChatSession).where(TeacherChatSession.id == session_id))
+        if not s or (getattr(s, "title", None) and str(s.title).strip()):
+            return
+        t = (title or "").strip().replace("\n", " ")[:80]
+        if not t:
+            return
+        db.execute(
+            update(TeacherChatSession)
+            .where(TeacherChatSession.id == session_id)
+            .values(title=t, updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def delete_session(db: Session, user_id: int, session_id: int) -> bool:
+        """删除教师会话及消息，仅限本人"""
+        s = db.scalar(
+            select(TeacherChatSession).where(
+                TeacherChatSession.id == session_id,
+                TeacherChatSession.user_id == user_id,
+            )
+        )
+        if not s:
+            return False
+        db.delete(s)
+        db.commit()
+        return True
+
+    @staticmethod
     def list_by_user(db: Session, user_id: int, limit: int = 30) -> list[TeacherChatSession]:
         return list(
             db.scalars(
