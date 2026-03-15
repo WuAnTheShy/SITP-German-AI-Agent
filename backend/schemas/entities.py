@@ -41,7 +41,7 @@ class ClassroomRead(ORMBase):
 class StudentCreate(BaseModel):
     uid: str
     user_id: int
-    class_id: int
+    class_id: int | None = None
     name: str
     active_score: int = 0
     overall_score: float = 0
@@ -52,7 +52,7 @@ class StudentRead(ORMBase):
     id: int
     uid: str
     user_id: int
-    class_id: int
+    class_id: int | None
     name: str
     active_score: int
     overall_score: float

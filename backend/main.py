@@ -214,6 +214,13 @@ def startup_event():
             except Exception as e:
                 print(f"[Server] Note: users role constraint update: {e}")
 
+            # 学生可不关联班级（先注册后加入班级）
+            try:
+                conn.execute(text("ALTER TABLE students ALTER COLUMN class_id DROP NOT NULL"))
+                print("[Server] students.class_id allowed NULL.")
+            except Exception as e:
+                print(f"[Server] Note: students class_id nullable: {e}")
+
             print("[Server] Database schema checks completed.")
     except Exception as e:
         print(f"[Server] Database migration failed (might be handled by alembic): {e}")

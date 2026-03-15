@@ -15,7 +15,10 @@ import {
   Menu,
   X,
   Key,
+  School,
 } from "lucide-react";
+import request from "../api/request";
+import { API_STUDENT_CLASSES, API_STUDENT_JOIN_CLASS } from "../api/config";
 import PasswordChangeModal from "./PasswordChangeModal";
 
 const StudentLayout = ({ children }) => {
@@ -23,17 +26,53 @@ const StudentLayout = ({ children }) => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
+  const [userInfo, setUserInfo] = React.useState(() => JSON.parse(localStorage.getItem('userInfo') || '{}'));
+  const [showJoinClassModal, setShowJoinClassModal] = React.useState(false);
+  const [classList, setClassList] = React.useState([]);
+  const [joinClassLoading, setJoinClassLoading] = React.useState(false);
+  const [joinClassError, setJoinClassError] = React.useState('');
 
-  // 从 localStorage 获取实际登录用户信息
-  const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   const userId = userInfo.id || userInfo.studentId || '';
   const userName = userInfo.name || '未登录';
   const initials = userName.slice(0, 1);
+  const hasClass = userInfo.classId != null && userInfo.classId !== '';
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userInfo');
     navigate('/');
+  };
+
+  const openJoinClassModal = async () => {
+    setShowJoinClassModal(true);
+    setJoinClassError('');
+    try {
+      const res = await request.get(API_STUDENT_CLASSES);
+      setClassList(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      setJoinClassError(e.response?.data?.detail || e.message || '加载班级列表失败');
+      setClassList([]);
+    }
+  };
+
+  const handleJoinClass = async (e) => {
+    e.preventDefault();
+    const classId = parseInt(e.target.class_id?.value, 10);
+    if (!classId) return;
+    setJoinClassLoading(true);
+    setJoinClassError('');
+    try {
+      const res = await request.post(API_STUDENT_JOIN_CLASS, { class_id: classId });
+      const name = res.data?.data?.class_name || '';
+      const next = { ...userInfo, classId, className: name };
+      localStorage.setItem('userInfo', JSON.stringify(next));
+      setUserInfo(next);
+      setShowJoinClassModal(false);
+    } catch (e) {
+      setJoinClassError(e.response?.data?.message || e.response?.data?.detail || e.message || '加入失败');
+    } finally {
+      setJoinClassLoading(false);
+    }
   };
 
   const navItems = [
@@ -120,9 +159,18 @@ const StudentLayout = ({ children }) => {
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{userName}</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">在线活跃中</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">{hasClass ? (userInfo.className || '已加入班级') : '未加入班级'}</p>
             </div>
           </div>
+          {!hasClass && (
+            <button
+              type="button"
+              onClick={openJoinClassModal}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-xl transition-all border border-blue-200 dark:border-blue-800"
+            >
+              <School size={18} /> 加入班级
+            </button>
+          )}
           <button
             onClick={() => setIsPasswordModalOpen(true)}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all border border-gray-200 dark:border-gray-700 shadow-sm"
@@ -146,6 +194,32 @@ const StudentLayout = ({ children }) => {
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
       />
+
+      {/* 加入班级弹窗 */}
+      {showJoinClassModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !joinClassLoading && setShowJoinClassModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">加入班级</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">选择要加入的班级后，即可使用任务中心等需关联班级的功能。</p>
+            {joinClassError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{joinClassError}</p>}
+            <form onSubmit={handleJoinClass}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择班级</label>
+                <select name="class_id" required className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm">
+                  <option value="">请选择</option>
+                  {classList.map(c => (
+                    <option key={c.id} value={c.id}>{c.class_name}（{c.class_code}）{c.grade ? ` · ${c.grade}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => !joinClassLoading && setShowJoinClassModal(false)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
+                <button type="submit" disabled={joinClassLoading || classList.length === 0} className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50">{joinClassLoading ? '提交中…' : '确认加入'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -125,11 +125,19 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
             return fail("密码错误，请重新输入", 401)
 
         token = f"student-token-{student.uid}-{uuid4().hex[:8]}"
+        class_id = getattr(student, "class_id", None)
+        class_name = None
+        if class_id:
+            classroom = ClassroomCRUD.get_by_id(db, class_id)
+            if classroom:
+                class_name = classroom.class_name
         info = {
             "id": student.uid,
             "name": student.name,
             "role": "student",
             "studentId": student.id,
+            "classId": class_id,
+            "className": class_name,
         }
         return {
             "code": 200,
@@ -154,10 +162,6 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
             return fail("该学号已被注册", 409)
 
         _ensure_demo_data(db)
-        class_code = req.class_code or "SE-2026-4"
-        classroom = ClassroomCRUD.get_by_code(db, class_code)
-        if not classroom:
-            return fail(f"班级 {class_code} 不存在", 404)
 
         user = UserCRUD.create(
             db,
@@ -174,7 +178,7 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
             StudentCreate(
                 uid=req.username,
                 user_id=user.id,
-                class_id=classroom.id,
+                class_id=None,
                 name=req.display_name,
                 active_score=0,
                 overall_score=0,

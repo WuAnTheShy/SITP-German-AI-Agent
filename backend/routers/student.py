@@ -28,8 +28,7 @@ from schemas.entities import (
     HomeworkReviewCreate,
 )
 from core.responses import ok, fail, to_float
-from core.deps import require_teacher
-from core.seed import _ensure_demo_data
+from core.deps import require_teacher, get_current_teacher_and_classroom
 
 router = APIRouter()
 
@@ -51,11 +50,12 @@ class PushSchemeRequest(BaseModel):
 @router.get("/api/student/detail")
 def get_student_detail(id: str, request: Request = None, db: Session = Depends(get_db)):
     try:
-        require_teacher(request, db)
-        _ensure_demo_data(db)
+        _, classroom = get_current_teacher_and_classroom(request, db)
         student = StudentCRUD.get_by_uid(db, id)
         if not student:
             return fail("学生不存在", 404)
+        if student.class_id != classroom.id:
+            return fail("无权查看该学生", 403)
         ability = StudentAbilityCRUD.get_by_student_id(db, student.id)
         homeworks = HomeworkCRUD.list_by_student(db, student.id)
         exam_assignments = list(db.scalars(
@@ -109,11 +109,13 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
 @router.get("/api/homework/detail")
 def get_homework_detail(id: int, request: Request = None, db: Session = Depends(get_db)):
     try:
-        require_teacher(request, db)
-        _ensure_demo_data(db)
+        _, classroom = get_current_teacher_and_classroom(request, db)
         hw = HomeworkCRUD.get_by_id(db, id)
         if not hw:
             return fail("作业不存在", 404)
+        student = StudentCRUD.get_by_id(db, hw.student_id)
+        if not student or student.class_id != classroom.id:
+            return fail("无权查看该作业", 403)
         file_url = hw.file_url
         if hw.file_type == "json_exam":
             file_url = f"/api/homework/download/{hw.id}"
@@ -135,10 +137,13 @@ def get_homework_detail(id: int, request: Request = None, db: Session = Depends(
 @router.get("/api/homework/download/{id}")
 def download_homework_as_text(id: int, request: Request = None, db: Session = Depends(get_db)):
     try:
-        require_teacher(request, db)
+        _, classroom = get_current_teacher_and_classroom(request, db)
         hw = HomeworkCRUD.get_by_id(db, id)
         if not hw:
             raise HTTPException(status_code=404, detail="作业不存在")
+        student = StudentCRUD.get_by_id(db, hw.student_id)
+        if not student or student.class_id != classroom.id:
+            raise HTTPException(status_code=403, detail="无权下载该作业")
         if hw.file_type != "json_exam":
             if hw.file_url and hw.file_url.startswith("http"):
                 return RedirectResponse(url=hw.file_url)
@@ -212,11 +217,13 @@ def download_homework_as_text(id: int, request: Request = None, db: Session = De
 @router.post("/api/homework/save")
 def save_homework_review(request: HomeworkSaveRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        require_teacher(req, db)
-        teacher, _ = _ensure_demo_data(db)
+        teacher, classroom = get_current_teacher_and_classroom(req, db)
         hw = HomeworkCRUD.get_by_id(db, request.homeworkId)
         if not hw:
             return fail("作业不存在", 404)
+        student = StudentCRUD.get_by_id(db, hw.student_id)
+        if not student or student.class_id != classroom.id:
+            return fail("无权操作该作业", 403)
         HomeworkReviewCRUD.create(
             db,
             HomeworkReviewCreate(
@@ -235,11 +242,12 @@ def save_homework_review(request: HomeworkSaveRequest, req: Request = None, db: 
 @router.post("/api/student/push-scheme")
 def push_student_scheme(request: PushSchemeRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        require_teacher(req, db)
-        teacher, _ = _ensure_demo_data(db)
+        teacher, classroom = get_current_teacher_and_classroom(req, db)
         student = StudentCRUD.get_by_uid(db, request.studentId)
         if not student:
             return fail("学生不存在", 404)
+        if student.class_id != classroom.id:
+            return fail("无权向该学生推送", 403)
         scenario_code = f"SCH-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4]}"
         scenario = ScenarioCRUD.create(
             db,

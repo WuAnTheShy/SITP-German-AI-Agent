@@ -7,13 +7,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from crud.repositories import HomeworkCRUD
+from crud.repositories import HomeworkCRUD, StudentCRUD, ClassroomCRUD
 from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPush
 from schemas.entities import HomeworkCreate
 from core.responses import ok, fail
-from core.deps import current_student
+from core.deps import current_student, require_student
 
 router = APIRouter()
+
+
+class JoinClassBody(BaseModel):
+    class_id: int
 
 
 class StudentExamSubmitReq(BaseModel):
@@ -24,6 +28,28 @@ class StudentExamSubmitReq(BaseModel):
 class TaskCompleteReq(BaseModel):
     task_type: str
     task_id: int
+
+
+@router.get("/api/student/classes")
+def list_classes_for_student(request: Request, db: Session = Depends(get_db)):
+    """学生端：获取可加入的班级列表（用于「加入班级」选择）。"""
+    require_student(request, db)
+    classes = ClassroomCRUD.list_all(db)
+    return [
+        {"id": c.id, "class_code": c.class_code, "class_name": c.class_name, "grade": c.grade}
+        for c in classes
+    ]
+
+
+@router.post("/api/student/join-class")
+def student_join_class(body: JoinClassBody, request: Request, db: Session = Depends(get_db)):
+    """学生端：将当前学生关联到所选班级。"""
+    student = require_student(request, db)
+    classroom = ClassroomCRUD.get_by_id(db, body.class_id)
+    if not classroom:
+        return fail("班级不存在", 404)
+    StudentCRUD.update(db, student, class_id=body.class_id)
+    return ok({"class_id": body.class_id, "class_name": classroom.class_name}, "已加入班级")
 
 
 @router.get("/api/student/tasks")

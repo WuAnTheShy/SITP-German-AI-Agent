@@ -22,6 +22,10 @@ export const API_ADMIN_CLASSES = `${API_BASE}/api/admin/classes`;
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
 export const API_TEACHER_REGISTER = `${API_BASE}/api/auth/teacher-register`;
 
+// ---- 学生：加入班级 ----
+export const API_STUDENT_CLASSES = `${API_BASE}/api/student/classes`;
+export const API_STUDENT_JOIN_CLASS = `${API_BASE}/api/student/join-class`;
+
 // ---- 教师仪表盘 ----
 export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
 

@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from statistics import mean
@@ -27,8 +27,7 @@ from schemas.entities import (
     ExamAssignmentCreate,
 )
 from core.responses import ok, fail, to_float
-from core.deps import require_teacher
-from core.seed import _ensure_demo_data
+from core.deps import require_teacher, get_current_teacher_and_classroom
 from services.llm import get_client, MODEL_ID
 
 router = APIRouter()
@@ -46,9 +45,29 @@ class ExamGenerateRequest(BaseModel):
 
 @router.get("/api/teacher/dashboard")
 def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
+    """教师仪表盘：已关联班级则返回本班学情，未关联则返回空列表与「未关联」标识，教师仍可正常使用 AI 等非班级功能。"""
     try:
-        require_teacher(request, db)
-        teacher, classroom = _ensure_demo_data(db)
+        teacher = require_teacher(request, db)
+        classrooms = ClassroomCRUD.list_by_teacher(db, teacher.id)
+        if not classrooms:
+            return ok({
+                "teacherName": teacher.display_name,
+                "className": "未关联",
+                "pendingTasks": 0,
+                "stats": {
+                    "totalStudents": 0,
+                    "totalStudentsTrend": "+0",
+                    "avgDuration": 0,
+                    "avgDurationTrend": "—",
+                    "avgScore": 0,
+                    "avgScoreTrend": "—",
+                    "completionRate": 0,
+                    "completionRateTrend": "—",
+                },
+                "students": [],
+            })
+
+        classroom = classrooms[0]
         students = StudentCRUD.list_by_class(db, classroom.id)
         all_homeworks = []
         for s in students:
@@ -85,6 +104,8 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
             ],
         }
         return ok(payload)
+    except HTTPException:
+        raise
     except Exception as e:
         return fail(f"仪表盘加载失败: {e}")
 
@@ -92,8 +113,7 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
 @router.post("/api/scenario/publish")
 def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        require_teacher(req, db)
-        teacher, classroom = _ensure_demo_data(db)
+        teacher, classroom = get_current_teacher_and_classroom(req, db)
         cfg = request.config or {}
         goals = cfg.get("goals", {})
 
@@ -118,6 +138,8 @@ def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: S
             )
 
         return ok({"scenarioId": scenario.scenario_code}, "任务发布成功")
+    except HTTPException:
+        raise
     except Exception as e:
         return fail(f"任务发布失败: {e}")
 
@@ -125,8 +147,7 @@ def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: S
 @router.post("/api/exam/generate")
 def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        require_teacher(req, db)
-        teacher, classroom = _ensure_demo_data(db)
+        teacher, classroom = get_current_teacher_and_classroom(req, db)
         cfg = request.config or {}
 
         exam_code = f"EXM-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4]}"
@@ -287,6 +308,8 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
                 )
 
         return ok({"examId": exam.exam_code, "studentCount": len(students)}, "试卷生成成功")
+    except HTTPException:
+        raise
     except Exception as e:
         return fail(f"试卷生成失败: {e}")
 

@@ -159,6 +159,15 @@ class StudentCRUD:
         )
         db.commit()
 
+    @staticmethod
+    def update(db: Session, student: Student, **kwargs) -> Student:
+        for k, v in kwargs.items():
+            if hasattr(student, k):
+                setattr(student, k, v)
+        db.commit()
+        db.refresh(student)
+        return student
+
 
 class StudentAbilityCRUD:
     @staticmethod

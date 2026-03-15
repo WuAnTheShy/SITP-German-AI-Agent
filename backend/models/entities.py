@@ -44,7 +44,7 @@ class Student(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     uid: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id", ondelete="RESTRICT"), nullable=False)
+    class_id: Mapped[int | None] = mapped_column(ForeignKey("classes.id", ondelete="RESTRICT"), nullable=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     active_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     overall_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0, nullable=False)
