@@ -151,8 +151,10 @@ const StudentLogin = () => {
             const displayUser = {
                 ...mockUser,
                 id: formData.studentId,
-                name: mockUser.name,
-                role: 'student'
+                name: mockUser?.name ?? formData.studentId,
+                role: 'student',
+                classId: mockUser?.classId ?? null,
+                className: mockUser?.className ?? null,
             };
 
             localStorage.setItem('authToken', token);

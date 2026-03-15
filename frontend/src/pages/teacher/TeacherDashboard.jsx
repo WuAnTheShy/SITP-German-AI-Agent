@@ -40,7 +40,6 @@ const TeacherDashboard = () => {
             }
         } catch (err) {
             console.error('加载失败:', err);
-            // 降级数据（防止页面白屏）
             setData(FALLBACK_DATA);
             setError('网络请求失败，已切换至离线模式');
             if (showRefreshToast) toast.error('刷新失败，使用缓存数据');
@@ -80,7 +79,7 @@ const TeacherDashboard = () => {
         );
     }
 
-    // 渲染主界面
+    // 渲染主界面（未关联班级时后端返回 className: "未关联"、students: []，同屏正常展示）
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
@@ -277,7 +276,11 @@ const TeacherDashboard = () => {
                         </table>
                     </div>
                     {filteredStudents.length === 0 && (
-                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">未找到匹配的学生</div>
+                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                            {!(data?.students?.length) && (data?.className === '未关联')
+                                ? '暂无学生。请联系管理员在「管理员工作台」为您分配班级后，即可使用任务发布、学情查看等功能。'
+                                : '未找到匹配的学生'}
+                        </div>
                     )}
                 </div>
             </div>
@@ -309,21 +312,22 @@ const StatCard = ({ icon, label, value, trend, bg }) => {
     );
 };
 
-// 兜底数据 (更新了字段以匹配新结构)
+// 仅在网络异常时兜底，人数与列表一致，避免「45 人但只列 2 人」等误导
 const FALLBACK_DATA = {
-    teacherName: '张老师 (离线)',
-    className: '软件工程(四)班',
-    pendingTasks: 3,
+    teacherName: '老师 (离线)',
+    className: '—',
+    pendingTasks: 0,
     stats: {
-        totalStudents: 45, totalStudentsTrend: '+0',
-        avgDuration: 12.5, avgDurationTrend: '↑ 2%',
-        avgScore: 88.2, avgScoreTrend: '↑ 0.5',
-        completionRate: 95, completionRateTrend: '稳定'
+        totalStudents: 0,
+        totalStudentsTrend: '+0',
+        avgDuration: 0,
+        avgDurationTrend: '—',
+        avgScore: 0,
+        avgScoreTrend: '—',
+        completionRate: 0,
+        completionRateTrend: '—'
     },
-    students: [
-        { name: '演示学生A', uid: '2452001', class: '软件工程', active: 90, score: 95, weak: '虚拟式' },
-        { name: '演示学生B', uid: '2452002', class: '软件工程', active: 65, score: 78, weak: '被动语态' }
-    ]
+    students: []
 };
 
 export default TeacherDashboard;

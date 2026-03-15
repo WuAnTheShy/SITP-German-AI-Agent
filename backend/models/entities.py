@@ -22,7 +22,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     __table_args__ = (
-        CheckConstraint("role IN ('teacher', 'student')", name="ck_users_role"),
+        CheckConstraint("role IN ('teacher', 'student', 'admin')", name="ck_users_role"),
     )
 
 
@@ -44,7 +44,7 @@ class Student(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     uid: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id", ondelete="RESTRICT"), nullable=False)
+    class_id: Mapped[int | None] = mapped_column(ForeignKey("classes.id", ondelete="RESTRICT"), nullable=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     active_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     overall_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0, nullable=False)

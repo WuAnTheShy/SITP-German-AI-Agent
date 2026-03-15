@@ -147,11 +147,15 @@ const TeacherLogin = () => {
                 throw new Error("登录成功，但未找到 Token");
             }
 
+            // 用户名 admin + 正确密码 或 后端返回 admin-token：一律视为管理员，跳转管理员工作台
+            const isAdminToken = typeof token === 'string' && token.startsWith('admin-token-');
+            const isAdminAccount = (formData.employeeId || '').trim().toLowerCase() === 'admin';
+            const role = (isAdminToken || (isAdminAccount && mockUser)) ? 'admin' : ((mockUser && mockUser.role === 'teacher') ? 'teacher' : (mockUser?.role === 'admin' ? 'admin' : 'teacher'));
             const displayUser = {
                 ...mockUser,
                 id: formData.employeeId,
-                name: mockUser.name,
-                role: 'teacher'
+                name: mockUser?.name ?? mockUser?.display_name ?? (role === 'admin' ? '管理员' : formData.employeeId),
+                role: isAdminAccount ? 'admin' : role
             };
 
             localStorage.setItem('authToken', token);
@@ -160,7 +164,11 @@ const TeacherLogin = () => {
             localStorage.removeItem('failed_attempts_teacher');
             localStorage.removeItem('lockout_until_teacher');
 
-            navigate(`/teacher/${formData.employeeId}/dashboard`);
+            if (displayUser.role === 'admin') {
+                navigate('/admin/dashboard', { replace: true });
+            } else {
+                navigate(`/teacher/${formData.employeeId}/dashboard`, { replace: true });
+            }
 
         } catch (err) {
             console.error('🔴 登录错误:', err);
@@ -357,6 +365,9 @@ const TeacherLogin = () => {
                     <div className="mt-4 text-center text-xs text-gray-400 dark:text-gray-600">
                         点击图片可刷新验证码
                     </div>
+                    <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-500">
+                        管理员账号：<span className="font-mono">admin</span> / <span className="font-mono">admin123</span>
+                    </p>
                 </div>
             </div>
         </div>

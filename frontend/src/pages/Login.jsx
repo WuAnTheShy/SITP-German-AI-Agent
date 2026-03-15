@@ -118,6 +118,11 @@ const Login = () => {
                             <ChevronRight className="text-gray-500 dark:text-gray-400 group-hover:text-indigo-400 transform group-hover:translate-x-1 transition-all" />
                         </div>
                     </button>
+
+                    {/* 管理员入口：与教师共用登录页，使用 admin / admin123 */}
+                    <p className="text-center text-xs text-gray-400 dark:text-gray-500 pt-1">
+                        管理员请点击「我是教师」进入登录页，使用账号 <span className="font-mono text-gray-600 dark:text-gray-400">admin</span> / <span className="font-mono text-gray-600 dark:text-gray-400">admin123</span> 登录
+                    </p>
                 </div>
 
                 {/* 底部信息 */}

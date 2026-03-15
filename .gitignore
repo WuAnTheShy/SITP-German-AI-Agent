@@ -19,6 +19,7 @@ SITP German AI Agent - Git Ignore Configuration
 frontend/.env
 frontend/.env.local
 backend/.env
+backend/encoding_error.log
 
 --- 2. 系统与编辑器文件 (System & IDE) ---
 
@@ -86,7 +87,12 @@ env/
 .mypy_cache/
 .pytest_cache/
 
---- 5. 其他 ---
+--- 5. 日志与临时 ---
+
+encoding_error.log
+*.log
+
+--- 6. 其他 ---
 
 Docker Compose 本地覆盖文件 (如果有)
 

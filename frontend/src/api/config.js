@@ -15,8 +15,16 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 // ---- 认证 ----
 export const API_LOGIN = `${API_BASE}/api/auth/login`;
 export const API_STUDENT_LOGIN = `${API_BASE}/api/auth/student-login`;
+
+// ---- 管理员 ----
+export const API_ADMIN_TEACHERS = `${API_BASE}/api/admin/teachers`;
+export const API_ADMIN_CLASSES = `${API_BASE}/api/admin/classes`;
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
 export const API_TEACHER_REGISTER = `${API_BASE}/api/auth/teacher-register`;
+
+// ---- 学生：加入班级 ----
+export const API_STUDENT_CLASSES = `${API_BASE}/api/student/classes`;
+export const API_STUDENT_JOIN_CLASS = `${API_BASE}/api/student/join-class`;
 
 // ---- 教师仪表盘 ----
 export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
