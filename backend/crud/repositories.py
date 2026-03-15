@@ -81,6 +81,10 @@ class UserCRUD:
         return db.scalar(select(User).where(User.id == user_id))
 
     @staticmethod
+    def list_teachers(db: Session) -> list[User]:
+        return list(db.scalars(select(User).where(User.role == "teacher").order_by(User.id)))
+
+    @staticmethod
     def update_long_memory(db: Session, user_id: int, summary: str) -> None:
         db.execute(
             update(User)
@@ -106,6 +110,23 @@ class ClassroomCRUD:
     @staticmethod
     def get_by_code(db: Session, class_code: str) -> Classroom | None:
         return db.scalar(select(Classroom).where(Classroom.class_code == class_code))
+
+    @staticmethod
+    def get_by_id(db: Session, class_id: int) -> Classroom | None:
+        return db.scalar(select(Classroom).where(Classroom.id == class_id))
+
+    @staticmethod
+    def list_all(db: Session) -> list[Classroom]:
+        return list(db.scalars(select(Classroom).order_by(Classroom.id)))
+
+    @staticmethod
+    def update(db: Session, classroom: Classroom, **kwargs) -> Classroom:
+        for k, v in kwargs.items():
+            if hasattr(classroom, k):
+                setattr(classroom, k, v)
+        db.commit()
+        db.refresh(classroom)
+        return classroom
 
 
 class StudentCRUD:

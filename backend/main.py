@@ -97,6 +97,7 @@ from core.deps import require_teacher, require_student, current_student
 from core.seed import _ensure_demo_data
 from services.llm import ai_text, ai_json, MODEL_ID
 from routers.auth import router as auth_router
+from routers.admin import router as admin_router
 from routers.teacher import router as teacher_router
 from routers.chat import router as chat_router
 from routers.student import router as student_router
@@ -203,10 +204,31 @@ def startup_event():
             conn.execute(text(
                 "UPDATE teacher_chat_sessions SET updated_at = created_at WHERE updated_at < created_at OR updated_at IS NULL"
             ))
-                
+
+            # 允许 users.role 为 admin（兼容已有库；PostgreSQL 可能生成 ck_users_role 或 users_role_check）
+            try:
+                conn.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_role"))
+                conn.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check"))
+                conn.execute(text("ALTER TABLE users ADD CONSTRAINT ck_users_role CHECK (role IN ('teacher', 'student', 'admin'))"))
+                print("[Server] users.role constraint updated to include 'admin'.")
+            except Exception as e:
+                print(f"[Server] Note: users role constraint update: {e}")
+
             print("[Server] Database schema checks completed.")
     except Exception as e:
         print(f"[Server] Database migration failed (might be handled by alembic): {e}")
+
+    # 确保默认管理员账号存在（username=admin, password=admin123）
+    try:
+        from db.session import SessionLocal
+        from core.seed import _ensure_admin
+        _db = SessionLocal()
+        try:
+            _ensure_admin(_db)
+        finally:
+            _db.close()
+    except Exception as e:
+        print(f"[Server] ensure admin failed: {e}")
 
 # ════════════════════ 2. 跨域中间件 ════════════════════
 
@@ -218,6 +240,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(auth_router)
+app.include_router(admin_router)
 app.include_router(teacher_router)
 app.include_router(chat_router)
 app.include_router(student_router)

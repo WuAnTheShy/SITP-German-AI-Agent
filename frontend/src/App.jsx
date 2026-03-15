@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import StudentHome from './pages/student/StudentHome';
 import TeacherLogin from './pages/teacher/TeacherLogin';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import ScenarioLaunch from './pages/teacher/ScenarioLaunch';
 import ExamGenerator from './pages/teacher/ExamGenerator';
 import StudentDetail from './pages/teacher/StudentDetail';
@@ -55,6 +56,10 @@ function App() {
                     <Route path="/student/:userId/listening-speaking" element={<ProtectedRoute requiredRole="student"><ListeningSpeaking /></ProtectedRoute>} />
                     <Route path="/student/:userId/vocab-learning" element={<ProtectedRoute requiredRole="student"><VocabLearning /></ProtectedRoute>} />
                     <Route path="/student/:userId/writing-assistant" element={<ProtectedRoute requiredRole="student"><WritingAssistant /></ProtectedRoute>} />
+
+                    {/* ── 管理员路由（与教师共用登录页，登录后按 role 跳转） ── */}
+                    <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+                    <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
 
                     {/* ── 教师端路由 ── */}
                     <Route path="/teacher" element={<Navigate to="/teacher/login" replace />} />

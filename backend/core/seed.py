@@ -19,6 +19,29 @@ from schemas.entities import (
 from core.responses import to_float
 
 
+def _ensure_admin(db: Session):
+    """确保默认管理员存在：username=admin, password=admin123，项目启动时调用。
+    若已存在用户名为 admin 的账号（如曾注册为教师），则强制改为管理员身份。
+    """
+    admin_user = UserCRUD.get_by_username(db, "admin")
+    if admin_user:
+        if admin_user.role != "admin":
+            admin_user.role = "admin"
+            admin_user.password_hash = "admin123"
+            admin_user.display_name = "管理员"
+            db.commit()
+        return
+    UserCRUD.create(
+        db,
+        UserCreate(
+            username="admin",
+            password_hash="admin123",
+            role="admin",
+            display_name="管理员",
+        ),
+    )
+
+
 def _ensure_demo_data(db: Session):
     teacher = UserCRUD.get_by_username(db, "t_zhang")
     if not teacher:

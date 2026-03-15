@@ -8,7 +8,7 @@ from db.session import get_db
 from crud.repositories import UserCRUD, StudentCRUD, ClassroomCRUD, StudentAbilityCRUD
 from schemas.entities import UserCreate, StudentCreate, StudentAbilityUpsert
 from core.responses import ok, fail
-from core.seed import _ensure_demo_data
+from core.seed import _ensure_demo_data, _ensure_admin
 
 router = APIRouter()
 
@@ -76,18 +76,26 @@ def update_user_password(req_body: PasswordUpdateReq, req: Request, db: Session 
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     try:
         _ensure_demo_data(db)
+        # 登录时再次确保默认管理员存在且身份正确，避免库中原有 admin 为教师
+        _ensure_admin(db)
+        # 确保后续查询拿到最新数据（避免 session 缓存导致 role 仍是旧值）
+        db.expire_all()
 
-        user = UserCRUD.get_by_username(db, request.username)
+        username = (request.username or "").strip()
+        user = UserCRUD.get_by_username(db, username)
         if not user:
             return fail("用户不存在，请检查工号后重试", 401)
 
-        if user.role != "teacher":
-            return fail("该账号不是教师账号", 403)
-
-        if user.password_hash != request.password:
-            return fail("密码错误，请重新输入", 401)
-
-        token = f"teacher-token-{user.id}-{uuid4().hex[:8]}"
+        if user.role == "admin":
+            if user.password_hash != request.password:
+                return fail("密码错误，请重新输入", 401)
+            token = f"admin-token-{user.id}-{uuid4().hex[:8]}"
+        elif user.role == "teacher":
+            if user.password_hash != request.password:
+                return fail("密码错误，请重新输入", 401)
+            token = f"teacher-token-{user.id}-{uuid4().hex[:8]}"
+        else:
+            return fail("该账号不是教师或管理员账号", 403)
         user_info = {"id": user.username, "name": user.display_name, "role": user.role}
         return {
             "code": 200,
@@ -96,7 +104,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             "user": user_info,
             "data": {"token": token, "user": user_info},
         }
-    except Exception:
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return fail("登录失败", 500)
 
 

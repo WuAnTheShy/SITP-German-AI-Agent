@@ -38,6 +38,8 @@ request.interceptors.response.use(
                 window.location.hash = '#/student/login';
             } else if (role === 'teacher') {
                 window.location.hash = '#/teacher/login';
+            } else if (role === 'admin') {
+                window.location.hash = '#/teacher/login';
             } else {
                 window.location.hash = '#/';
             }

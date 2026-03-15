@@ -27,7 +27,9 @@ const ProtectedRoute = ({ requiredRole, children }) => {
             ? '/student/login'
             : userRole === 'teacher'
                 ? '/teacher/login'
-                : '/';
+                : userRole === 'admin'
+                    ? '/admin/dashboard'
+                    : '/';
         return <Navigate to={redirectPath} replace />;
     }
 
