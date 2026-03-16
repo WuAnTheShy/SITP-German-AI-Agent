@@ -7,8 +7,6 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=sitp_german_ai_agent
-    ports:
-      - "5432:5432"
     volumes:
       # 利用 PostgreSQL 官方镜像特性，将初始化脚本挂载到该目录，容器首次启动时会自动执行建表和插入数据
       - ./backend/db/sql/001_init_schema.sql:/docker-entrypoint-initdb.d/1_init_schema.sql
