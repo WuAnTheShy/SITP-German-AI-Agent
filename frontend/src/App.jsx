@@ -36,12 +36,13 @@ function App() {
             <HashRouter>
                 <ThemeToggle />
                 <Routes>
-                    {/* 1. 首页（身份选择） */}
+                    {/* 1. 首页（统一登录入口） */}
                     <Route path="/" element={<Login />} />
+                    <Route path="/login" element={<Navigate to="/" replace />} />
 
                     {/* ── 学生端路由 ── */}
-                    <Route path="/student" element={<Navigate to="/student/login" replace />} />
-                    <Route path="/student/login" element={<StudentLogin />} />
+                    <Route path="/student" element={<Navigate to="/" replace />} />
+                    <Route path="/student/login" element={<Navigate to="/" replace />} />
                     <Route path="/student/register" element={<StudentRegister />} />
                     {/* 以下学生端页面需要登录 + 学生角色，并带有唯一 userId */}
                     <Route path="/student/:userId/tasks" element={<ProtectedRoute requiredRole="student"><TaskCenter /></ProtectedRoute>} />
@@ -57,13 +58,13 @@ function App() {
                     <Route path="/student/:userId/vocab-learning" element={<ProtectedRoute requiredRole="student"><VocabLearning /></ProtectedRoute>} />
                     <Route path="/student/:userId/writing-assistant" element={<ProtectedRoute requiredRole="student"><WritingAssistant /></ProtectedRoute>} />
 
-                    {/* ── 管理员路由（与教师共用登录页，登录后按 role 跳转） ── */}
+                    {/* ── 管理员路由（统一登录后按 role 跳转） ── */}
                     <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                     <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
 
                     {/* ── 教师端路由 ── */}
-                    <Route path="/teacher" element={<Navigate to="/teacher/login" replace />} />
-                    <Route path="/teacher/login" element={<TeacherLogin />} />
+                    <Route path="/teacher" element={<Navigate to="/" replace />} />
+                    <Route path="/teacher/login" element={<Navigate to="/" replace />} />
                     <Route path="/teacher/register" element={<TeacherRegister />} />
                     {/* 以下教师端页面需要登录 + 教师角色，并带有唯一 teacherId */}
                     <Route path="/teacher/:teacherId/dashboard" element={<ProtectedRoute requiredRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
