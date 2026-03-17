@@ -30,7 +30,7 @@ except Exception:
     pass
 
 # 初始化千问 API 配置
-MODEL_ID = "qwen-plus"
+MODEL_ID = "qwen3.5-plus"
 API_KEY = os.getenv("QWEN_API_KEY")
 # 阿里云通义千问兼容模式 API 接口地址
 API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
