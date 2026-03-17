@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Vite-7.2-646CFF?logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Gemini_2.5_Flash-AI-4285F4?logo=google&logoColor=white" alt="Gemini" />
+  <img src="https://img.shields.io/badge/Qwen-Plus-AI-FF6B6B?logo=alibabacloud&logoColor=white" alt="Qwen" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker" />
 </p>
@@ -18,7 +18,7 @@
 
 ## 📖 项目简介
 
-在传统大学德语教学中，课堂练习时间有限、难以兼顾每位学生的个性化需求。本项目通过构建 **"教师 — 学生 — AI 智能体"** 三元协同教学模式，利用 Google Gemini 大语言模型作为德语 AI 助教，为学生提供 1 对 1 高频互动训练，为教师提供学情洞察与智能教学工具。
+在传统大学德语教学中，课堂练习时间有限、难以兼顾每位学生的个性化需求。本项目通过构建 **"教师 — 学生 — AI 智能体"** 三元协同教学模式，利用 Qwen（通义千问）大语言模型作为德语 AI 助教，为学生提供 1 对 1 高频互动训练，为教师提供学情洞察与智能教学工具。
 
 ### 核心特性
 
@@ -26,7 +26,7 @@
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | 🎓 **教师端**  | 教学仪表盘 · 学情监控 · AI教研助手 · 智能试卷生成 · 情景任务发布 · 发布历史溯源 · 作业全轨批改      |
 | 📚 **学生端**  | 专属 AI 语伴 · 词汇/语法/听说写作跨板块评测 · 错题精练诊断 · 学习进度追踪 · 收藏夹          |
-| 🤖 **AI 引擎** | 基于 Gemini 2.5 Flash · 德语助教人设 · 语法纠错 · 中德双语解释                                     |
+| 🤖 **AI 引擎** | 基于 Qwen-Plus · 德语助教人设 · 语法纠错 · 中德双语解释                                     |
 
 ---
 
@@ -43,9 +43,9 @@
                └───────────────┘    └──────┬───────┘    └────────────┘
                                            │
                                     ┌──────▼───────┐
-                                    │  Google AI   │
-                                    │ Gemini 2.5   │
-                                    │    Flash     │
+                                    │  Qwen API    │
+                                    │  通义千问     │
+                                    │  Compatible  │
                                     └──────────────┘
 ```
 
@@ -72,7 +72,7 @@
 | -------------------------------------------------- | ----------------- |
 | [FastAPI](https://fastapi.tiangolo.com/)           | Web 框架 (Python) |
 | [Uvicorn](https://www.uvicorn.org/)                | ASGI 服务器       |
-| [Google Generative AI SDK](https://ai.google.dev/) | Gemini 模型调用   |
+| [Qwen API](https://help.aliyun.com/zh/dashscope/) | 通义千问模型调用   |
 | [SQLAlchemy](https://www.sqlalchemy.org/)          | ORM 数据库操作    |
 | [Psycopg](https://www.psycopg.org/psycopg3/)       | PostgreSQL 驱动   |
 | [Alembic](https://alembic.sqlalchemy.org/)         | 数据库迁移管理    |
@@ -92,51 +92,71 @@
 
 ```
 SITP-German-AI-Agent/
-├── frontend/                     # 前端项目
-│   ├── src/
-│   │   ├── api/
-│   │   │   ├── config.js         # API 端点统一配置 (环境变量驱动)
-│   │   │   └── request.js        # Axios 实例 (Token注入 + 401拦截)
-│   │   ├── components/
-│   │   │   └── Toast.jsx         # Toast 通知系统
-│   │   ├── pages/
-│   │   │   ├── teacher/          # 教师端页面
-│   │   │   │   ├── TeacherLogin.jsx
-│   │   │   │   ├── TeacherDashboard.jsx
-│   │   │   │   ├── ScenarioLaunch.jsx
-│   │   │   │   ├── ExamGenerator.jsx
-│   │   │   │   └── StudentDetail.jsx
-│   │   │   ├── student/          # 学生端页面
-│   │   │   └── Login.jsx         # 全局入口登录页
-│   │   ├── App.jsx               # 路由配置 (HashRouter)
-│   │   └── main.jsx              # 应用入口
-│   ├── .env.development          # 开发环境变量 (Vite Proxy 配置)
-│   ├── .env.production           # 生产环境变量 (Docker 部署)
-│   ├── nginx.conf                # 生产环境 Nginx 配置
-│   ├── Dockerfile                # 前端容器构建
-│   ├── vite.config.js            # Vite 配置 (代理目标读环境变量)
-│   └── package.json
-│
 ├── backend/                      # 后端项目
-│   ├── main.py                   # API 端点入口 (FastAPI)
-│   ├── crud/                     # 数据库 CRUD 操作层
-│   ├── models/                   # SQLAlchemy ORM 模型
-│   ├── schemas/                  # Pydantic 数据校验模型
-│   ├── db/
-│   │   ├── session.py            # 数据库会话管理
-│   │   └── sql/                  # SQL 初始化脚本
-│   │       ├── 001_init_schema.sql
-│   │       └── 002_seed_demo.sql
-│   ├── Dockerfile                # 后端容器构建
-│   └── requirements.txt          # Python 依赖
+│   ├── core/                    # 核心功能模块
+│   │   ├── deps.py              # 依赖注入
+│   │   ├── password.py          # 密码处理
+│   │   └── responses.py         # 统一响应格式
+│   ├── crud/                    # 数据库 CRUD 操作层
+│   │   └── repositories.py      # 数据仓库实现
+│   ├── db/                      # 数据库相关
+│   │   ├── sql/                 # SQL 初始化脚本
+│   │   ├── session.py           # 数据库会话管理
+│   │   └── init_db.py           # 数据库初始化
+│   ├── models/                  # SQLAlchemy ORM 模型
+│   │   └── entities.py          # 数据库实体定义
+│   ├── routers/                 # API 路由
+│   │   ├── chat.py              # AI 对话接口
+│   │   ├── student.py           # 学生相关接口
+│   │   ├── teacher.py           # 教师相关接口
+│   │   └── auth.py              # 认证接口
+│   ├── schemas/                 # Pydantic 数据校验模型
+│   │   └── entities.py          # 数据传输对象
+│   ├── services/                # 业务逻辑服务
+│   │   ├── llm.py               # 大语言模型服务
+│   │   └── session.py           # 会话管理服务
+│   ├── main.py                  # API 端点入口 (FastAPI)
+│   ├── Dockerfile               # 后端容器构建
+│   └── requirements.txt         # Python 依赖
 │
-├── doc/                          # 项目文档
-│   └── User_Manuals/             # 用户操作手册
+├── frontend/                    # 前端项目
+│   ├── src/
+│   │   ├── api/                 # API 调用
+│   │   │   ├── config.js        # API 端点统一配置
+│   │   │   └── request.js       # Axios 实例
+│   │   ├── components/          # 通用组件
+│   │   │   ├── Toast.jsx        # Toast 通知系统
+│   │   │   └── ProtectedRoute.jsx # 路由保护
+│   │   ├── context/             # 全局上下文
+│   │   │   └── ThemeContext.jsx # 主题管理
+│   │   ├── pages/               # 页面组件
+│   │   │   ├── student/         # 学生端页面
+│   │   │   │   ├── AISceneChat.jsx # AI 场景对话
+│   │   │   │   ├── VocabLearning.jsx # 词汇学习
+│   │   │   │   └── GrammarPractice.jsx # 语法练习
+│   │   │   ├── teacher/         # 教师端页面
+│   │   │   │   ├── TeacherDashboard.jsx # 教师仪表盘
+│   │   │   │   ├── ScenarioLaunch.jsx # 情景任务发布
+│   │   │   │   └── ExamGenerator.jsx # 智能试卷生成
+│   │   │   └── Login.jsx        # 全局入口登录页
+│   │   ├── App.jsx              # 路由配置
+│   │   └── main.jsx             # 应用入口
+│   ├── .env.development         # 开发环境变量
+│   ├── .env.production          # 生产环境变量
+│   ├── nginx.conf               # 生产环境 Nginx 配置
+│   ├── Dockerfile               # 前端容器构建
+│   └── package.json             # 前端依赖
 │
-├── docker-compose.yml            # 容器编排 (一键启动)
-├── .env                          # 环境变量 (需手动创建，含 API Key)
-├── .github/workflows/            # GitHub Actions CI/CD
-└── README.md
+├── doc/                         # 项目文档
+│   ├── Database/                # 数据库相关文档
+│   ├── Maintenance/             # 运维相关文档
+│   ├── Technical/               # 技术相关文档
+│   └── User_Manuals/            # 用户操作手册
+│
+├── docker-compose.yml           # 容器编排 (一键启动)
+├── .env                         # 环境变量 (需手动创建，含 API Key)
+├── .gitignore                   # Git 忽略文件配置
+└── README.md                    # 项目说明文档
 ```
 
 ---
@@ -145,16 +165,15 @@ SITP-German-AI-Agent/
 
 ### 前置准备：环境变量与网络
 
-** 配置 Gemini API Key**
+** 配置 Qwen API Key**
 
 在项目根目录创建 `.env` 文件：
 
 ```bash
-echo GOOGLE_API_KEY=你的_Google_Gemini_API_密钥 > .env
+echo QWEN_API_KEY=你的_通义千问_API_密钥 > .env
 ```
 
-> 💡 Gemini API Key 获取方式：访问 [Google AI Studio](https://aistudio.google.com/apikey) 申请免费密钥。
-
+> 💡 Qwen API Key 获取方式：访问 [阿里云 DashScope](https://dashscope.aliyun.com/) 申请API密钥。
 
 ---
 
@@ -198,8 +217,8 @@ python -m venv venv
 pip install -r requirements.txt
 
 # 配置环境变量
-$env:GOOGLE_API_KEY="你的密钥"          # PowerShell
-# export GOOGLE_API_KEY="你的密钥"      # macOS/Linux
+$env:QWEN_API_KEY="你的密钥"          # PowerShell
+# export QWEN_API_KEY="你的密钥"      # macOS/Linux
 
 # 启动开发服务器 (热重载)
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -328,7 +347,8 @@ docker system df
 - [系统流程与架构](doc/Technical/系统流程与架构.md) — 核心业务流程图（Mermaid）与数据流转说明。
 - [数据库架构说明](doc/Database/数据库开发使用说明.md) — 详述 27 张核心数据表的结构与关联。
 - [API 接口参考手册](doc/Technical/API参考手册.md) — 各端点功能、请求方法及响应格式列表。
-- [AI 智能体集成说明](doc/Technical/AI智能体集成说明.md) — 深入讲解提示词工程、Gemini 集成与结构化输出处理。
+- [AI 智能体集成说明](doc/Technical/AI智能体集成说明.md) — 深入讲解提示词工程、Qwen 集成与结构化输出处理。
+- [开发维护与扩展导引](doc/Technical/开发维护与扩展导引.md) — 代码结构解析与扩展开发指南。
 
 ### 🚀 运维指南 (Maintenance)
 - [环境部署与维护指南](doc/Maintenance/环境部署与维护指南.md) — Docker 部署、数据备份、代理配置及安全建议。
