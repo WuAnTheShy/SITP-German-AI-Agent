@@ -109,9 +109,9 @@ _proxy = os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
 if _proxy:
     print(f"代理已启用: {_proxy}")
 else:
-    print("提示: 未配置代理，如果 Gemini API 连不上请在 .env 中设置 HTTP_PROXY")
-if not os.getenv("GOOGLE_API_KEY"):
-    print("警告: 未找到 GOOGLE_API_KEY")
+    print("提示: 未配置代理，如果 Qwen API 连不上请在 .env 中设置 HTTP_PROXY")
+if not os.getenv("QWEN_API_KEY"):
+    print("警告: 未找到 QWEN_API_KEY")
 
 app = FastAPI()
 

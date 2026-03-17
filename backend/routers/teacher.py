@@ -6,8 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from statistics import mean
-from google.genai import types
-
 from db.session import get_db
 from crud.repositories import (
     UserCRUD,
@@ -28,7 +26,7 @@ from schemas.entities import (
 )
 from core.responses import ok, fail, to_float
 from core.deps import require_teacher, get_current_teacher_and_classroom
-from services.llm import get_client, MODEL_ID
+from services.llm import generate_response
 
 router = APIRouter()
 
@@ -198,15 +196,10 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
             print(f"[试卷生成] 正在调用 AI 生成 {grammar_count} 道语法题 + {writing_count} 道写作题...", flush=True)
             ai_questions = None
             try:
-                resp = get_client().models.generate_content(
-                    model=MODEL_ID,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction="你是专业的德语考试出题助手，只返回JSON格式数据。",
-                        http_options={"timeout": 90_000},
-                    ),
-                )
-                text = resp.text.strip()
+                messages = [{"role": "user", "content": prompt}]
+                system_instruction = "你是专业的德语考试出题助手，只返回JSON格式数据。"
+                text = generate_response(messages, system_instruction=system_instruction)
+                text = text.strip()
                 if "```json" in text:
                     text = text.split("```json")[1].split("```")[0]
                 elif "```" in text:

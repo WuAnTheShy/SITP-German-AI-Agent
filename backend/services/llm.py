@@ -1,8 +1,6 @@
 import json
 import os
-
-from google import genai
-from google.genai import types
+import requests
 
 from crud.repositories import (
     StudentCRUD,
@@ -31,8 +29,18 @@ try:
 except Exception:
     pass
 
-_gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-MODEL_ID = "gemini-2.5-flash"
+# 初始化千问 API 配置
+MODEL_ID = "qwen-plus"
+API_KEY = os.getenv("QWEN_API_KEY")
+# 阿里云通义千问兼容模式 API 接口地址
+API_URL = "http://43.160.219.51/compatible-mode/v1/chat/completions"
+
+print(f"[API] 尝试加载 QWEN_API_KEY: {API_KEY}")
+if not API_KEY:
+    print("警告: 未找到 QWEN_API_KEY")
+else:
+    print(f"[API] API Key 已配置: {API_KEY}")
+
 TEACHER_SYSTEM = (
     "你是一个高级教学AI教研助手，负责协助德语教师分析学情、制定教案和出题等。"
     "请用中文与教师进行沟通，提供专业、基于数据的教学建议和德语教学方案。"
@@ -56,17 +64,73 @@ Recent dialogue (latest lines):
 Output ONLY the updated profile: level, goals, recurring mistakes, current topics. No markdown."""
 
 
-def ai_text(prompt: str, fallback: str = "") -> str:
-    """安全调用 Gemini 返回纯文本"""
+def generate_response(messages, system_instruction=None):
+    """使用千问模型 API 生成响应"""
+    # 构建对话历史
+    conversation = []
+    for msg in messages:
+        if msg["role"] == "system":
+            # 系统指令作为第一个消息
+            conversation.append({
+                "role": "system",
+                "content": msg["content"]
+            })
+        elif msg["role"] == "user":
+            conversation.append({
+                "role": "user",
+                "content": msg["content"]
+            })
+        elif msg["role"] == "assistant":
+            conversation.append({
+                "role": "assistant",
+                "content": msg["content"]
+            })
+    
+    # OpenAI 兼容模式请求格式
+    payload = {
+        "model": MODEL_ID,
+        "messages": conversation,
+        "max_tokens": 1024,
+        "temperature": 0.7,
+        "top_p": 0.95
+    }
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY.strip()}"
+    }
+    
+    print(f"[API] 请求头: {headers}")
+    print(f"[API] 请求URL: {API_URL}")
+    print(f"[API] 请求体: {payload}")
+    
     try:
-        resp = _gemini_client.models.generate_content(
-            model=MODEL_ID,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=STUDENT_SYSTEM,
-            ),
+        response = requests.post(
+            API_URL,
+            headers=headers,
+            json=payload,
+            timeout=60
         )
-        return resp.text.strip()
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(f"[API] 调用失败: {type(e).__name__}: {str(e)}", flush=True)
+        try:
+            if response:
+                print(f"[API] 响应状态码: {response.status_code}", flush=True)
+                print(f"[API] 响应内容: {response.text[:500]}", flush=True)
+        except:
+            pass
+        return ""
+
+
+def ai_text(prompt: str, fallback: str = "") -> str:
+    """安全调用千问模型返回纯文本"""
+    try:
+        messages = [{"role": "user", "content": prompt}]
+        response = generate_response(messages, system_instruction=STUDENT_SYSTEM)
+        return response.strip()
     except Exception as e:
         try:
             print(f"[AI] {type(e).__name__}", flush=True)
@@ -76,16 +140,11 @@ def ai_text(prompt: str, fallback: str = "") -> str:
 
 
 def ai_json(prompt: str, fallback=None):
-    """调用 Gemini 并尝试解析 JSON，失败返回 fallback"""
+    """调用千问模型并尝试解析 JSON，失败返回 fallback"""
     try:
-        resp = _gemini_client.models.generate_content(
-            model=MODEL_ID,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=STUDENT_SYSTEM,
-            ),
-        )
-        text = resp.text.strip()
+        messages = [{"role": "user", "content": prompt}]
+        response = generate_response(messages, system_instruction=STUDENT_SYSTEM)
+        text = response.strip()
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
         elif "```" in text:
@@ -99,13 +158,13 @@ def ai_json(prompt: str, fallback=None):
         return fallback
 
 
-def history_to_gemini_contents(messages: list, max_turns: int = 12) -> list:
-    """将库中 user/assistant 消息转为 Gemini contents（每条为 user 或 model）"""
+def history_to_messages(messages: list, max_turns: int = 12) -> list:
+    """将库中 user/assistant 消息转为千问模型的消息格式"""
     slice_msgs = messages[-(max_turns * 2) :] if len(messages) > max_turns * 2 else messages
     out = []
     for m in slice_msgs:
-        role = "user" if m.role == "user" else "model"
-        out.append(types.Content(role=role, parts=[types.Part.from_text(text=m.content)]))
+        role = "user" if m.role == "user" else "assistant"
+        out.append({"role": role, "content": m.content})
     return out
 
 
@@ -120,12 +179,9 @@ def refresh_student_memory(student_id: int, session_id: int) -> None:
         dialogue = "\n".join(f"{'U' if m.role == 'user' else 'A'}: {m.content[:500]}" for m in tail)
         prev = (st.long_memory_summary or "")[:1200]
         prompt = _MEMORY_SUMMARY_PROMPT.format(prev=prev, dialogue=dialogue)
-        resp = _gemini_client.models.generate_content(
-            model=MODEL_ID,
-            contents=prompt,
-            config=types.GenerateContentConfig(http_options={"timeout": 60_000}),
-        )
-        text = (resp.text or "").strip()[:2000]
+        messages = [{"role": "user", "content": prompt}]
+        response = generate_response(messages)
+        text = (response or "").strip()[:2000]
         if text:
             StudentCRUD.update_long_memory(db, student_id, text)
     except Exception as e:
@@ -151,12 +207,9 @@ def refresh_teacher_memory(user_id: int, session_id: int) -> None:
             "Update a short teaching-assistant context (max 400 Chinese chars) for this teacher. "
             "Previous:\n---\n" + prev + "\n---\nRecent:\n---\n" + dialogue + "\n---\nOutput only the summary."
         )
-        resp = _gemini_client.models.generate_content(
-            model=MODEL_ID,
-            contents=prompt,
-            config=types.GenerateContentConfig(http_options={"timeout": 60_000}),
-        )
-        text = (resp.text or "").strip()[:2000]
+        messages = [{"role": "user", "content": prompt}]
+        response = generate_response(messages, system_instruction=TEACHER_SYSTEM)
+        text = (response or "").strip()[:2000]
         if text:
             UserCRUD.update_long_memory(db, user_id, text)
     except Exception as e:
@@ -169,5 +222,6 @@ def refresh_teacher_memory(user_id: int, session_id: int) -> None:
 
 
 def get_client():
-    """Return the Gemini client for endpoints that need to call generate_content directly."""
-    return _gemini_client
+    """Return the API configuration for endpoints that need to call generate directly."""
+    print(f"[API] get_client called, API_KEY: {API_KEY}")
+    return API_KEY, API_URL, MODEL_ID

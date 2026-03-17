@@ -4,7 +4,6 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from google.genai import types
 
 from db.session import get_db
 from crud.repositories import (
@@ -27,7 +26,8 @@ from services.llm import (
     MODEL_ID,
     TEACHER_SYSTEM,
     STUDENT_SYSTEM,
-    history_to_gemini_contents,
+    history_to_messages,
+    generate_response,
     refresh_student_memory,
     refresh_teacher_memory,
     MEMORY_REFRESH_EVERY,
@@ -96,24 +96,11 @@ def chat_endpoint(
         )
         TeacherChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
         history = TeacherChatMessageCRUD.list_by_session(db, session.id)
-        contents_to_send = []
+        messages = []
         if getattr(user, "long_memory_summary", None):
-            contents_to_send.append(
-                types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text="[Teaching context]\n" + user.long_memory_summary)],
-                )
-            )
-        contents_to_send.extend(history_to_gemini_contents(history, max_turns=14))
-        response = get_client().models.generate_content(
-            model=MODEL_ID,
-            contents=contents_to_send,
-            config=types.GenerateContentConfig(
-                system_instruction=TEACHER_SYSTEM,
-                http_options={"timeout": 90_000},
-            ),
-        )
-        reply_text = response.text or ""
+            messages.append({"role": "user", "content": "[Teaching context]\n" + user.long_memory_summary})
+        messages.extend(history_to_messages(history, max_turns=14))
+        reply_text = generate_response(messages, system_instruction=TEACHER_SYSTEM)
         TeacherChatMessageCRUD.create(
             db, TeacherChatMessageCreate(session_id=session.id, role="assistant", content=reply_text)
         )
@@ -137,9 +124,9 @@ def chat_endpoint(
         except Exception:
             pass
         try:
-            print(f"[教师AI] Gemini调用失败: {err_name} {err_msg[:200]}", flush=True)
+            print(f"[教师AI] AI调用失败: {err_name} {err_msg[:200]}", flush=True)
         except Exception:
-            print("[教师AI] Gemini调用失败", flush=True)
+            print("[教师AI] AI调用失败", flush=True)
         detail = f"{err_name}: {err_msg[:150]}" if err_msg else err_name
         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {detail}"}
 
@@ -170,24 +157,11 @@ def student_chat_endpoint(
         )
         ChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
         history = ChatMessageCRUD.list_by_session(db, session.id)
-        contents_to_send = []
+        messages = []
         if getattr(student, "long_memory_summary", None):
-            contents_to_send.append(
-                types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text="[Learner profile]\n" + student.long_memory_summary)],
-                )
-            )
-        contents_to_send.extend(history_to_gemini_contents(history, max_turns=14))
-        response = get_client().models.generate_content(
-            model=MODEL_ID,
-            contents=contents_to_send,
-            config=types.GenerateContentConfig(
-                system_instruction=STUDENT_SYSTEM,
-                http_options={"timeout": 90_000},
-            ),
-        )
-        reply_text = response.text or ""
+            messages.append({"role": "user", "content": "[Learner profile]\n" + student.long_memory_summary})
+        messages.extend(history_to_messages(history, max_turns=14))
+        reply_text = generate_response(messages, system_instruction=STUDENT_SYSTEM)
         ChatMessageCRUD.create(
             db,
             ChatMessageCreate(session_id=session.id, role="assistant", content=reply_text, correction=None),
@@ -212,9 +186,9 @@ def student_chat_endpoint(
         except Exception:
             pass
         try:
-            print(f"[学生AI] Gemini调用失败: {err_name} {err_msg[:200]}", flush=True)
+            print(f"[学生AI] AI调用失败: {err_name} {err_msg[:200]}", flush=True)
         except Exception:
-            print("[学生AI] Gemini调用失败", flush=True)
+            print("[学生AI] AI调用失败", flush=True)
         detail = f"{err_name}: {err_msg[:150]}" if err_msg else err_name
         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {detail}"}
 

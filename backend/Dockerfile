@@ -9,6 +9,9 @@ WORKDIR /app
 # 复制依赖文件
 COPY requirements.txt .
 
+# 安装 curl
+RUN apt-get update && apt-get install -y curl
+
 # 安装依赖 (不使用缓存，减小体积)
 RUN pip install --no-cache-dir -r requirements.txt
 
