@@ -230,7 +230,7 @@ const TeacherDashboard = () => {
                                 {filteredStudents.map((student) => (
                                     <tr
                                         key={student.uid}
-                                        onClick={() => navigate(`/teacher/student/${student.uid}`, { state: { student } })}
+                                        onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
                                         className="hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group"
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap">
