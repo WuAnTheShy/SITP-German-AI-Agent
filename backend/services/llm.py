@@ -33,7 +33,7 @@ except Exception:
 MODEL_ID = "qwen-plus"
 API_KEY = os.getenv("QWEN_API_KEY")
 # 阿里云通义千问兼容模式 API 接口地址
-API_URL = "http://43.160.219.51/compatible-mode/v1/chat/completions"
+API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 
 print(f"[API] 尝试加载 QWEN_API_KEY: {API_KEY}")
 if not API_KEY:
