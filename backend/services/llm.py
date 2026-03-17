@@ -71,9 +71,16 @@ def generate_response(messages, system_instruction=None):
     """使用千问模型 API 生成响应"""
     # 构建对话历史
     conversation = []
+    
+    # 如果有系统指令，作为第一条消息插入
+    if system_instruction:
+        conversation.append({
+            "role": "system",
+            "content": system_instruction
+        })
+        
     for msg in messages:
         if msg["role"] == "system":
-            # 系统指令作为第一个消息
             conversation.append({
                 "role": "system",
                 "content": msg["content"]
@@ -97,10 +104,9 @@ def generate_response(messages, system_instruction=None):
         "temperature": 0.7,
         "top_p": 0.95
     }
-    
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY.strip()}"
+        "Authorization": f"Bearer {API_KEY.strip() if API_KEY else ''}"
     }
     
     print(f"[API] 请求头: {headers}")
@@ -120,7 +126,7 @@ def generate_response(messages, system_instruction=None):
     except Exception as e:
         print(f"[API] 调用失败: {type(e).__name__}: {str(e)}", flush=True)
         try:
-            if response:
+            if response is not None:
                 print(f"[API] 响应状态码: {response.status_code}", flush=True)
                 print(f"[API] 响应内容: {response.text[:500]}", flush=True)
         except:
@@ -128,11 +134,11 @@ def generate_response(messages, system_instruction=None):
         return ""
 
 
-def ai_text(prompt: str, fallback: str = "") -> str:
+def ai_text(prompt: str, fallback: str = "", system_instruction: str = STUDENT_SYSTEM) -> str:
     """安全调用千问模型返回纯文本"""
     try:
         messages = [{"role": "user", "content": prompt}]
-        response = generate_response(messages, system_instruction=STUDENT_SYSTEM)
+        response = generate_response(messages, system_instruction=system_instruction)
         return response.strip()
     except Exception as e:
         try:
@@ -142,11 +148,11 @@ def ai_text(prompt: str, fallback: str = "") -> str:
         return fallback
 
 
-def ai_json(prompt: str, fallback=None):
+def ai_json(prompt: str, fallback=None, system_instruction: str = STUDENT_SYSTEM):
     """调用千问模型并尝试解析 JSON，失败返回 fallback"""
     try:
         messages = [{"role": "user", "content": prompt}]
-        response = generate_response(messages, system_instruction=STUDENT_SYSTEM)
+        response = generate_response(messages, system_instruction=system_instruction)
         text = response.strip()
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
