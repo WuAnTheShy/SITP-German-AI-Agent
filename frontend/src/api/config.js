@@ -96,4 +96,5 @@ export const API_ERROR_DELETE = `${API_BASE}/api/student/error-book/delete`;
 export const API_FAVORITES_CATEGORIES = `${API_BASE}/api/student/favorites/categories`;
 export const API_FAVORITES_LIST = `${API_BASE}/api/student/favorites/list`;
 export const API_FAVORITES_DELETE = `${API_BASE}/api/student/favorites`;
+export const API_FAVORITES_ADD = `${API_BASE}/api/student/favorites/add`;
 export const API_FAVORITES_AI_EXTEND = `${API_BASE}/api/student/favorites/ai-extend`;
