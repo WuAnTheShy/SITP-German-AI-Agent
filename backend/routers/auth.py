@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from crud.repositories import UserCRUD, StudentCRUD, ClassroomCRUD, StudentAbilityCRUD
+from crud.repositories import UserCRUD, StudentCRUD, ClassroomCRUD, StudentAbilityCRUD, SystemSettingCRUD
 from schemas.entities import UserCreate, StudentCreate, StudentAbilityUpsert
 from core.responses import ok, fail
 from core.seed import _ensure_demo_data, _ensure_admin
@@ -91,6 +91,11 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
                 return fail("密码错误，请重新输入", 401)
             token = f"admin-token-{user.id}-{uuid4().hex[:8]}"
         elif user.role == "teacher":
+            if getattr(user, "status", "approved") == "pending":
+                return fail("您的账号正在等待审核，请耐心等待", 403)
+            elif getattr(user, "status", "approved") == "rejected":
+                return fail("您的注册申请已被拒绝", 403)
+
             if user.password_hash != request.password:
                 return fail("密码错误，请重新输入", 401)
             token = f"teacher-token-{user.id}-{uuid4().hex[:8]}"
@@ -116,6 +121,11 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         student = StudentCRUD.get_by_uid(db, req.username)
         if not student:
             return fail("学号不存在，请检查后重试", 401)
+
+        if getattr(student, "status", "approved") == "pending":
+            return fail("您的账号正在等待教师审核，请耐心等待", 403)
+        elif getattr(student, "status", "approved") == "rejected":
+            return fail("您的注册申请已被拒绝", 403)
 
         user = UserCRUD.get_by_id(db, student.user_id)
         if not user:
@@ -163,6 +173,16 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
 
         _ensure_demo_data(db)
 
+        class_id_val = None
+        if req.class_code:
+            classroom = ClassroomCRUD.get_by_code(db, req.class_code)
+            if not classroom:
+                return fail("无效的班级邀请码", 400)
+            class_id_val = classroom.id
+
+        require_approval = SystemSettingCRUD.get_setting_value(db, "REQUIRE_STUDENT_APPROVAL", "false") == "true"
+        status_val = "pending" if require_approval else "approved"
+
         user = UserCRUD.create(
             db,
             UserCreate(
@@ -170,6 +190,7 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
                 password_hash=req.password,
                 role="student",
                 display_name=req.display_name,
+                status=status_val,
             ),
         )
 
@@ -178,8 +199,9 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
             StudentCreate(
                 uid=req.username,
                 user_id=user.id,
-                class_id=None,
+                class_id=class_id_val,
                 name=req.display_name,
+                status=status_val,
                 active_score=0,
                 overall_score=0,
             ),
@@ -209,6 +231,9 @@ def teacher_register(req: RegisterRequest, db: Session = Depends(get_db)):
         if existing_user:
             return fail("该工号已被注册", 409)
 
+        require_approval = SystemSettingCRUD.get_setting_value(db, "REQUIRE_TEACHER_APPROVAL", "false") == "true"
+        status_val = "pending" if require_approval else "approved"
+
         UserCRUD.create(
             db,
             UserCreate(
@@ -216,6 +241,7 @@ def teacher_register(req: RegisterRequest, db: Session = Depends(get_db)):
                 password_hash=req.password,
                 role="teacher",
                 display_name=req.display_name,
+                status=status_val,
             ),
         )
         return ok({"username": req.username, "name": req.display_name}, "注册成功")

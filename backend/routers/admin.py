@@ -5,7 +5,7 @@ from db.session import get_db
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from crud.repositories import UserCRUD, ClassroomCRUD
+from crud.repositories import UserCRUD, ClassroomCRUD, SystemSettingCRUD
 from schemas.entities import ClassroomCreate
 from core.deps import require_admin
 
@@ -102,3 +102,64 @@ def update_class(
             raise HTTPException(status_code=400, detail="班级代码已被其他班级使用")
     ClassroomCRUD.update(db, classroom, **updates)
     return {"id": classroom.id, "class_code": classroom.class_code, "class_name": classroom.class_name}
+
+
+class SystemSettingsUpdate(BaseModel):
+    REQUIRE_TEACHER_APPROVAL: bool | None = None
+    REQUIRE_STUDENT_APPROVAL: bool | None = None
+
+
+@router.get("/system/settings")
+def get_system_settings(db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    teacher_approval = SystemSettingCRUD.get_setting_value(db, "REQUIRE_TEACHER_APPROVAL", "false")
+    student_approval = SystemSettingCRUD.get_setting_value(db, "REQUIRE_STUDENT_APPROVAL", "false")
+    return {
+        "REQUIRE_TEACHER_APPROVAL": teacher_approval == "true",
+        "REQUIRE_STUDENT_APPROVAL": student_approval == "true",
+    }
+
+
+@router.put("/system/settings")
+def update_system_settings(body: SystemSettingsUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    if body.REQUIRE_TEACHER_APPROVAL is not None:
+        SystemSettingCRUD.set_setting(db, "REQUIRE_TEACHER_APPROVAL", "true" if body.REQUIRE_TEACHER_APPROVAL else "false")
+    if body.REQUIRE_STUDENT_APPROVAL is not None:
+        SystemSettingCRUD.set_setting(db, "REQUIRE_STUDENT_APPROVAL", "true" if body.REQUIRE_STUDENT_APPROVAL else "false")
+    return {"message": "设置已保存"}
+
+
+@router.get("/users/pending-teachers")
+def list_pending_teachers(db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    teachers = UserCRUD.list_pending_teachers(db)
+    return [
+        {"id": u.id, "username": u.username, "display_name": u.display_name, "created_at": u.created_at.isoformat()}
+        for u in teachers
+    ]
+
+
+@router.put("/users/teachers/{user_id}/approve")
+def approve_teacher(user_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    user = UserCRUD.get_by_id(db, user_id)
+    if not user or user.role != "teacher":
+        raise HTTPException(status_code=404, detail="教师不存在")
+    UserCRUD.update_status(db, user_id, "approved")
+    return {"message": "审核通过成功"}
+
+
+@router.put("/users/teachers/{user_id}/reject")
+def reject_teacher(user_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    user = UserCRUD.get_by_id(db, user_id)
+    if not user or user.role != "teacher":
+        raise HTTPException(status_code=404, detail="教师不存在")
+    UserCRUD.update_status(db, user_id, "rejected")
+    return {"message": "已拒绝该教师注册"}
+
+
+@router.delete("/classes/{class_id}")
+def delete_class(class_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    classroom = ClassroomCRUD.get_by_id(db, class_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="班级不存在")
+    db.delete(classroom)
+    db.commit()
+    return {"message": "班级删除成功"}

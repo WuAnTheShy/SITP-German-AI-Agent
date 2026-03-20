@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
 import { API_STUDENT_REGISTER } from '../../api/config';
-import { GraduationCap, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus, CheckCircle, BookOpen } from 'lucide-react';
+import { GraduationCap, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus, CheckCircle, BookOpen, Users } from 'lucide-react';
 
 const PARTICLES = [
     { text: 'Willkommen', left: '5%', duration: 22, delay: 0, size: '0.8rem' },
@@ -27,6 +27,7 @@ const StudentRegister = () => {
         displayName: '',
         password: '',
         confirmPassword: '',
+        classCode: '',
         captchaInput: ''
     });
 
@@ -107,6 +108,7 @@ const StudentRegister = () => {
                 username: formData.studentId,
                 password: formData.password,
                 display_name: formData.displayName,
+                class_code: formData.classCode || null
             });
 
             if (response.data.code !== 200) {
@@ -147,7 +149,8 @@ const StudentRegister = () => {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">注册成功！</h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-1">Registrierung erfolgreich!</p>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-4">正在跳转到登录页面...</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-4">如果系统开启了审核，您需要等待教师审核通过后方可登录。</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">正在跳转到登录页面...</p>
                 </div>
             </div>
         );
@@ -239,6 +242,24 @@ const StudentRegister = () => {
                                     placeholder="请输入姓名"
                                     value={formData.displayName}
                                     onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        {/* 班级邀请码 */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">班级邀请码 / Klassencode (选填)</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <Users className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                </div>
+                                <input
+                                    id="input-reg-class-code"
+                                    type="text"
+                                    className="input-glow-blue block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm transition-all"
+                                    placeholder="选填"
+                                    value={formData.classCode}
+                                    onChange={(e) => setFormData({ ...formData, classCode: e.target.value })}
                                 />
                             </div>
                         </div>

@@ -13,6 +13,7 @@ class UserCreate(BaseModel):
     password_hash: str
     role: str
     display_name: str
+    status: str = "approved"
 
 
 class UserRead(ORMBase):
@@ -20,6 +21,7 @@ class UserRead(ORMBase):
     username: str
     role: str
     display_name: str
+    status: str
     is_active: bool
 
 
@@ -38,11 +40,30 @@ class ClassroomRead(ORMBase):
     teacher_user_id: int
 
 
+class SystemSettingCreate(BaseModel):
+    setting_key: str
+    setting_value: str
+    description: str | None = None
+
+
+class SystemSettingUpdate(BaseModel):
+    setting_value: str
+    description: str | None = None
+
+
+class SystemSettingRead(ORMBase):
+    id: int
+    setting_key: str
+    setting_value: str
+    description: str | None = None
+
+
 class StudentCreate(BaseModel):
     uid: str
     user_id: int
     class_id: int | None = None
     name: str
+    status: str = "approved"
     active_score: int = 0
     overall_score: float = 0
     weak_point: str | None = None
@@ -54,6 +75,7 @@ class StudentRead(ORMBase):
     user_id: int
     class_id: int | None
     name: str
+    status: str
     active_score: int
     overall_score: float
     weak_point: str | None = None

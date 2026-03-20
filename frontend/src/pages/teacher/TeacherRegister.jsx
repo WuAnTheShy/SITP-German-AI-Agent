@@ -145,7 +145,8 @@ const TeacherRegister = () => {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">注册成功！</h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-1">Registrierung erfolgreich!</p>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-4">正在跳转到登录页面...</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-4">如果系统开启了审核，您需要等待管理员审核通过后方可登录。</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">正在跳转到登录页面...</p>
                 </div>
             </div>
         );

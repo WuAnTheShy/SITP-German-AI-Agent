@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil } from 'lucide-react';
-import { API_ADMIN_TEACHERS, API_ADMIN_CLASSES } from '../../api/config';
+import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { API_ADMIN_TEACHERS, API_ADMIN_CLASSES, API_ADMIN_SETTINGS, API_ADMIN_PENDING_TEACHERS, API_ADMIN_APPROVE_TEACHER, API_ADMIN_REJECT_TEACHER, API_ADMIN_DELETE_CLASS } from '../../api/config';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [teachers, setTeachers] = useState([]);
+    const [pendingTeachers, setPendingTeachers] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [settings, setSettings] = useState({ REQUIRE_TEACHER_APPROVAL: false, REQUIRE_STUDENT_APPROVAL: false });
     const [error, setError] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -22,17 +24,22 @@ const AdminDashboard = () => {
     const fetchData = useCallback(async () => {
         setError('');
         try {
-            const [teachersRes, classesRes] = await Promise.all([
+            const [teachersRes, classesRes, settingsRes, pendingRes] = await Promise.all([
                 request.get(API_ADMIN_TEACHERS),
                 request.get(API_ADMIN_CLASSES),
+                request.get(API_ADMIN_SETTINGS),
+                request.get(API_ADMIN_PENDING_TEACHERS),
             ]);
             setTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
             setClasses(Array.isArray(classesRes.data) ? classesRes.data : []);
+            setSettings(settingsRes.data || { REQUIRE_TEACHER_APPROVAL: false, REQUIRE_STUDENT_APPROVAL: false });
+            setPendingTeachers(Array.isArray(pendingRes.data) ? pendingRes.data : []);
         } catch (err) {
             console.error('管理员数据加载失败:', err);
             setError(err.response?.data?.detail || err.message || '加载失败');
             setTeachers([]);
             setClasses([]);
+            setPendingTeachers([]);
         } finally {
             setLoading(false);
         }
@@ -109,6 +116,44 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleDeleteClass = async (id) => {
+        if(!window.confirm('确定删除该班级及其相关数据吗？（此操作不可逆）')) return;
+        try {
+            await request.delete(API_ADMIN_DELETE_CLASS(id));
+            fetchData();
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '删除失败');
+        }
+    };
+
+    const toggleSetting = async (key, value) => {
+        try {
+            await request.put(API_ADMIN_SETTINGS, { [key]: value });
+            setSettings(prev => ({ ...prev, [key]: value }));
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '设置保存失败');
+        }
+    };
+
+    const handleApproveTeacher = async (id) => {
+        try {
+            await request.put(API_ADMIN_APPROVE_TEACHER(id));
+            fetchData();
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '审批失败');
+        }
+    };
+
+    const handleRejectTeacher = async (id) => {
+        if(!window.confirm('确定拒绝并删除该教师注册申请吗？')) return;
+        try {
+            await request.put(API_ADMIN_REJECT_TEACHER(id));
+            fetchData();
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '拒绝失败');
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -168,6 +213,50 @@ const AdminDashboard = () => {
                     </div>
                 </section>
 
+                {/* 待审核教师 */}
+                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
+                        <UserPlus className="text-amber-500 dark:text-amber-400" size={20} />
+                        <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                            待审核教师
+                            {pendingTeachers.length > 0 && (
+                                <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingTeachers.length}</span>
+                            )}
+                        </h2>
+                    </div>
+                    <div className="p-4">
+                        {pendingTeachers.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">暂无待审核申请</p>
+                        ) : (
+                            <ul className="space-y-2">
+                                {pendingTeachers.map((t) => (
+                                    <li key={t.id} className="flex flex-wrap flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 text-sm">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                            <span className="font-bold text-gray-800 dark:text-gray-200">{t.display_name}</span>
+                                            <span className="text-gray-500 dark:text-gray-400">工号: {t.username}</span>
+                                            <span className="text-gray-400 dark:text-gray-500 text-xs">申请时间: {new Date(t.created_at).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => handleApproveTeacher(t.id)}
+                                                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
+                                            >
+                                                <CheckCircle size={14} /> 允许加入
+                                            </button>
+                                            <button 
+                                                onClick={() => handleRejectTeacher(t.id)}
+                                                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 font-medium transition-colors"
+                                            >
+                                                <XCircle size={14} /> 拒绝
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </section>
+
                 {/* 班级列表 */}
                 <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center justify-between gap-2">
@@ -191,22 +280,81 @@ const AdminDashboard = () => {
                             <ul className="space-y-2">
                                 {classes.map((c) => (
                                     <li key={c.id} className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-white/5 text-sm group">
-                                        <span className="font-mono text-gray-500 dark:text-gray-400">{c.class_code}</span>
+                                        <span 
+                                            className="font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                                            title="点击复制邀请码"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(c.class_code);
+                                                alert('班级邀请码已复制：' + c.class_code);
+                                            }}
+                                        >
+                                            {c.class_code}
+                                        </span>
                                         <span className="font-medium text-gray-800 dark:text-gray-200">{c.class_name}</span>
                                         {c.grade && <span className="text-gray-500 dark:text-gray-400">({c.grade})</span>}
                                         <span className="text-gray-500 dark:text-gray-400">— 负责教师: {c.teacher_display_name ?? c.teacher_username ?? `ID ${c.teacher_user_id}`}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => openEditModal(c)}
-                                            className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <Pencil size={12} />
-                                            编辑
-                                        </button>
+                                        <div className="ml-auto flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => openEditModal(c)}
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Pencil size={12} />
+                                                编辑
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteClass(c.id)}
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 size={12} />
+                                                删除
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
                         )}
+                    </div>
+                </section>
+
+                {/* 系统设置 */}
+                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
+                        <Settings className="text-gray-700 dark:text-gray-300" size={20} />
+                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">系统设置</h2>
+                    </div>
+                    <div className="p-4 space-y-4">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10">
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">教师注册需要审核</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">开启后，新注册的教师账号必须由管理员审核通过后才能登录使用。关闭则允许自由注册。</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only peer" 
+                                    checked={settings.REQUIRE_TEACHER_APPROVAL}
+                                    onChange={(e) => toggleSetting('REQUIRE_TEACHER_APPROVAL', e.target.checked)}
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10">
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">学生注册需要审核</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">开启后，填写班级邀请码注册的学生，需该班级负责教师点击审核通过后才能登录。未绑定班级的学生暂不受限或由管理员审核（视后续策略而定）。目前建议开启保障班级数据安全。</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only peer" 
+                                    checked={settings.REQUIRE_STUDENT_APPROVAL}
+                                    onChange={(e) => toggleSetting('REQUIRE_STUDENT_APPROVAL', e.target.checked)}
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
                     </div>
                 </section>
             </div>
