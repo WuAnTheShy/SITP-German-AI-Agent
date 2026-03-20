@@ -78,6 +78,7 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
         payload = {
             "teacherName": teacher.display_name,
             "className": classroom.class_name,
+            "classCode": classroom.class_code,
             "pendingTasks": 3,
             "stats": {
                 "totalStudents": len(students),
@@ -370,3 +371,64 @@ def get_teacher_exam_detail(exam_id: int, request: Request = None, db: Session =
         return ok(content)
     except Exception as e:
         return fail(f"获取试卷详情失败: {e}")
+
+
+@router.get("/api/teacher/pending-students")
+def list_pending_students(request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        students = StudentCRUD.list_pending_by_teacher(db, teacher.id)
+        result = [
+            {
+                "id": s.id,
+                "uid": s.uid,
+                "name": s.name,
+                "class_id": s.class_id,
+                "status": s.status,
+                "created_at": s.created_at.isoformat(),
+            }
+            for s in students
+        ]
+        return ok(result)
+    except Exception as e:
+        return fail(f"获取待审核学生失败: {e}")
+
+
+@router.put("/api/teacher/students/{student_id}/approve")
+def approve_student(student_id: int, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        student = StudentCRUD.get_by_id(db, student_id)
+        if not student:
+            return fail("学生不存在", 404)
+        
+        classroom = ClassroomCRUD.get_by_id(db, student.class_id)
+        if not classroom or classroom.teacher_user_id != teacher.id:
+            return fail("无权操作该学生", 403)
+        
+        StudentCRUD.update_status(db, student_id, "approved")
+        UserCRUD.update_status(db, student.user_id, "approved")
+        return ok(message="审批通过成功")
+    except Exception as e:
+        return fail(f"审批学生失败: {e}")
+
+
+@router.put("/api/teacher/students/{student_id}/reject")
+def reject_student(student_id: int, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        teacher = require_teacher(request, db)
+        student = StudentCRUD.get_by_id(db, student_id)
+        if not student:
+            return fail("学生不存在", 404)
+        
+        classroom = ClassroomCRUD.get_by_id(db, student.class_id)
+        if not classroom or classroom.teacher_user_id != teacher.id:
+            return fail("无权操作该学生", 403)
+        
+        StudentCRUD.update_status(db, student_id, "rejected")
+        UserCRUD.update_status(db, student.user_id, "rejected")
+        # Optional: remove class_id
+        StudentCRUD.update(db, student, class_id=None)
+        return ok(message="已拒绝该生加入班级")
+    except Exception as e:
+        return fail(f"拒绝学生失败: {e}")

@@ -15,6 +15,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     display_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="approved", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     long_memory_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     memory_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -24,6 +25,15 @@ class User(Base):
     __table_args__ = (
         CheckConstraint("role IN ('teacher', 'student', 'admin')", name="ck_users_role"),
     )
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    setting_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    setting_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Classroom(Base):
@@ -46,6 +56,7 @@ class Student(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     class_id: Mapped[int | None] = mapped_column(ForeignKey("classes.id", ondelete="RESTRICT"), nullable=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="approved", nullable=False)
     active_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     overall_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0, nullable=False)
     weak_point: Mapped[str | None] = mapped_column(String(128), nullable=True)

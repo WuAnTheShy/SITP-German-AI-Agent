@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key } from 'lucide-react';
-import { API_DASHBOARD } from '../../api/config';
+import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key, UserPlus, CheckCircle, XCircle } from 'lucide-react';
+import { API_DASHBOARD, API_TEACHER_PENDING_STUDENTS, API_TEACHER_APPROVE_STUDENT, API_TEACHER_REJECT_STUDENT } from '../../api/config';
 import { useToast } from '../../components/Toast';
 import PasswordChangeModal from '../../components/PasswordChangeModal';
 
@@ -13,6 +13,7 @@ const TeacherDashboard = () => {
     // 状态管理
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
+    const [pendingStudents, setPendingStudents] = useState([]);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshing, setRefreshing] = useState(false);
@@ -29,18 +30,23 @@ const TeacherDashboard = () => {
 
         try {
             console.log('[Client] 正在加载仪表盘数据...');
-            const response = await request.get(API_DASHBOARD);
+            const [dashboardRes, pendingRes] = await Promise.all([
+                request.get(API_DASHBOARD),
+                request.get(API_TEACHER_PENDING_STUDENTS).catch(() => ({ data: { data: [] } }))
+            ]);
 
-            if (response.data.code === 200) {
-                setData(response.data.data);
+            if (dashboardRes.data.code === 200) {
+                setData(dashboardRes.data.data);
+                setPendingStudents(pendingRes.data?.data || pendingRes.data || []);
                 setError('');
                 if (showRefreshToast) toast.success('数据刷新成功');
             } else {
-                throw new Error(response.data.message || '数据加载失败');
+                throw new Error(dashboardRes.data.message || '数据加载失败');
             }
         } catch (err) {
             console.error('加载失败:', err);
             setData(FALLBACK_DATA);
+            setPendingStudents([]);
             setError('网络请求失败，已切换至离线模式');
             if (showRefreshToast) toast.error('刷新失败，使用缓存数据');
         } finally {
@@ -54,12 +60,40 @@ const TeacherDashboard = () => {
         fetchDashboardData(false);
     }, [fetchDashboardData]);
 
-    // 🟢 登出
     const handleLogout = () => {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userInfo');
         toast.info('已安全退出');
         setTimeout(() => navigate('/'), 500);
+    };
+
+    const handleApproveStudent = async (id) => {
+        try {
+            const res = await request.put(API_TEACHER_APPROVE_STUDENT(id));
+            if(res.data.code === 200) {
+                 toast.success('审批通过');
+                 fetchDashboardData();
+            } else {
+                 toast.error(res.data.message || '审批失败');
+            }
+        } catch(err) {
+            toast.error(err.response?.data?.detail || '审批出错');
+        }
+    };
+
+    const handleRejectStudent = async (id) => {
+        if(!window.confirm('确定拒绝该学生加入班级吗？')) return;
+        try {
+            const res = await request.put(API_TEACHER_REJECT_STUDENT(id));
+            if(res.data.code === 200) {
+                 toast.success('已拒绝加入');
+                 fetchDashboardData();
+            } else {
+                 toast.error(res.data.message || '拒绝失败');
+            }
+        } catch(err) {
+            toast.error(err.response?.data?.detail || '操作出错');
+        }
     };
 
     // 过滤学生列表（增加判空容错和大小写不敏感搜索）
@@ -94,6 +128,20 @@ const TeacherDashboard = () => {
                             <span className="text-xs md:text-sm font-normal text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-md truncate max-w-[150px] md:max-w-none">
                                 {data?.className || '加载中...'}
                             </span>
+                            {data?.classCode && (
+                                <span 
+                                    className="text-xs md:text-sm font-normal text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(data.classCode);
+                                        // 可以考虑用更优雅的 toast，但这里先保持 alert 或简单的状态提示
+                                        alert('班级邀请码已复制：' + data.classCode);
+                                    }}
+                                    title="点击复制邀请码"
+                                >
+                                    <Key size={14} />
+                                    邀请码: <span className="font-mono font-bold tracking-wider">{data.classCode}</span>
+                                </span>
+                            )}
                         </h1>
                         <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态。</p>
                     </div>
@@ -194,6 +242,49 @@ const TeacherDashboard = () => {
                         bg="bg-green-50 dark:bg-green-900/30"
                     />
                 </div>
+
+                {/* 待审核学生 */}
+                <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-amber-200 dark:border-amber-900/50 overflow-hidden mb-6">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                            <UserPlus size={20} className="text-amber-500 dark:text-amber-400" /> 待审核学生
+                            {pendingStudents.length > 0 && (
+                                <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingStudents.length}</span>
+                            )}
+                        </h2>
+                    </div>
+                    <div className="p-4">
+                        {pendingStudents.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 px-2 py-2">暂无待审核申请</p>
+                        ) : (
+                            <ul className="space-y-3">
+                                {pendingStudents.map((s) => (
+                                    <li key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                            <span className="font-bold text-gray-800 dark:text-gray-200">{s.name}</span>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">学号: {s.uid}</span>
+                                            <span className="text-xs text-gray-400 dark:text-gray-500">申请时间: {new Date(s.created_at).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => handleApproveStudent(s.id)}
+                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors"
+                                            >
+                                                <CheckCircle size={14} /> 允许加入
+                                            </button>
+                                            <button 
+                                                onClick={() => handleRejectStudent(s.id)}
+                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 text-sm font-medium transition-colors"
+                                            >
+                                                <XCircle size={14} /> 拒绝
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </section>
 
                 {/* 3. 学生列表区块 */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">

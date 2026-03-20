@@ -14,6 +14,7 @@ from models.entities import (
     Student,
     StudentAbility,
     User,
+    SystemSetting,
     # V2 学生端
     ChatMessage,
     ChatScene,
@@ -46,6 +47,7 @@ from schemas.entities import (
     StudentAbilityUpsert,
     StudentCreate,
     UserCreate,
+    SystemSettingCreate,
     # V2 学生端
     ChatMessageCreate,
     ChatSessionCreate,
@@ -61,6 +63,34 @@ from schemas.entities import (
     VocabularyCreate,
     WritingSessionCreate,
 )
+
+
+class SystemSettingCRUD:
+    @staticmethod
+    def get_setting(db: Session, key: str) -> SystemSetting | None:
+        return db.scalar(select(SystemSetting).where(SystemSetting.setting_key == key))
+
+    @staticmethod
+    def get_setting_value(db: Session, key: str, default: str = "false") -> str:
+        setting = SystemSettingCRUD.get_setting(db, key)
+        return setting.setting_value if setting else default
+
+    @staticmethod
+    def set_setting(db: Session, key: str, value: str, description: str | None = None) -> SystemSetting:
+        setting = SystemSettingCRUD.get_setting(db, key)
+        if setting:
+            setting.setting_value = value
+            if description is not None:
+                setting.description = description
+            db.commit()
+            db.refresh(setting)
+            return setting
+        
+        obj = SystemSetting(setting_key=key, setting_value=value, description=description)
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
 
 
 class UserCRUD:
@@ -90,6 +120,19 @@ class UserCRUD:
             update(User)
             .where(User.id == user_id)
             .values(long_memory_summary=summary, memory_updated_at=datetime.now(timezone.utc))
+        )
+        db.commit()
+
+    @staticmethod
+    def list_pending_teachers(db: Session) -> list[User]:
+        return list(db.scalars(select(User).where(User.role == "teacher", User.status == "pending").order_by(User.created_at.desc())))
+
+    @staticmethod
+    def update_status(db: Session, user_id: int, status: str) -> None:
+        db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(status=status)
         )
         db.commit()
 
@@ -167,6 +210,24 @@ class StudentCRUD:
         db.commit()
         db.refresh(student)
         return student
+
+    @staticmethod
+    def list_pending_by_teacher(db: Session, teacher_user_id: int) -> list[Student]:
+        return list(db.scalars(
+            select(Student)
+            .join(Classroom, Student.class_id == Classroom.id)
+            .where(Classroom.teacher_user_id == teacher_user_id, Student.status == "pending")
+            .order_by(Student.created_at.desc())
+        ))
+
+    @staticmethod
+    def update_status(db: Session, student_id: int, status: str) -> None:
+        db.execute(
+            update(Student)
+            .where(Student.id == student_id)
+            .values(status=status)
+        )
+        db.commit()
 
 
 class StudentAbilityCRUD:

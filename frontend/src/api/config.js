@@ -16,9 +16,15 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 export const API_LOGIN = `${API_BASE}/api/auth/login`;
 export const API_STUDENT_LOGIN = `${API_BASE}/api/auth/student-login`;
 
-// ---- 管理员 ----
 export const API_ADMIN_TEACHERS = `${API_BASE}/api/admin/teachers`;
 export const API_ADMIN_CLASSES = `${API_BASE}/api/admin/classes`;
+export const API_ADMIN_SETTINGS = `${API_BASE}/api/admin/system/settings`;
+export const API_ADMIN_PENDING_TEACHERS = `${API_BASE}/api/admin/users/pending-teachers`;
+export const API_ADMIN_APPROVE_TEACHER = (id) => `${API_BASE}/api/admin/users/teachers/${id}/approve`;
+export const API_ADMIN_REJECT_TEACHER = (id) => `${API_BASE}/api/admin/users/teachers/${id}/reject`;
+export const API_ADMIN_DELETE_CLASS = (id) => `${API_BASE}/api/admin/classes/${id}`;
+
+// ---- 注册 ----
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
 export const API_TEACHER_REGISTER = `${API_BASE}/api/auth/teacher-register`;
 
@@ -26,8 +32,11 @@ export const API_TEACHER_REGISTER = `${API_BASE}/api/auth/teacher-register`;
 export const API_STUDENT_CLASSES = `${API_BASE}/api/student/classes`;
 export const API_STUDENT_JOIN_CLASS = `${API_BASE}/api/student/join-class`;
 
-// ---- 教师仪表盘 ----
+// ---- 教师仪表盘 & 学生审批 ----
 export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
+export const API_TEACHER_PENDING_STUDENTS = `${API_BASE}/api/teacher/pending-students`;
+export const API_TEACHER_APPROVE_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}/approve`;
+export const API_TEACHER_REJECT_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}/reject`;
 
 // ---- 情景任务 ----
 export const API_SCENARIO_PUBLISH = `${API_BASE}/api/scenario/publish`;

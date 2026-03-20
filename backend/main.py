@@ -205,6 +205,25 @@ def startup_event():
                 "UPDATE teacher_chat_sessions SET updated_at = created_at WHERE updated_at < created_at OR updated_at IS NULL"
             ))
 
+            # Migrate missing 'status' columns
+            for tbl in ["users", "students"]:
+                r = conn.execute(text(f"SELECT 1 FROM information_schema.columns WHERE table_name='{tbl}' AND column_name='status'"))
+                if not r.fetchone():
+                    conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved'"))
+                    print(f"[Server] Added {tbl}.status")
+            
+            # Create system_settings table if not exists
+            r_ss = conn.execute(text("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='system_settings'"))
+            if not r_ss.fetchone():
+                conn.execute(text(
+                    "CREATE TABLE system_settings ("
+                    "id SERIAL PRIMARY KEY, "
+                    "setting_key VARCHAR(64) UNIQUE NOT NULL, "
+                    "setting_value VARCHAR(255) NOT NULL, "
+                    "description TEXT)"
+                ))
+                print("[Server] Created system_settings table.")
+
             # 允许 users.role 为 admin（兼容已有库；PostgreSQL 可能生成 ck_users_role 或 users_role_check）
             try:
                 conn.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_role"))
