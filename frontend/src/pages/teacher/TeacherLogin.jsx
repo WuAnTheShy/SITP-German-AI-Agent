@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
 import { School, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus } from 'lucide-react';
 import { API_LOGIN as API_LOGIN_URL } from '../../api/config';
+import { sha256Hex } from '../../utils/security';
 
 // 浮动粒子数据
 const PARTICLES = [
@@ -131,10 +132,11 @@ const TeacherLogin = () => {
         }
 
         try {
+            const encryptedPassword = await sha256Hex(formData.password);
             const response = await request.post(API_LOGIN_URL, {
                 username: formData.employeeId,
-                password: formData.password
-            });
+                password: encryptedPassword
+            }, { skipAuthRedirect: true });
 
             if (response.data.code !== 200) {
                 throw new Error(response.data.message || '登录失败');

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
 import { API_TEACHER_REGISTER } from '../../api/config';
 import { School, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus, CheckCircle, Briefcase } from 'lucide-react';
+import { sha256Hex } from '../../utils/security';
 
 const PARTICLES = [
     { text: 'Lehrer', left: '8%', duration: 23, delay: 1, size: '0.85rem' },
@@ -102,9 +103,10 @@ const TeacherRegister = () => {
         }
 
         try {
+            const encryptedPassword = await sha256Hex(formData.password);
             const response = await request.post(API_TEACHER_REGISTER, {
                 username: formData.employeeId,
-                password: formData.password,
+                password: encryptedPassword,
                 display_name: formData.displayName,
             });
 

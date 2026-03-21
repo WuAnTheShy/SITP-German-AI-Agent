@@ -95,7 +95,7 @@ class ErrorMasterReq(BaseModel):
 
 class FavAIExtendReq(BaseModel):
     content: str
-    type: str
+    type: str = "note"
 
 
 @router.get("/api/student/vocab/list")
@@ -486,17 +486,40 @@ def favorites_categories(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/api/student/favorites/list")
 def favorites_list(
-    type: str = Query(...), request: Request = None, db: Session = Depends(get_db)
+    type: str = Query("all"), request: Request = None, db: Session = Depends(get_db)
 ):
     try:
         student = current_student(request, db)
         if not student:
             return fail("未找到学生信息", 401)
-        items = FavoriteCRUD.list_by_student_and_type(db, student.id, type)
-        return ok([
-            {"id": f.id, "content": f.content, "translate": f.translate, "rule": f.rule, "note": f.note}
-            for f in items
-        ])
+
+        result = []
+        if type == "all":
+            categories = FavoriteCategoryCRUD.list_all(db)
+            for c in categories:
+                items = FavoriteCRUD.list_by_student_and_type(db, student.id, c.type)
+                for f in items:
+                    result.append({
+                        "id": f.id,
+                        "type": c.type,
+                        "content": f.content,
+                        "translate": f.translate,
+                        "rule": f.rule,
+                        "note": f.note,
+                    })
+        else:
+            items = FavoriteCRUD.list_by_student_and_type(db, student.id, type)
+            for f in items:
+                result.append({
+                    "id": f.id,
+                    "type": type,
+                    "content": f.content,
+                    "translate": f.translate,
+                    "rule": f.rule,
+                    "note": f.note,
+                })
+
+        return ok(result)
     except Exception as e:
         return fail(f"获取收藏列表失败: {e}")
 

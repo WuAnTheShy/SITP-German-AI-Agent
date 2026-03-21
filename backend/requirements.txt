@@ -6,3 +6,4 @@ sqlalchemy
 psycopg[binary]
 alembic
 psycopg
+bcrypt

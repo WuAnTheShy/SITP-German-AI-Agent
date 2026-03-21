@@ -24,6 +24,7 @@
 
 | 模块           | 功能亮点                                                                                           |
 | -------------- | -------------------------------------------------------------------------------------------------- |
+| 🛡️ **管理员端** | 教师审核与账号启停 · 班级创建/编辑/删除 · 学生名单与分班管理 · 账号密码重置（教师/学生） · 系统审核策略开关 |
 | 🎓 **教师端**  | 教学仪表盘 · 学情监控 · AI教研助手 · 智能试卷生成 · 情景任务发布 · 发布历史溯源 · 作业全轨批改      |
 | 📚 **学生端**  | 专属 AI 语伴 · 词汇/语法/听说写作跨板块评测 · 错题精练诊断 · 学习进度追踪 · 收藏夹          |
 | 🤖 **AI 引擎** | 基于 Qwen-Plus · 德语助教人设 · 语法纠错 · 中德双语解释                                     |
@@ -106,8 +107,11 @@ SITP-German-AI-Agent/
 │   ├── models/                  # SQLAlchemy ORM 模型
 │   │   └── entities.py          # 数据库实体定义
 │   ├── routers/                 # API 路由
+│   │   ├── admin.py             # 管理员端接口
 │   │   ├── chat.py              # AI 对话接口
-│   │   ├── student.py           # 学生相关接口
+│   │   ├── student.py           # 学生基础接口
+│   │   ├── student_learning.py  # 学生学习模块接口
+│   │   ├── student_tasks.py     # 学生任务/考试接口
 │   │   ├── teacher.py           # 教师相关接口
 │   │   └── auth.py              # 认证接口
 │   ├── schemas/                 # Pydantic 数据校验模型
@@ -253,6 +257,22 @@ npm run dev
 
 > ⚠️ 教师端和学生端均已启用密码校验与权限隔离，学生账号无法访问教师端功能，反之亦然。
 
+### 密码与认证说明
+
+- 前端传输：登录与改密请求对密码执行 `SHA-256` 后再传输。
+- 后端存储：统一存储为 `bcrypt(sha256(password))`，并兼容历史旧数据自动迁移。
+- 管理员能力：管理员可在管理端重置教师/学生账号密码。
+
+---
+
+## 🆕 近期功能完善
+
+- 管理员端教师管理：支持教师搜索、审核状态调整、登录权限启停与删除。
+- 管理员端班级管理：支持新建班级、编辑班级、删除班级、复制邀请码。
+- 管理员端学生管理：支持学生搜索筛选、状态维护、分班调整、活跃度与综合分维护、删除。
+- 管理员端账号安全：支持为教师与学生账号重置密码。
+- 系统设置：支持教师注册审核、学生注册审核开关。
+
 ---
 
 ## 🔄 环境模式切换
@@ -322,15 +342,28 @@ docker system df
 
 | 方法   | 端点                       | 功能                 |
 | ------ | -------------------------- | -------------------- |
-| `POST` | `/api/chat`                | AI 德语对话 (学生端) |
-| `POST` | `/api/auth/login`          | 用户登录认证         |
-| `GET`  | `/api/teacher/dashboard`   | 教学仪表盘数据       |
-| `POST` | `/api/scenario/publish`    | 发布情景任务         |
-| `POST` | `/api/exam/generate`       | 生成智能试卷         |
-| `GET`  | `/api/student/detail`      | 学生详细画像         |
-| `GET`  | `/api/homework/detail`     | 作业文件详情         |
-| `POST` | `/api/homework/save`       | 保存教师评分         |
-| `POST` | `/api/student/push-scheme` | 推送个性化强化方案   |
+| `POST` | `/api/auth/login` | 教师/管理员登录 |
+| `POST` | `/api/auth/student-login` | 学生登录 |
+| `PUT` | `/api/user/password` | 教师/学生自助修改密码 |
+| `GET` | `/api/admin/teachers` | 管理员查看教师列表 |
+| `PUT` | `/api/admin/teachers/{user_id}` | 管理员更新教师状态与启停 |
+| `DELETE` | `/api/admin/teachers/{user_id}` | 管理员删除教师账号 |
+| `GET` | `/api/admin/students` | 管理员查看学生列表 |
+| `PUT` | `/api/admin/students/{student_id}` | 管理员更新学生信息 |
+| `DELETE` | `/api/admin/students/{student_id}` | 管理员删除学生账号 |
+| `PUT` | `/api/admin/users/{user_id}/password` | 管理员重置教师/学生密码 |
+| `GET` | `/api/admin/classes` | 管理员查看班级列表 |
+| `POST` | `/api/admin/classes` | 管理员创建班级 |
+| `PUT` | `/api/admin/classes/{class_id}` | 管理员编辑班级 |
+| `DELETE` | `/api/admin/classes/{class_id}` | 管理员删除班级 |
+| `PUT` | `/api/admin/system/settings` | 管理员更新审核策略 |
+| `GET`  | `/api/teacher/dashboard` | 教师教学仪表盘 |
+| `GET`  | `/api/teacher/students` | 教师查看班内学生 |
+| `POST` | `/api/scenario/publish` | 教师发布情景任务 |
+| `POST` | `/api/exam/generate` | 教师生成智能试卷 |
+| `GET` | `/api/student/favorites/list` | 学生查看收藏列表 |
+| `DELETE` | `/api/student/favorites/{fav_id}` | 学生删除收藏 |
+| `GET` | `/api/student/learning/progress` | 学生学习进度总览 |
 
 > 完整 API 文档（自动生成）：启动后端后访问 http://localhost:8000/docs
 

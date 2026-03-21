@@ -41,6 +41,15 @@ class ExamGenerateRequest(BaseModel):
     timestamp: str | None = None
 
 
+class TeacherStudentUpdateBody(BaseModel):
+    name: str | None = None
+    status: str | None = None
+    active_score: int | None = None
+    overall_score: float | None = None
+    weak_point: str | None = None
+    class_id: int | None = None
+
+
 @router.get("/api/teacher/dashboard")
 def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
     """教师仪表盘：已关联班级则返回本班学情，未关联则返回空列表与「未关联」标识，教师仍可正常使用 AI 等非班级功能。"""
@@ -392,6 +401,103 @@ def list_pending_students(request: Request = None, db: Session = Depends(get_db)
         return ok(result)
     except Exception as e:
         return fail(f"获取待审核学生失败: {e}")
+
+
+@router.get("/api/teacher/students")
+def list_class_students(request: Request = None, db: Session = Depends(get_db)):
+    try:
+        _, classroom = get_current_teacher_and_classroom(request, db)
+        students = StudentCRUD.list_by_class(db, classroom.id)
+        result = []
+        for s in students:
+            result.append(
+                {
+                    "id": s.id,
+                    "uid": s.uid,
+                    "name": s.name,
+                    "status": s.status,
+                    "class_id": s.class_id,
+                    "class_name": classroom.class_name,
+                    "active_score": s.active_score,
+                    "overall_score": to_float(s.overall_score),
+                    "weak_point": s.weak_point,
+                    "created_at": s.created_at.isoformat(),
+                }
+            )
+        return ok(result)
+    except Exception as e:
+        return fail(f"获取班级学生失败: {e}")
+
+
+@router.put("/api/teacher/students/{student_id}")
+def update_class_student(
+    student_id: int,
+    body: TeacherStudentUpdateBody,
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        teacher, classroom = get_current_teacher_and_classroom(request, db)
+        student = StudentCRUD.get_by_id(db, student_id)
+        if not student:
+            return fail("学生不存在", 404)
+
+        if student.class_id != classroom.id:
+            return fail("无权操作该学生", 403)
+
+        updates = body.model_dump(exclude_unset=True)
+        if "status" in updates and updates["status"] not in {"pending", "approved", "rejected"}:
+            return fail("学生状态非法", 400)
+        if "active_score" in updates and not (0 <= updates["active_score"] <= 100):
+            return fail("活跃度需在 0-100 之间", 400)
+        if "overall_score" in updates and not (0 <= updates["overall_score"] <= 100):
+            return fail("综合评分需在 0-100 之间", 400)
+        if "class_id" in updates:
+            new_class_id = updates["class_id"]
+            if new_class_id not in {None, classroom.id}:
+                return fail("仅可保留在当前班级或移出班级", 400)
+
+        StudentCRUD.update(db, student, **updates)
+
+        user = UserCRUD.get_by_id(db, student.user_id)
+        if user:
+            if "name" in updates:
+                user.display_name = updates["name"]
+            if "status" in updates:
+                user.status = updates["status"]
+            db.commit()
+
+        return ok(
+            {
+                "id": student.id,
+                "uid": student.uid,
+                "name": student.name,
+                "status": student.status,
+                "class_id": student.class_id,
+                "active_score": student.active_score,
+                "overall_score": to_float(student.overall_score),
+                "weak_point": student.weak_point,
+            },
+            "学生信息更新成功",
+        )
+    except Exception as e:
+        return fail(f"更新学生信息失败: {e}")
+
+
+@router.delete("/api/teacher/students/{student_id}")
+def remove_student_from_class(student_id: int, request: Request = None, db: Session = Depends(get_db)):
+    try:
+        _, classroom = get_current_teacher_and_classroom(request, db)
+        student = StudentCRUD.get_by_id(db, student_id)
+        if not student:
+            return fail("学生不存在", 404)
+        if student.class_id != classroom.id:
+            return fail("无权操作该学生", 403)
+
+        StudentCRUD.update(db, student, class_id=None)
+        return ok(message="学生已移出当前班级")
+    except Exception as e:
+        return fail(f"移出学生失败: {e}")
 
 
 @router.put("/api/teacher/students/{student_id}/approve")

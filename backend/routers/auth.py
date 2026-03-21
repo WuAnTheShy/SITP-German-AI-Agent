@@ -9,8 +9,19 @@ from crud.repositories import UserCRUD, StudentCRUD, ClassroomCRUD, StudentAbili
 from schemas.entities import UserCreate, StudentCreate, StudentAbilityUpsert
 from core.responses import ok, fail
 from core.seed import _ensure_demo_data, _ensure_admin
+from core.password import ensure_transport_hash, hash_password, verify_password
 
 router = APIRouter()
+
+
+def _migrate_legacy_password_hash(user, db: Session) -> None:
+    """把旧库的非 bcrypt 密码统一迁移为 bcrypt(sha256(password))。"""
+    if not user or not getattr(user, "password_hash", None):
+        return
+    if user.password_hash.startswith("$2"):
+        return
+    user.password_hash = hash_password(ensure_transport_hash(user.password_hash))
+    db.commit()
 
 
 class LoginRequest(BaseModel):
@@ -61,10 +72,15 @@ def update_user_password(req_body: PasswordUpdateReq, req: Request, db: Session 
         if not user:
             return fail("无效的令牌或用户不存在", 401)
 
-        if user.password_hash != req_body.oldPassword:
+        _migrate_legacy_password_hash(user, db)
+
+        old_pwd = ensure_transport_hash(req_body.oldPassword)
+        new_pwd = ensure_transport_hash(req_body.newPassword)
+
+        if not verify_password(old_pwd, user.password_hash):
             return fail("原密码错误", 400)
 
-        user.password_hash = req_body.newPassword
+        user.password_hash = hash_password(new_pwd)
         db.commit()
 
         return ok(message="密码修改成功")
@@ -86,8 +102,11 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         if not user:
             return fail("用户不存在，请检查工号后重试", 401)
 
+        _migrate_legacy_password_hash(user, db)
+        login_pwd = ensure_transport_hash(request.password)
+
         if user.role == "admin":
-            if user.password_hash != request.password:
+            if not verify_password(login_pwd, user.password_hash):
                 return fail("密码错误，请重新输入", 401)
             token = f"admin-token-{user.id}-{uuid4().hex[:8]}"
         elif user.role == "teacher":
@@ -96,7 +115,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             elif getattr(user, "status", "approved") == "rejected":
                 return fail("您的注册申请已被拒绝", 403)
 
-            if user.password_hash != request.password:
+            if not verify_password(login_pwd, user.password_hash):
                 return fail("密码错误，请重新输入", 401)
             token = f"teacher-token-{user.id}-{uuid4().hex[:8]}"
         else:
@@ -131,7 +150,10 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         if not user:
             return fail("用户记录异常", 500)
 
-        if user.password_hash != req.password:
+        _migrate_legacy_password_hash(user, db)
+        login_pwd = ensure_transport_hash(req.password)
+
+        if not verify_password(login_pwd, user.password_hash):
             return fail("密码错误，请重新输入", 401)
 
         token = f"student-token-{student.uid}-{uuid4().hex[:8]}"
@@ -187,7 +209,7 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
             db,
             UserCreate(
                 username=req.username,
-                password_hash=req.password,
+                password_hash=hash_password(ensure_transport_hash(req.password)),
                 role="student",
                 display_name=req.display_name,
                 status=status_val,
@@ -238,7 +260,7 @@ def teacher_register(req: RegisterRequest, db: Session = Depends(get_db)):
             db,
             UserCreate(
                 username=req.username,
-                password_hash=req.password,
+                password_hash=hash_password(ensure_transport_hash(req.password)),
                 role="teacher",
                 display_name=req.display_name,
                 status=status_val,

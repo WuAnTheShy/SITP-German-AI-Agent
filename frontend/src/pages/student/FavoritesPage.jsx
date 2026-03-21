@@ -21,7 +21,7 @@ const FavoritesPage = () => {
     const getFavList = async () => {
       setListLoading(true);
       try {
-        const res = await request.get(API_FAVORITES_LIST);
+        const res = await request.get(API_FAVORITES_LIST, { params: { type: 'all' } });
         if (res.data.code === 200) setFavList(res.data.data);
         else alert(res.data.message || '获取收藏列表失败');
       } catch (err) { console.error('获取收藏列表接口报错：', err); alert('网络错误，获取收藏列表失败'); }
@@ -67,7 +67,7 @@ const FavoritesPage = () => {
   const handleAIExtend = async (item) => {
     setAiLoading(true);
     try {
-      const res = await request.post(API_FAVORITES_AI_EXTEND, { content: item.content }, { timeout: 60000 });
+      const res = await request.post(API_FAVORITES_AI_EXTEND, { content: item.content, type: item.type || 'note' }, { timeout: 60000 });
       if (res.data.code === 200) alert(`🤖 AI拓展学习：\n${res.data.data.extendContent}`);
       else alert(res.data.message || 'AI拓展生成失败');
     } catch (err) { alert('网络错误，AI拓展生成失败'); }
