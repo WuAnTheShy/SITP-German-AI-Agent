@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle, Search, RefreshCw } from 'lucide-react';
+import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle, Search, RefreshCw, KeyRound } from 'lucide-react';
 import { useToast } from '../../components/Toast';
+import { sha256Hex } from '../../utils/security';
 import {
     API_ADMIN_TEACHERS,
     API_ADMIN_CLASSES,
@@ -16,6 +17,7 @@ import {
     API_ADMIN_STUDENTS,
     API_ADMIN_UPDATE_STUDENT,
     API_ADMIN_DELETE_STUDENT,
+    API_ADMIN_RESET_USER_PASSWORD,
 } from '../../api/config';
 
 const AdminDashboard = () => {
@@ -35,6 +37,9 @@ const AdminDashboard = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [formError, setFormError] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    const [resettingAccount, setResettingAccount] = useState(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [teacherKeyword, setTeacherKeyword] = useState('');
     const [studentKeyword, setStudentKeyword] = useState('');
     const [studentStatusFilter, setStudentStatusFilter] = useState('all');
@@ -296,6 +301,47 @@ const AdminDashboard = () => {
         }
     };
 
+    const openResetPasswordModal = (account) => {
+        setResettingAccount(account);
+        setNewPassword('');
+        setConfirmPassword('');
+        setFormError('');
+    };
+
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        if (!resettingAccount) return;
+
+        if (!newPassword || !confirmPassword) {
+            setFormError('请填写新密码并确认');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setFormError('新密码长度不能小于 6 位');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setFormError('两次输入的新密码不一致');
+            return;
+        }
+
+        setSubmitLoading(true);
+        try {
+            const newPasswordHash = await sha256Hex(newPassword);
+            await request.put(API_ADMIN_RESET_USER_PASSWORD(resettingAccount.id), {
+                new_password: newPasswordHash,
+            });
+            setResettingAccount(null);
+            setNewPassword('');
+            setConfirmPassword('');
+            toast.success(`已重置 ${resettingAccount.name} 的密码`);
+        } catch (err) {
+            setFormError(err.response?.data?.detail || err.message || '重置密码失败');
+        } finally {
+            setSubmitLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -420,6 +466,13 @@ const AdminDashboard = () => {
                                             className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                                         >
                                             <Trash2 size={12} /> 删除
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => openResetPasswordModal({ id: t.id, name: t.display_name || t.username, role: 'teacher' })}
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                                        >
+                                            <KeyRound size={12} /> 重置密码
                                         </button>
                                     </li>
                                 ))}
@@ -616,6 +669,14 @@ const AdminDashboard = () => {
                                                 >
                                                     <Trash2 size={12} /> 删除
                                                 </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={!s.user_id}
+                                                    onClick={() => s.user_id && openResetPasswordModal({ id: s.user_id, name: s.name || s.uid, role: 'student' })}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <KeyRound size={12} /> 重置密码
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -783,6 +844,59 @@ const AdminDashboard = () => {
                             <div className="flex gap-2 mt-6">
                                 <button type="button" onClick={() => !submitLoading && setEditingStudent(null)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
                                 <button type="submit" disabled={submitLoading} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50">{submitLoading ? '保存中…' : '保存'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 重置账号密码弹窗 */}
+            {resettingAccount && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !submitLoading && setResettingAccount(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">重置账号密码</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            账号类型：{resettingAccount.role === 'teacher' ? '教师' : '学生'}，账号：{resettingAccount.name}
+                        </p>
+                        <form onSubmit={handleResetPassword}>
+                            {formError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{formError}</p>}
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">新密码</label>
+                                    <input
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm"
+                                        placeholder="至少 6 位"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">确认新密码</label>
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm"
+                                        placeholder="请再次输入新密码"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => !submitLoading && setResettingAccount(null)}
+                                    className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submitLoading}
+                                    className="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium disabled:opacity-50"
+                                >
+                                    {submitLoading ? '提交中…' : '确认重置'}
+                                </button>
                             </div>
                         </form>
                     </div>

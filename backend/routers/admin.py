@@ -10,6 +10,7 @@ from crud.repositories import UserCRUD, ClassroomCRUD, SystemSettingCRUD
 from models.entities import Student
 from schemas.entities import ClassroomCreate
 from core.deps import require_admin
+from core.password import ensure_transport_hash, hash_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -41,6 +42,10 @@ class StudentUpdateBody(BaseModel):
     active_score: int | None = None
     overall_score: float | None = None
     weak_point: str | None = None
+
+
+class AdminResetPasswordBody(BaseModel):
+    new_password: str
 
 
 @router.get("/teachers")
@@ -136,6 +141,7 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
         result.append(
             {
                 "id": s.id,
+                "user_id": s.user_id,
                 "uid": s.uid,
                 "name": s.name,
                 "status": s.status,
@@ -325,3 +331,23 @@ def delete_class(class_id: int, db: Session = Depends(get_db), _admin=Depends(re
     db.delete(classroom)
     db.commit()
     return {"message": "班级删除成功"}
+
+
+@router.put("/users/{user_id}/password")
+def reset_user_password_by_admin(
+    user_id: int,
+    body: AdminResetPasswordBody,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    user = UserCRUD.get_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="账号不存在")
+
+    new_pwd = ensure_transport_hash(body.new_password)
+    if not new_pwd:
+        raise HTTPException(status_code=400, detail="新密码不能为空")
+
+    user.password_hash = hash_password(new_pwd)
+    db.commit()
+    return {"message": "密码重置成功"}

@@ -28,6 +28,7 @@ export const API_ADMIN_DELETE_TEACHER = (id) => `${API_BASE}/api/admin/teachers/
 export const API_ADMIN_STUDENTS = `${API_BASE}/api/admin/students`;
 export const API_ADMIN_UPDATE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
 export const API_ADMIN_DELETE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
+export const API_ADMIN_RESET_USER_PASSWORD = (id) => `${API_BASE}/api/admin/users/${id}/password`;
 
 // ---- 注册 ----
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
