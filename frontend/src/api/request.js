@@ -28,7 +28,8 @@ request.interceptors.request.use(
 request.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
+        const skipAuthRedirect = Boolean(error?.config?.skipAuthRedirect);
+        if (error.response?.status === 401 && !skipAuthRedirect) {
             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
             const role = userInfo.role;
             localStorage.removeItem('authToken');

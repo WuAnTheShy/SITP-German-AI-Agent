@@ -1,49 +1,109 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle } from 'lucide-react';
-import { API_ADMIN_TEACHERS, API_ADMIN_CLASSES, API_ADMIN_SETTINGS, API_ADMIN_PENDING_TEACHERS, API_ADMIN_APPROVE_TEACHER, API_ADMIN_REJECT_TEACHER, API_ADMIN_DELETE_CLASS } from '../../api/config';
+import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle, Search, RefreshCw } from 'lucide-react';
+import { useToast } from '../../components/Toast';
+import {
+    API_ADMIN_TEACHERS,
+    API_ADMIN_CLASSES,
+    API_ADMIN_SETTINGS,
+    API_ADMIN_PENDING_TEACHERS,
+    API_ADMIN_APPROVE_TEACHER,
+    API_ADMIN_REJECT_TEACHER,
+    API_ADMIN_DELETE_CLASS,
+    API_ADMIN_UPDATE_TEACHER,
+    API_ADMIN_DELETE_TEACHER,
+    API_ADMIN_STUDENTS,
+    API_ADMIN_UPDATE_STUDENT,
+    API_ADMIN_DELETE_STUDENT,
+} from '../../api/config';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
+    const toast = useToast();
     const [loading, setLoading] = useState(true);
     const [teachers, setTeachers] = useState([]);
     const [pendingTeachers, setPendingTeachers] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [students, setStudents] = useState([]);
     const [settings, setSettings] = useState({ REQUIRE_TEACHER_APPROVAL: false, REQUIRE_STUDENT_APPROVAL: false });
     const [error, setError] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
+    const [editingStudent, setEditingStudent] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [formError, setFormError] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
+    const [teacherKeyword, setTeacherKeyword] = useState('');
+    const [studentKeyword, setStudentKeyword] = useState('');
+    const [studentStatusFilter, setStudentStatusFilter] = useState('all');
+    const [classFilter, setClassFilter] = useState('all');
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const adminName = userInfo.name || '管理员';
+    const activeTeacherCount = teachers.filter((t) => t.is_active).length;
+    const unassignedStudentCount = students.filter((s) => !s.class_id).length;
 
-    const fetchData = useCallback(async () => {
+    const statusLabel = (status) => {
+        if (status === 'approved') return '审核通过';
+        if (status === 'pending') return '待审核';
+        if (status === 'rejected') return '已拒绝';
+        return status || '未知';
+    };
+
+    const filteredTeachers = useMemo(() => {
+        const kw = teacherKeyword.trim().toLowerCase();
+        if (!kw) return teachers;
+        return teachers.filter((t) =>
+            String(t.display_name || '').toLowerCase().includes(kw) ||
+            String(t.username || '').toLowerCase().includes(kw) ||
+            String(t.id || '').toLowerCase().includes(kw)
+        );
+    }, [teachers, teacherKeyword]);
+
+    const filteredStudents = useMemo(() => {
+        const kw = studentKeyword.trim().toLowerCase();
+        return students.filter((s) => {
+            const hitKeyword = !kw ||
+                String(s.name || '').toLowerCase().includes(kw) ||
+                String(s.uid || '').toLowerCase().includes(kw);
+            const hitStatus = studentStatusFilter === 'all' || s.status === studentStatusFilter;
+            const hitClass = classFilter === 'all' || String(s.class_id ?? 'none') === classFilter;
+            return hitKeyword && hitStatus && hitClass;
+        });
+    }, [students, studentKeyword, studentStatusFilter, classFilter]);
+
+    const fetchData = useCallback(async (showToast = false) => {
         setError('');
+        if (showToast) setRefreshing(true);
         try {
-            const [teachersRes, classesRes, settingsRes, pendingRes] = await Promise.all([
+            const [teachersRes, classesRes, settingsRes, pendingRes, studentsRes] = await Promise.all([
                 request.get(API_ADMIN_TEACHERS),
                 request.get(API_ADMIN_CLASSES),
                 request.get(API_ADMIN_SETTINGS),
                 request.get(API_ADMIN_PENDING_TEACHERS),
+                request.get(API_ADMIN_STUDENTS),
             ]);
             setTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
             setClasses(Array.isArray(classesRes.data) ? classesRes.data : []);
             setSettings(settingsRes.data || { REQUIRE_TEACHER_APPROVAL: false, REQUIRE_STUDENT_APPROVAL: false });
             setPendingTeachers(Array.isArray(pendingRes.data) ? pendingRes.data : []);
+            setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+            if (showToast) toast.success('数据已刷新');
         } catch (err) {
             console.error('管理员数据加载失败:', err);
             setError(err.response?.data?.detail || err.message || '加载失败');
             setTeachers([]);
             setClasses([]);
             setPendingTeachers([]);
+            setStudents([]);
+            if (showToast) toast.error('刷新失败，请稍后重试');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
-    }, []);
+    }, [toast]);
 
     useEffect(() => {
         setLoading(true);
@@ -74,6 +134,7 @@ const AdminDashboard = () => {
             setShowCreateModal(false);
             form.reset();
             fetchData();
+            toast.success('班级创建成功');
         } catch (err) {
             setFormError(err.response?.data?.detail || err.message || '创建失败');
         } finally {
@@ -109,6 +170,7 @@ const AdminDashboard = () => {
             setShowEditModal(false);
             setEditingClass(null);
             fetchData();
+            toast.success('班级信息已更新');
         } catch (err) {
             setFormError(err.response?.data?.detail || err.message || '保存失败');
         } finally {
@@ -117,12 +179,14 @@ const AdminDashboard = () => {
     };
 
     const handleDeleteClass = async (id) => {
-        if(!window.confirm('确定删除该班级及其相关数据吗？（此操作不可逆）')) return;
+        if(!window.confirm('确认删除该班级？\n\n注意：班级删除后无法恢复，建议先确认是否需要保留班级历史信息。')) return;
         try {
             await request.delete(API_ADMIN_DELETE_CLASS(id));
             fetchData();
+            toast.success('班级已删除');
         } catch (err) {
             setError(err.response?.data?.detail || err.message || '删除失败');
+            toast.error(err.response?.data?.detail || err.message || '删除失败');
         }
     };
 
@@ -130,8 +194,10 @@ const AdminDashboard = () => {
         try {
             await request.put(API_ADMIN_SETTINGS, { [key]: value });
             setSettings(prev => ({ ...prev, [key]: value }));
+            toast.success('系统设置已保存');
         } catch (err) {
             setError(err.response?.data?.detail || err.message || '设置保存失败');
+            toast.error(err.response?.data?.detail || err.message || '设置保存失败');
         }
     };
 
@@ -139,8 +205,10 @@ const AdminDashboard = () => {
         try {
             await request.put(API_ADMIN_APPROVE_TEACHER(id));
             fetchData();
+            toast.success('教师审核通过');
         } catch (err) {
             setError(err.response?.data?.detail || err.message || '审批失败');
+            toast.error(err.response?.data?.detail || err.message || '审批失败');
         }
     };
 
@@ -149,8 +217,82 @@ const AdminDashboard = () => {
         try {
             await request.put(API_ADMIN_REJECT_TEACHER(id));
             fetchData();
+            toast.info('已拒绝该教师申请');
         } catch (err) {
             setError(err.response?.data?.detail || err.message || '拒绝失败');
+            toast.error(err.response?.data?.detail || err.message || '拒绝失败');
+        }
+    };
+
+    const handleUpdateTeacher = async (id, payload) => {
+        try {
+            await request.put(API_ADMIN_UPDATE_TEACHER(id), payload);
+            fetchData();
+            toast.success('教师信息已更新');
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '教师信息更新失败');
+            toast.error(err.response?.data?.detail || err.message || '教师信息更新失败');
+        }
+    };
+
+    const handleDeleteTeacher = async (id) => {
+        if (!window.confirm('确认删除该教师账号？\n\n如果该教师仍负责班级，系统会阻止删除。')) return;
+        try {
+            await request.delete(API_ADMIN_DELETE_TEACHER(id));
+            fetchData();
+            toast.success('教师账号已删除');
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '教师删除失败');
+            toast.error(err.response?.data?.detail || err.message || '教师删除失败');
+        }
+    };
+
+    const openEditStudentModal = (student) => {
+        setEditingStudent(student);
+        setFormError('');
+    };
+
+    const handleEditStudent = async (e) => {
+        e.preventDefault();
+        if (!editingStudent) return;
+
+        const form = e.target;
+        const payload = {
+            name: (form.name?.value || '').trim(),
+            class_id: form.class_id?.value === '' ? null : parseInt(form.class_id?.value, 10),
+            status: form.status?.value,
+            active_score: parseInt(form.active_score?.value || '0', 10),
+            overall_score: parseFloat(form.overall_score?.value || '0'),
+            weak_point: (form.weak_point?.value || '').trim() || null,
+        };
+
+        if (!payload.name) {
+            setFormError('学生姓名不能为空');
+            return;
+        }
+
+        setSubmitLoading(true);
+        try {
+            await request.put(API_ADMIN_UPDATE_STUDENT(editingStudent.id), payload);
+            setEditingStudent(null);
+            fetchData();
+            toast.success('学生信息已更新');
+        } catch (err) {
+            setFormError(err.response?.data?.detail || err.message || '保存失败');
+        } finally {
+            setSubmitLoading(false);
+        }
+    };
+
+    const handleDeleteStudent = async (id) => {
+        if (!window.confirm('确认删除该学生账号？\n\n该操作不可恢复，请谨慎执行。')) return;
+        try {
+            await request.delete(API_ADMIN_DELETE_STUDENT(id));
+            fetchData();
+            toast.success('学生账号已删除');
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '学生删除失败');
+            toast.error(err.response?.data?.detail || err.message || '学生删除失败');
         }
     };
 
@@ -175,20 +317,50 @@ const AdminDashboard = () => {
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">欢迎，{adminName}。</p>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                    >
-                        <LogOut size={18} />
-                        退出登录
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => fetchData(true)}
+                            disabled={refreshing}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors disabled:opacity-60"
+                        >
+                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                            刷新
+                        </button>
+                        <button
+                            onClick={handleLogout}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                        >
+                            <LogOut size={18} />
+                            退出登录
+                        </button>
+                    </div>
                 </div>
 
                 {error && (
-                    <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 text-sm">
-                        {error}
+                    <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 text-sm flex items-center justify-between gap-3">
+                        <span>{error}</span>
+                        <button type="button" onClick={() => setError('')} className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-700">关闭</button>
                     </div>
                 )}
+
+                <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">教师总数</p>
+                        <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{teachers.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">可登录教师</p>
+                        <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">{activeTeacherCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">班级总数</p>
+                        <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{classes.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">未分班学生</p>
+                        <p className="text-xl font-semibold text-amber-600 dark:text-amber-400">{unassignedStudentCount}</p>
+                    </div>
+                </section>
 
                 {/* 教师列表 */}
                 <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
@@ -196,16 +368,59 @@ const AdminDashboard = () => {
                         <Users className="text-indigo-500 dark:text-indigo-400" size={20} />
                         <h2 className="font-semibold text-gray-900 dark:text-gray-100">教师列表</h2>
                     </div>
+                    <div className="px-4 pt-3 text-xs text-gray-500 dark:text-gray-400">
+                        说明：登录权限用于控制教师是否可登录系统；审核状态用于注册审批流程。
+                    </div>
                     <div className="p-4">
+                        <div className="mb-3 relative max-w-md">
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                value={teacherKeyword}
+                                onChange={(e) => setTeacherKeyword(e.target.value)}
+                                placeholder="搜索教师姓名、工号或 ID"
+                                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                            />
+                        </div>
                         {teachers.length === 0 ? (
                             <p className="text-sm text-gray-500 dark:text-gray-400">暂无教师账号</p>
+                        ) : filteredTeachers.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">没有匹配的教师。</p>
                         ) : (
                             <ul className="space-y-2">
-                                {teachers.map((t) => (
-                                    <li key={t.id} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-gray-50 dark:bg-white/5 text-sm">
-                                        <span className="font-mono text-gray-500 dark:text-gray-400 w-24">ID {t.id}</span>
+                                {filteredTeachers.map((t) => (
+                                    <li key={t.id} className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-white/5 text-sm">
+                                        <span className="font-mono text-gray-500 dark:text-gray-400 w-20">ID {t.id}</span>
                                         <span className="font-medium text-gray-800 dark:text-gray-200">{t.display_name}</span>
                                         <span className="text-gray-500 dark:text-gray-400">({t.username})</span>
+                                        <span className="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">负责班级: {t.class_count || 0}</span>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${t.status === 'approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : t.status === 'pending' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'}`}>
+                                            {statusLabel(t.status)}
+                                        </span>
+                                        <select
+                                            value={t.status || 'approved'}
+                                            onChange={(e) => handleUpdateTeacher(t.id, { status: e.target.value })}
+                                            className="ml-auto px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
+                                        >
+                                            <option value="approved">审核通过</option>
+                                            <option value="pending">待审核</option>
+                                            <option value="rejected">已拒绝</option>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleUpdateTeacher(t.id, { is_active: !t.is_active })}
+                                            className={`px-2 py-1 rounded text-xs font-medium ${t.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
+                                            title={t.is_active ? '当前允许该教师登录系统，点击后将停用登录权限' : '当前不允许该教师登录系统，点击后将恢复登录权限'}
+                                        >
+                                            {t.is_active ? '可登录' : '已停用登录'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteTeacher(t.id)}
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                        >
+                                            <Trash2 size={12} /> 删除
+                                        </button>
                                     </li>
                                 ))}
                             </ul>
@@ -285,7 +500,7 @@ const AdminDashboard = () => {
                                             title="点击复制邀请码"
                                             onClick={() => {
                                                 navigator.clipboard.writeText(c.class_code);
-                                                alert('班级邀请码已复制：' + c.class_code);
+                                                toast.success(`班级邀请码已复制：${c.class_code}`);
                                             }}
                                         >
                                             {c.class_code}
@@ -297,7 +512,7 @@ const AdminDashboard = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => openEditModal(c)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium"
                                             >
                                                 <Pencil size={12} />
                                                 编辑
@@ -305,7 +520,7 @@ const AdminDashboard = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteClass(c.id)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium"
                                             >
                                                 <Trash2 size={12} />
                                                 删除
@@ -314,6 +529,101 @@ const AdminDashboard = () => {
                                     </li>
                                 ))}
                             </ul>
+                        )}
+                    </div>
+                </section>
+
+                {/* 学生名单管理 */}
+                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
+                        <Users className="text-teal-500 dark:text-teal-400" size={20} />
+                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">学生名单管理</h2>
+                    </div>
+                    <div className="p-4 overflow-x-auto">
+                        <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <div className="relative">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    value={studentKeyword}
+                                    onChange={(e) => setStudentKeyword(e.target.value)}
+                                    placeholder="搜索学号或姓名"
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                                />
+                            </div>
+                            <select
+                                value={studentStatusFilter}
+                                onChange={(e) => setStudentStatusFilter(e.target.value)}
+                                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                            >
+                                <option value="all">全部状态</option>
+                                <option value="approved">审核通过</option>
+                                <option value="pending">待审核</option>
+                                <option value="rejected">已拒绝</option>
+                            </select>
+                            <select
+                                value={classFilter}
+                                onChange={(e) => setClassFilter(e.target.value)}
+                                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                            >
+                                <option value="all">全部班级</option>
+                                <option value="none">未分班</option>
+                                {classes.map((c) => (
+                                    <option key={c.id} value={String(c.id)}>{c.class_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {students.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">暂无学生</p>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-white/10">
+                                        <th className="py-2 pr-3">学号</th>
+                                        <th className="py-2 pr-3">姓名</th>
+                                        <th className="py-2 pr-3">班级</th>
+                                        <th className="py-2 pr-3">状态</th>
+                                        <th className="py-2 pr-3">活跃度</th>
+                                        <th className="py-2 pr-3">综合分</th>
+                                        <th className="py-2 text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredStudents.map((s) => (
+                                        <tr key={s.id} className="border-b border-gray-100 dark:border-white/5">
+                                            <td className="py-2 pr-3 font-mono">{s.uid}</td>
+                                            <td className="py-2 pr-3">{s.name}</td>
+                                            <td className="py-2 pr-3">{s.class_name || '未分班'}</td>
+                                            <td className="py-2 pr-3">
+                                                <span className={`text-xs px-2 py-0.5 rounded ${s.status === 'approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : s.status === 'pending' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'}`}>
+                                                    {statusLabel(s.status)}
+                                                </span>
+                                            </td>
+                                            <td className="py-2 pr-3">{Number(s.active_score ?? 0)}%</td>
+                                            <td className="py-2 pr-3">{Number(s.overall_score ?? 0).toFixed(1)}</td>
+                                            <td className="py-2 text-right space-x-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openEditStudentModal(s)}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
+                                                >
+                                                    <Pencil size={12} /> 编辑
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteStudent(s.id)}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                >
+                                                    <Trash2 size={12} /> 删除
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                        {students.length > 0 && filteredStudents.length === 0 && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 py-3">没有符合筛选条件的学生。</p>
                         )}
                     </div>
                 </section>
@@ -421,6 +731,57 @@ const AdminDashboard = () => {
                             </div>
                             <div className="flex gap-2 mt-6">
                                 <button type="button" onClick={() => !submitLoading && setShowEditModal(false)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
+                                <button type="submit" disabled={submitLoading} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50">{submitLoading ? '保存中…' : '保存'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 编辑学生弹窗 */}
+            {editingStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !submitLoading && setEditingStudent(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">编辑学生 · {editingStudent.uid}</h3>
+                        <form onSubmit={handleEditStudent}>
+                            {formError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{formError}</p>}
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">姓名</label>
+                                    <input name="name" type="text" required defaultValue={editingStudent.name} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">班级</label>
+                                    <select name="class_id" defaultValue={editingStudent.class_id ?? ''} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm">
+                                        <option value="">未分班</option>
+                                        {classes.map(c => <option key={c.id} value={c.id}>{c.class_name} ({c.class_code})</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">状态</label>
+                                    <select name="status" defaultValue={editingStudent.status || 'approved'} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm">
+                                        <option value="approved">approved</option>
+                                        <option value="pending">pending</option>
+                                        <option value="rejected">rejected</option>
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度</label>
+                                        <input name="active_score" type="number" min="0" max="100" step="1" defaultValue={editingStudent.active_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合分</label>
+                                        <input name="overall_score" type="number" min="0" max="100" step="0.1" defaultValue={editingStudent.overall_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">薄弱点（选填）</label>
+                                    <input name="weak_point" type="text" defaultValue={editingStudent.weak_point ?? ''} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button type="button" onClick={() => !submitLoading && setEditingStudent(null)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
                                 <button type="submit" disabled={submitLoading} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50">{submitLoading ? '保存中…' : '保存'}</button>
                             </div>
                         </form>

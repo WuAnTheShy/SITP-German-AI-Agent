@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key, UserPlus, CheckCircle, XCircle } from 'lucide-react';
-import { API_DASHBOARD, API_TEACHER_PENDING_STUDENTS, API_TEACHER_APPROVE_STUDENT, API_TEACHER_REJECT_STUDENT } from '../../api/config';
+import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key, UserPlus, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
+import { API_DASHBOARD, API_TEACHER_PENDING_STUDENTS, API_TEACHER_APPROVE_STUDENT, API_TEACHER_REJECT_STUDENT, API_TEACHER_STUDENTS, API_TEACHER_UPDATE_STUDENT, API_TEACHER_REMOVE_STUDENT } from '../../api/config';
 import { useToast } from '../../components/Toast';
 import PasswordChangeModal from '../../components/PasswordChangeModal';
 
@@ -14,10 +14,14 @@ const TeacherDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [pendingStudents, setPendingStudents] = useState([]);
+    const [classStudents, setClassStudents] = useState([]);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshing, setRefreshing] = useState(false);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [editingStudent, setEditingStudent] = useState(null);
+    const [studentFormError, setStudentFormError] = useState('');
+    const [studentSubmitLoading, setStudentSubmitLoading] = useState(false);
 
     // 🟢 从 localStorage 读取教师名称
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -30,14 +34,16 @@ const TeacherDashboard = () => {
 
         try {
             console.log('[Client] 正在加载仪表盘数据...');
-            const [dashboardRes, pendingRes] = await Promise.all([
+            const [dashboardRes, pendingRes, studentsRes] = await Promise.all([
                 request.get(API_DASHBOARD),
-                request.get(API_TEACHER_PENDING_STUDENTS).catch(() => ({ data: { data: [] } }))
+                request.get(API_TEACHER_PENDING_STUDENTS).catch(() => ({ data: { data: [] } })),
+                request.get(API_TEACHER_STUDENTS).catch(() => ({ data: { data: [] } }))
             ]);
 
             if (dashboardRes.data.code === 200) {
                 setData(dashboardRes.data.data);
                 setPendingStudents(pendingRes.data?.data || pendingRes.data || []);
+                setClassStudents(studentsRes.data?.data || studentsRes.data || []);
                 setError('');
                 if (showRefreshToast) toast.success('数据刷新成功');
             } else {
@@ -47,6 +53,7 @@ const TeacherDashboard = () => {
             console.error('加载失败:', err);
             setData(FALLBACK_DATA);
             setPendingStudents([]);
+            setClassStudents([]);
             setError('网络请求失败，已切换至离线模式');
             if (showRefreshToast) toast.error('刷新失败，使用缓存数据');
         } finally {
@@ -96,12 +103,67 @@ const TeacherDashboard = () => {
         }
     };
 
+    const openEditStudentModal = (student) => {
+        setEditingStudent(student);
+        setStudentFormError('');
+    };
+
+    const handleUpdateStudent = async (e) => {
+        e.preventDefault();
+        if (!editingStudent) return;
+
+        const form = e.target;
+        const payload = {
+            name: (form.name?.value || '').trim(),
+            status: form.status?.value,
+            active_score: parseInt(form.active_score?.value || '0', 10),
+            overall_score: parseFloat(form.overall_score?.value || '0'),
+            weak_point: (form.weak_point?.value || '').trim() || null,
+        };
+
+        if (!payload.name) {
+            setStudentFormError('姓名不能为空');
+            return;
+        }
+
+        setStudentSubmitLoading(true);
+        try {
+            const res = await request.put(API_TEACHER_UPDATE_STUDENT(editingStudent.id), payload);
+            if (res.data.code === 200) {
+                toast.success('学生信息已更新');
+                setEditingStudent(null);
+                fetchDashboardData();
+            } else {
+                setStudentFormError(res.data.message || '保存失败');
+            }
+        } catch (err) {
+            setStudentFormError(err.response?.data?.detail || '保存失败');
+        } finally {
+            setStudentSubmitLoading(false);
+        }
+    };
+
+    const handleRemoveStudent = async (id) => {
+        if (!window.confirm('确定将该学生移出当前班级吗？')) return;
+        try {
+            const res = await request.delete(API_TEACHER_REMOVE_STUDENT(id));
+            if (res.data.code === 200) {
+                toast.success('学生已移出班级');
+                fetchDashboardData();
+            } else {
+                toast.error(res.data.message || '操作失败');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.detail || '移出失败');
+        }
+    };
+
     // 过滤学生列表（增加判空容错和大小写不敏感搜索）
-    const filteredStudents = data?.students?.filter(s => {
+    const filteredStudents = classStudents.filter(s => {
         const nameMatch = s?.name ? s.name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
         const uidMatch = s?.uid ? String(s.uid).toLowerCase().includes(searchTerm.toLowerCase()) : false;
         return nameMatch || uidMatch;
-    }) || [];
+    });
 
     // 渲染加载状态
     if (loading) {
@@ -320,7 +382,7 @@ const TeacherDashboard = () => {
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {filteredStudents.map((student) => (
                                     <tr
-                                        key={student.uid}
+                                        key={student.id || student.uid}
                                         onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
                                         className="hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group"
                                     >
@@ -338,28 +400,48 @@ const TeacherDashboard = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-16 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-green-500" style={{ width: `${student.active}% ` }}></div>
+                                                    <div className="h-full bg-green-500" style={{ width: `${Math.max(0, Math.min(100, Number(student.active_score ?? 0)))}%` }}></div>
                                                 </div>
-                                                <span className="text-sm text-gray-600 dark:text-gray-400">{student.active}%</span>
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">{Number(student.active_score ?? 0)}%</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${student.score >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' :
-                                                student.score >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' :
+                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${Number(student.overall_score ?? 0) >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' :
+                                                Number(student.overall_score ?? 0) >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' :
                                                     'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'
                                                 }`}>
-                                                {student.score} 分
+                                                {Number(student.overall_score ?? 0).toFixed(1)} 分
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             <span className="flex items-center gap-1 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
-                                                <Activity size={12} /> {student.weak || '暂无'}
+                                                <Activity size={12} /> {student.weak_point || '暂无'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-colors">
-                                                <ArrowRight size={18} />
-                                            </button>
+                                            <div className="flex justify-end items-center gap-1">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openEditStudentModal(student);
+                                                    }}
+                                                    className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-colors"
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleRemoveStudent(student.id);
+                                                    }}
+                                                    className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                                <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-colors">
+                                                    <ArrowRight size={18} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -368,7 +450,7 @@ const TeacherDashboard = () => {
                     </div>
                     {filteredStudents.length === 0 && (
                         <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-                            {!(data?.students?.length) && (data?.className === '未关联')
+                            {!(classStudents.length) && (data?.className === '未关联')
                                 ? '暂无学生。请联系管理员在「管理员工作台」为您分配班级后，即可使用任务发布、学情查看等功能。'
                                 : '未找到匹配的学生'}
                         </div>
@@ -380,6 +462,49 @@ const TeacherDashboard = () => {
                 isOpen={isPasswordModalOpen}
                 onClose={() => setIsPasswordModalOpen(false)}
             />
+
+            {editingStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !studentSubmitLoading && setEditingStudent(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">编辑学生信息 · {editingStudent.uid}</h3>
+                        <form onSubmit={handleUpdateStudent}>
+                            {studentFormError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{studentFormError}</p>}
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">姓名</label>
+                                    <input name="name" type="text" required defaultValue={editingStudent.name} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">状态</label>
+                                    <select name="status" defaultValue={editingStudent.status || 'approved'} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm">
+                                        <option value="approved">approved</option>
+                                        <option value="pending">pending</option>
+                                        <option value="rejected">rejected</option>
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度</label>
+                                        <input name="active_score" type="number" min="0" max="100" step="1" defaultValue={editingStudent.active_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合评分</label>
+                                        <input name="overall_score" type="number" min="0" max="100" step="0.1" defaultValue={editingStudent.overall_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">薄弱点（选填）</label>
+                                    <input name="weak_point" type="text" defaultValue={editingStudent.weak_point ?? ''} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button type="button" onClick={() => !studentSubmitLoading && setEditingStudent(null)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
+                                <button type="submit" disabled={studentSubmitLoading} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50">{studentSubmitLoading ? '保存中…' : '保存'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

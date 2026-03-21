@@ -134,7 +134,7 @@ const TeacherLogin = () => {
             const response = await request.post(API_LOGIN_URL, {
                 username: formData.employeeId,
                 password: formData.password
-            });
+            }, { skipAuthRedirect: true });
 
             if (response.data.code !== 200) {
                 throw new Error(response.data.message || '登录失败');

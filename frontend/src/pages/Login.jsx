@@ -123,7 +123,7 @@ const Login = () => {
 
     const attemptLogin = async (url, credentials) => {
         try {
-            const response = await request.post(url, credentials);
+            const response = await request.post(url, credentials, { skipAuthRedirect: true });
             if (response.data.code === 200) return response.data;
             return null;
         } catch (err) {

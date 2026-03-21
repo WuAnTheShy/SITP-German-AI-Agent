@@ -23,6 +23,11 @@ export const API_ADMIN_PENDING_TEACHERS = `${API_BASE}/api/admin/users/pending-t
 export const API_ADMIN_APPROVE_TEACHER = (id) => `${API_BASE}/api/admin/users/teachers/${id}/approve`;
 export const API_ADMIN_REJECT_TEACHER = (id) => `${API_BASE}/api/admin/users/teachers/${id}/reject`;
 export const API_ADMIN_DELETE_CLASS = (id) => `${API_BASE}/api/admin/classes/${id}`;
+export const API_ADMIN_UPDATE_TEACHER = (id) => `${API_BASE}/api/admin/teachers/${id}`;
+export const API_ADMIN_DELETE_TEACHER = (id) => `${API_BASE}/api/admin/teachers/${id}`;
+export const API_ADMIN_STUDENTS = `${API_BASE}/api/admin/students`;
+export const API_ADMIN_UPDATE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
+export const API_ADMIN_DELETE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
 
 // ---- 注册 ----
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
@@ -37,6 +42,9 @@ export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
 export const API_TEACHER_PENDING_STUDENTS = `${API_BASE}/api/teacher/pending-students`;
 export const API_TEACHER_APPROVE_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}/approve`;
 export const API_TEACHER_REJECT_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}/reject`;
+export const API_TEACHER_STUDENTS = `${API_BASE}/api/teacher/students`;
+export const API_TEACHER_UPDATE_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}`;
+export const API_TEACHER_REMOVE_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}`;
 
 // ---- 情景任务 ----
 export const API_SCENARIO_PUBLISH = `${API_BASE}/api/scenario/publish`;
