@@ -1,8 +1,11 @@
-"""密码哈希与校验，统一使用 bcrypt，兼容旧库中的明文密码。"""
-from passlib.context import CryptContext
+"""密码哈希与校验，统一使用 bcrypt，并支持前端 SHA-256 传输哈希。"""
+import hashlib
+import re
 
-_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+import bcrypt
+
 _BCRYPT_MAX_BYTES = 72
+_SHA256_RE = re.compile(r"^[a-fA-F0-9]{64}$")
 
 
 def _truncate_for_bcrypt(s: str) -> str:
@@ -17,7 +20,28 @@ def _truncate_for_bcrypt(s: str) -> str:
 
 def hash_password(plain: str) -> str:
     """将明文密码哈希后存入数据库。"""
-    return _ctx.hash(_truncate_for_bcrypt(plain))
+    secret = _truncate_for_bcrypt(plain).encode("utf-8")
+    return bcrypt.hashpw(secret, bcrypt.gensalt(rounds=12)).decode("utf-8")
+
+
+def is_sha256_hex(value: str | None) -> bool:
+    if not value:
+        return False
+    return bool(_SHA256_RE.fullmatch(value.strip()))
+
+
+def sha256_hex(text: str) -> str:
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+def ensure_transport_hash(raw_or_hash: str | None) -> str:
+    """把输入统一为 64 位 SHA-256 十六进制字符串。"""
+    if raw_or_hash is None:
+        return ""
+    v = str(raw_or_hash).strip()
+    if is_sha256_hex(v):
+        return v.lower()
+    return sha256_hex(v)
 
 
 def verify_password(plain: str, stored: str) -> bool:
@@ -25,5 +49,8 @@ def verify_password(plain: str, stored: str) -> bool:
     if not stored or not plain:
         return False
     if stored.startswith("$2") and len(stored) > 20:
-        return _ctx.verify(_truncate_for_bcrypt(plain), stored)
+        try:
+            return bcrypt.checkpw(_truncate_for_bcrypt(plain).encode("utf-8"), stored.encode("utf-8"))
+        except Exception:
+            return False
     return plain == stored

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { School, Lock, User, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus, Sparkles } from 'lucide-react';
 import request from '../api/request';
 import { API_LOGIN, API_STUDENT_LOGIN } from '../api/config';
+import { sha256Hex } from '../utils/security';
 
 // 德语字母/单词粒子数据
 const PARTICLES = [
@@ -151,10 +152,11 @@ const Login = () => {
         }
 
         try {
+            const encryptedPassword = await sha256Hex(formData.password);
             // 1. 尝试学生登录
             let loginData = await attemptLogin(API_STUDENT_LOGIN, {
                 username: formData.username,
-                password: formData.password
+                password: encryptedPassword
             });
 
             if (loginData) {
@@ -166,7 +168,7 @@ const Login = () => {
             // 2. 尝试教工登录
             loginData = await attemptLogin(API_LOGIN, {
                 username: formData.username,
-                password: formData.password
+                password: encryptedPassword
             });
 
             if (loginData) {

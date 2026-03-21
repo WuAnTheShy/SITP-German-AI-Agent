@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Lock, Key, Save, Loader2 } from 'lucide-react';
 import request from '../api/request';
 import { useToast } from './Toast';
+import { sha256Hex } from '../utils/security';
 
 const PasswordChangeModal = ({ isOpen, onClose }) => {
     const toast = useToast();
@@ -32,9 +33,11 @@ const PasswordChangeModal = ({ isOpen, onClose }) => {
 
         setLoading(true);
         try {
+            const oldPasswordHash = await sha256Hex(oldPassword);
+            const newPasswordHash = await sha256Hex(newPassword);
             const response = await request.put('/api/user/password', {
-                oldPassword,
-                newPassword
+                oldPassword: oldPasswordHash,
+                newPassword: newPasswordHash
             });
 
             if (response.data.code === 200) {

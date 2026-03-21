@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
 import { API_STUDENT_LOGIN } from '../../api/config';
 import { GraduationCap, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, UserPlus } from 'lucide-react';
+import { sha256Hex } from '../../utils/security';
 
 // 浮动粒子数据（与首页统一设计语言）
 const PARTICLES = [
@@ -132,9 +133,10 @@ const StudentLogin = () => {
         }
 
         try {
+            const encryptedPassword = await sha256Hex(formData.password);
             const response = await request.post(API_STUDENT_LOGIN, {
                 username: formData.studentId,
-                password: formData.password
+                password: encryptedPassword
             });
 
             if (response.data.code !== 200) {

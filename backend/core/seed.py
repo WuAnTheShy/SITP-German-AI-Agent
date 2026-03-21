@@ -17,6 +17,7 @@ from schemas.entities import (
     HomeworkCreate,
 )
 from core.responses import to_float
+from core.password import ensure_transport_hash, hash_password
 
 
 def _ensure_admin(db: Session):
@@ -27,7 +28,7 @@ def _ensure_admin(db: Session):
     if admin_user:
         if admin_user.role != "admin":
             admin_user.role = "admin"
-            admin_user.password_hash = "admin123"
+            admin_user.password_hash = hash_password(ensure_transport_hash("admin123"))
             admin_user.display_name = "管理员"
             db.commit()
         return
@@ -35,7 +36,7 @@ def _ensure_admin(db: Session):
         db,
         UserCreate(
             username="admin",
-            password_hash="admin123",
+            password_hash=hash_password(ensure_transport_hash("admin123")),
             role="admin",
             display_name="管理员",
         ),
@@ -49,7 +50,7 @@ def _ensure_demo_data(db: Session):
             db,
             UserCreate(
                 username="t_zhang",
-                password_hash="demo_hash_teacher",
+                password_hash=hash_password(ensure_transport_hash("demo_hash_teacher")),
                 role="teacher",
                 display_name="张老师",
             ),
@@ -74,7 +75,7 @@ def _ensure_demo_data(db: Session):
                 db,
                 UserCreate(
                     username=username,
-                    password_hash="demo_hash_student",
+                    password_hash=hash_password(ensure_transport_hash("demo_hash_student")),
                     role="student",
                     display_name=name,
                 ),
