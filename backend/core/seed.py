@@ -17,7 +17,17 @@ from schemas.entities import (
     HomeworkCreate,
 )
 from core.responses import to_float
-from core.password import ensure_transport_hash, hash_password
+from core.password import ensure_transport_hash, hash_password, verify_password
+
+
+def _ensure_user_password(db: Session, user, raw_password: str) -> None:
+    """确保账号密码与约定默认值一致，兼容旧库残留哈希格式。"""
+    if not user:
+        return
+    expected = ensure_transport_hash(raw_password)
+    if not verify_password(expected, getattr(user, "password_hash", "")):
+        user.password_hash = hash_password(expected)
+        db.commit()
 
 
 def _ensure_admin(db: Session):
@@ -28,9 +38,9 @@ def _ensure_admin(db: Session):
     if admin_user:
         if admin_user.role != "admin":
             admin_user.role = "admin"
-            admin_user.password_hash = hash_password(ensure_transport_hash("admin123"))
             admin_user.display_name = "管理员"
             db.commit()
+        _ensure_user_password(db, admin_user, "admin123")
         return
     UserCRUD.create(
         db,
@@ -55,6 +65,8 @@ def _ensure_demo_data(db: Session):
                 display_name="张老师",
             ),
         )
+    else:
+        _ensure_user_password(db, teacher, "demo_hash_teacher")
 
     classroom = ClassroomCRUD.get_by_code(db, "SE-2026-4")
     if not classroom:
@@ -80,6 +92,8 @@ def _ensure_demo_data(db: Session):
                     display_name=name,
                 ),
             )
+        else:
+            _ensure_user_password(db, stu_user, "demo_hash_student")
 
         student = StudentCRUD.get_by_uid(db, uid)
         if not student:
