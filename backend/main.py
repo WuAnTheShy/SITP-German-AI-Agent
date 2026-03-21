@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import io
+import time
 from datetime import date, datetime, timedelta, timezone
 from statistics import mean
 from uuid import uuid4
@@ -119,6 +120,22 @@ app = FastAPI()
 def startup_event():
     from sqlalchemy import text
     from db.session import engine
+
+    # Docker 重建时 backend 可能先于 db 启动，先等待数据库可连接再执行迁移。
+    max_retries = int(os.getenv("DB_READY_MAX_RETRIES", "30"))
+    retry_interval = float(os.getenv("DB_READY_RETRY_INTERVAL", "2"))
+    for attempt in range(1, max_retries + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            break
+        except Exception as e:
+            if attempt == max_retries:
+                print(f"[Server] Database not ready after {max_retries} attempts: {e}")
+                return
+            print(f"[Server] Waiting for database ({attempt}/{max_retries})... {e}")
+            time.sleep(retry_interval)
+
     print("[Server] Checking for database migrations...")
     try:
         with engine.begin() as conn:
