@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import StudentLayout from '../../components/StudentLayout';
 import request from '../../api/request';
 import { API_WRITING_CHECK, API_WRITING_SAMPLE } from '../../api/config';
+import MarkdownContent from '../../components/MarkdownContent';
 
 const WritingAssistant = () => {
   const [userText, setUserText] = useState('');
@@ -98,7 +99,9 @@ const WritingAssistant = () => {
         {sampleEssay && (
           <div className="student-card p-6">
             <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 mb-4">📄 AI生成范文</h3>
-            <p className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800/50 text-gray-800 dark:text-white leading-relaxed whitespace-pre-wrap">{sampleEssay}</p>
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800/50 text-gray-800 dark:text-white leading-relaxed">
+              <MarkdownContent content={sampleEssay} />
+            </div>
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, FileText, MessageSquare, Award } from 'lucide-react';
 import request from '../../api/request';
+import MarkdownContent from '../../components/MarkdownContent';
 
 const ExamResult = () => {
     const { userId, assignmentId } = useParams();
@@ -86,9 +87,9 @@ const ExamResult = () => {
                     {ai_comment && (
                         <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50 flex gap-3">
                             <Award className="text-indigo-600 shrink-0" />
-                            <div className="text-sm text-indigo-800 dark:text-indigo-200 whitespace-pre-wrap">
+                            <div className="text-sm text-indigo-800 dark:text-indigo-200">
                                 <span className="font-bold block mb-1">批改建议及详情：</span>
-                                {ai_comment}
+                                <MarkdownContent content={ai_comment} />
                             </div>
                         </div>
                     )}
