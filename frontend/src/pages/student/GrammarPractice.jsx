@@ -60,7 +60,7 @@ const GrammarPractice = () => {
 
   return (
     <StudentLayout>
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="student-page">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">📖 德语语法专题练习</h1>
           <p className="text-gray-500 dark:text-gray-400">选择语法点开始练习，AI将为你解析错题</p>
@@ -82,7 +82,7 @@ const GrammarPractice = () => {
 
         {/* 练习区 */}
         {selectedCategory && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6">
+          <div className="student-card p-6">
             <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4">当前练习：{selectedCategory.name}</h2>
             {loadingExercises ? (
               <p className="text-gray-400 dark:text-gray-500 py-8 text-center">加载练习题中...</p>
@@ -100,7 +100,7 @@ const GrammarPractice = () => {
                           value={userAnswers[exercise.id] || ''}
                           onChange={(e) => setUserAnswers({ ...userAnswers, [exercise.id]: e.target.value })}
                           disabled={submitting || correctionResult}
-                          className="dark:text-white w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:bg-gray-800"
+                          className="student-input w-full px-4 py-2 rounded-lg disabled:bg-gray-100 dark:disabled:bg-gray-800"
                         />
                         {detail && (
                           <div className={`mt-2 p-3 rounded-lg ${detail.isCorrect ? 'bg-green-50 dark:bg-green-900/30 border border-green-200' : 'bg-red-50 dark:bg-red-900/30 border border-red-200'}`}>
@@ -118,7 +118,7 @@ const GrammarPractice = () => {
 
                 {!correctionResult && (
                   <button onClick={handleSubmit} disabled={submitting || loadingExercises}
-                    className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium">
+                    className="student-action-primary w-full py-3 rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed font-medium">
                     {submitting ? '提交中...' : '🤖 提交并查看AI解析'}
                   </button>
                 )}

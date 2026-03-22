@@ -223,7 +223,7 @@ const AISceneChat = () => {
   return (
     <StudentLayout>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="student-panel p-6 border-b border-slate-200/70 dark:border-slate-700/70">
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
             🗣️ 场景化AI德语对话
           </h1>
@@ -332,7 +332,7 @@ const AISceneChat = () => {
                   )}
                 </div>
 
-                <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <div className="student-panel p-4 border-t border-slate-200/70 dark:border-slate-700/70">
                   <div className="max-w-3xl mx-auto flex gap-3">
                     <input
                       ref={inputRef}
@@ -346,7 +346,7 @@ const AISceneChat = () => {
                       onChange={(e) => setInputMsg(e.target.value)}
                       onKeyDown={handleKeyDown}
                       disabled={loading}
-                      className="dark:text-white flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-800 disabled:bg-gray-100 dark:bg-gray-800"
+                      className="student-input flex-1 px-4 py-3 rounded-xl disabled:bg-gray-100 dark:disabled:bg-gray-800/80"
                     />
                     <button
                       onClick={handleSendMsg}

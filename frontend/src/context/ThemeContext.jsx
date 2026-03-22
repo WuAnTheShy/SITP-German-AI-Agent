@@ -1,19 +1,19 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useLayoutEffect, useState } from 'react';
 
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-    // 默认优先读取 localStorage，否则回退到深色模式（因为原版默认是深色系）
+    // 默认优先读取 localStorage，未设置时回退到浅色模式
     const [theme, setTheme] = useState(() => {
         const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
+        if (savedTheme === 'light' || savedTheme === 'dark') {
             return savedTheme;
         }
-        return 'dark';
+        return 'light';
     });
 
-    useEffect(() => {
-        // 更新 html 根节点的 class
+    useLayoutEffect(() => {
+        // 以布局阶段同步更新 html class，减少主题切换闪烁
         const root = document.documentElement;
         if (theme === 'dark') {
             root.classList.add('dark');

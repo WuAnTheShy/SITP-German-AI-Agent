@@ -7,17 +7,36 @@ BEGIN;
 INSERT INTO users (username, password_hash, role, display_name)
 VALUES
     ('t_zhang', 'demo_hash_teacher', 'teacher', '张老师'),
+    ('t_liu',   'demo_hash_teacher', 'teacher', '刘老师'),
+    ('t_chen',  'demo_hash_teacher', 'teacher', '陈老师'),
     ('s_li',    'demo_hash_student', 'student', '李娜'),
-    ('s_wang',  'demo_hash_student', 'student', '王强')
+    ('s_wang',  'demo_hash_student', 'student', '王强'),
+    ('s_zhao',  'demo_hash_student', 'student', '赵敏'),
+    ('s_sun',   'demo_hash_student', 'student', '孙浩'),
+    ('s_qian',  'demo_hash_student', 'student', '钱雨'),
+    ('s_he',    'demo_hash_student', 'student', '何宁')
 ON CONFLICT (username) DO NOTHING;
 
 -- 班级
 INSERT INTO classes (class_code, class_name, grade, teacher_user_id)
-VALUES (
+VALUES
+(
     'SE-2026-4',
     '软件工程(四)班',
     '2026',
     (SELECT id FROM users WHERE username = 't_zhang')
+),
+(
+    'DS-2026-1',
+    '数据科学(一)班',
+    '2026',
+    (SELECT id FROM users WHERE username = 't_liu')
+),
+(
+    'FA-2025-2',
+    '德语强化(二)班',
+    '2025',
+    (SELECT id FROM users WHERE username = 't_chen')
 )
 ON CONFLICT (class_code) DO NOTHING;
 
@@ -41,6 +60,42 @@ VALUES
     64,
     78.0,
     '被动语态'
+),
+(
+    '2452003',
+    (SELECT id FROM users WHERE username = 's_zhao'),
+    (SELECT id FROM classes WHERE class_code = 'DS-2026-1'),
+    '赵敏',
+    72,
+    82.5,
+    '名词格变化'
+),
+(
+    '2452004',
+    (SELECT id FROM users WHERE username = 's_sun'),
+    (SELECT id FROM classes WHERE class_code = 'DS-2026-1'),
+    '孙浩',
+    59,
+    71.0,
+    '词序'
+),
+(
+    '2452005',
+    (SELECT id FROM users WHERE username = 's_qian'),
+    (SELECT id FROM classes WHERE class_code = 'FA-2025-2'),
+    '钱雨',
+    85,
+    89.0,
+    '介词搭配'
+),
+(
+    '2452006',
+    (SELECT id FROM users WHERE username = 's_he'),
+    (SELECT id FROM classes WHERE class_code = 'FA-2025-2'),
+    '何宁',
+    67,
+    76.5,
+    '虚拟式'
 )
 ON CONFLICT (uid) DO NOTHING;
 
@@ -56,6 +111,26 @@ VALUES
     (SELECT id FROM students WHERE uid = '2452002'),
     68, 62, 75, 70,
     '被动语态掌握不足，建议优先完成专项练习。'
+),
+(
+    (SELECT id FROM students WHERE uid = '2452003'),
+    74, 70, 85, 81,
+    '名词格变化细节仍需巩固，建议加强第四格与第三格对比。'
+),
+(
+    (SELECT id FROM students WHERE uid = '2452004'),
+    61, 58, 73, 69,
+    '句子词序错误较多，建议先练主从句语序规则。'
+),
+(
+    (SELECT id FROM students WHERE uid = '2452005'),
+    86, 84, 90, 88,
+    '整体表现较好，介词固定搭配可进一步提升。'
+),
+(
+    (SELECT id FROM students WHERE uid = '2452006'),
+    69, 65, 77, 74,
+    '虚拟式表达不稳定，建议增加情景造句训练。'
 )
 ON CONFLICT (student_id) DO NOTHING;
 

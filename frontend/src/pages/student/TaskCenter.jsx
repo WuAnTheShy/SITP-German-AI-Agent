@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import request from '../../api/request';
 import { ArrowLeft, CheckCircle, Clock, FileText, MessageSquare, Play, RotateCw } from 'lucide-react';
+import StudentLayout from '../../components/StudentLayout';
 
 const TaskCenter = () => {
     const navigate = useNavigate();
@@ -48,7 +49,7 @@ const TaskCenter = () => {
         const isExam = task.type === 'exam';
 
         return (
-            <div key={task.id} className={`p-5 rounded-2xl border ${isCompleted ? 'bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700' : 'bg-white border-indigo-100 dark:bg-gray-800 dark:border-indigo-900/30'} shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group`}>
+            <div key={task.id} className={`student-card p-5 border ${isCompleted ? 'opacity-95' : 'border-indigo-200/80 dark:border-indigo-900/40'} hover:shadow-md transition-shadow relative overflow-hidden group`}>
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex gap-3 items-center">
                         <div className={`p-2.5 rounded-xl ${isExam ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'}`}>
@@ -77,7 +78,7 @@ const TaskCenter = () => {
                     {isExam && !isCompleted && (
                         <button
                             onClick={() => navigate(`/student/${userId}/take-exam/${task.assignment_id}`)}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-1 transition"
+                            className="student-action-primary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
                         >
                             <Play size={16} /> 开始测验
                         </button>
@@ -85,7 +86,7 @@ const TaskCenter = () => {
                     {isExam && isCompleted && (
                         <button
                             onClick={() => navigate(`/student/${userId}/exam-result/${task.assignment_id}`)}
-                            className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                            className="student-action-secondary px-4 py-2 rounded-lg text-sm font-medium"
                         >
                             查看作业记录
                         </button>
@@ -95,13 +96,13 @@ const TaskCenter = () => {
                         <>
                             <button
                                 onClick={() => navigate(`/student/${userId}/ai-scene-chat`)}
-                                className="bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-200 transition"
+                                className="student-action-secondary px-4 py-2 rounded-lg text-sm font-medium"
                             >
                                 去聊天大厅
                             </button>
                             <button
                                 onClick={() => handleCompleteScenario(task.push_id)}
-                                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-1 transition"
+                                className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1 transition"
                             >
                                 <CheckCircle size={16} /> 标记完成
                             </button>
@@ -113,7 +114,8 @@ const TaskCenter = () => {
     };
 
     return (
-        <div className="p-6">
+        <StudentLayout>
+        <div className="student-page">
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-4">
                     <button
@@ -127,7 +129,7 @@ const TaskCenter = () => {
                 <button
                     onClick={fetchTasks}
                     disabled={loading}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                    className="student-action-secondary flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
                 >
                     <RotateCw size={14} className={loading ? 'animate-spin' : ''} /> 刷新
                 </button>
@@ -164,6 +166,7 @@ const TaskCenter = () => {
                 )}
             </div>
         </div>
+        </StudentLayout>
     );
 };
 

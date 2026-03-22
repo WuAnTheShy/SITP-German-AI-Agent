@@ -93,9 +93,9 @@ const StudentLayout = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden relative">
+    <div className="student-shell flex h-screen overflow-hidden relative">
       {/* 📱 移动端顶部状态栏 */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 w-full fixed top-0 z-40">
+      <div className="md:hidden student-panel flex items-center justify-between p-4 border-b border-slate-200/70 dark:border-slate-700/70 w-full fixed top-0 z-40">
         <h2 className="text-xl font-bold text-blue-900 dark:text-blue-400 flex items-center gap-2">
           <Bot size={24} /> AI-Tutor
         </h2>
@@ -117,7 +117,7 @@ const StudentLayout = ({ children }) => {
 
       {/* 🏠 左侧导航栏 - 响应式配置 */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0
+        fixed inset-y-0 left-0 z-50 w-64 student-panel border-r border-slate-200/70 dark:border-slate-700/70 flex flex-col shrink-0
         transition-transform duration-300 ease-in-out md:relative md:translate-x-0
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
@@ -141,10 +141,7 @@ const StudentLayout = ({ children }) => {
               <button
                 key={item.path}
                 onClick={() => handleNavClick(item.path)}
-                className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-all ${isActive
-                  ? "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
+                className={`student-nav-item ${isActive ? 'student-nav-item-active' : ''}`}
               >
                 <Icon size={18} /> {item.label}
               </button>
@@ -165,14 +162,14 @@ const StudentLayout = ({ children }) => {
             <button
               type="button"
               onClick={openJoinClassModal}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-xl transition-all border border-blue-200 dark:border-blue-800"
+              className="student-action-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl"
             >
               <School size={18} /> 加入班级
             </button>
           )}
           <button
             onClick={() => setIsPasswordModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all border border-gray-200 dark:border-gray-700 shadow-sm"
+            className="student-action-secondary w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl"
           >
             <Key size={18} /> 修改密码
           </button>
@@ -197,14 +194,14 @@ const StudentLayout = ({ children }) => {
       {/* 加入班级弹窗 */}
       {showJoinClassModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !joinClassLoading && setShowJoinClassModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+          <div className="student-panel rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">加入班级</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">选择要加入的班级后，即可使用任务中心等需关联班级的功能。</p>
             {joinClassError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{joinClassError}</p>}
             <form onSubmit={handleJoinClass}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择班级</label>
-                <select name="class_id" required className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm">
+                <select name="class_id" required className="student-input w-full px-3 py-2 rounded-lg text-sm">
                   <option value="">请选择</option>
                   {classList.map(c => (
                     <option key={c.id} value={c.id}>{c.class_name}（{c.class_code}）{c.grade ? ` · ${c.grade}` : ''}</option>
@@ -212,8 +209,8 @@ const StudentLayout = ({ children }) => {
                 </select>
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => !joinClassLoading && setShowJoinClassModal(false)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
-                <button type="submit" disabled={joinClassLoading || classList.length === 0} className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50">{joinClassLoading ? '提交中…' : '确认加入'}</button>
+                <button type="button" onClick={() => !joinClassLoading && setShowJoinClassModal(false)} className="student-action-secondary flex-1 py-2 rounded-lg text-sm font-medium">取消</button>
+                <button type="submit" disabled={joinClassLoading || classList.length === 0} className="student-action-primary flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50">{joinClassLoading ? '提交中…' : '确认加入'}</button>
               </div>
             </form>
           </div>

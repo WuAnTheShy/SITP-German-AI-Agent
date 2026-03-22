@@ -227,12 +227,12 @@ const StudentHome = () => {
 
   return (
     <StudentLayout>
-      <div className="flex-1 flex min-h-0 overflow-hidden bg-gray-100 dark:bg-gray-950">
+      <div className="flex-1 flex min-h-0 overflow-hidden bg-transparent">
         {/* 侧栏：会话列表；桌面可收起 */}
         <aside
           className={`${
             sidebarOpen ? "flex" : "hidden"
-          } ${sidebarDesktopOpen ? "md:flex" : "md:hidden"} w-full md:w-72 shrink-0 flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900`}
+          } ${sidebarDesktopOpen ? "md:flex" : "md:hidden"} w-full md:w-72 shrink-0 flex-col border-r border-slate-200/70 dark:border-slate-700/70 student-panel`}
         >
           <div className="p-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -332,7 +332,7 @@ const StudentHome = () => {
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b border-slate-200/70 dark:border-slate-700/70 student-panel">
             {!sidebarDesktopOpen && (
               <button
                 type="button"
@@ -350,7 +350,7 @@ const StudentHome = () => {
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 custom-scrollbar bg-gray-50 dark:bg-gray-950">
+          <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 custom-scrollbar bg-transparent">
             {loadingMessages ? (
               <div className="flex justify-center py-8 text-gray-500">
                 <Loader2 className="animate-spin mr-2" /> 加载历史…
@@ -381,7 +381,7 @@ const StudentHome = () => {
                       className={`p-3 md:p-4 rounded-2xl whitespace-pre-wrap text-sm md:text-base ${
                         msg.sender === "user"
                           ? "bg-blue-600 text-white rounded-tr-none"
-                          : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-tl-none text-gray-800 dark:text-white"
+                          : "student-card rounded-tl-none text-gray-800 dark:text-white"
                       }`}
                     >
                       {msg.text}
@@ -396,7 +396,7 @@ const StudentHome = () => {
                   <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
                     <Bot size={16} className="text-white" />
                   </div>
-                  <div className="p-3 rounded-2xl rounded-tl-none bg-white dark:bg-gray-800 border dark:border-gray-700 flex items-center gap-2 text-gray-500">
+                  <div className="student-card p-3 rounded-2xl rounded-tl-none flex items-center gap-2 text-gray-500 dark:text-gray-300">
                     <Loader2 className="animate-spin" size={16} /> AI 正在思考…
                   </div>
                 </div>
@@ -405,7 +405,7 @@ const StudentHome = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+          <div className="student-panel p-3 border-t border-slate-200/70 dark:border-slate-700/70">
             <div className="flex flex-wrap gap-2 mb-2">
               {promptTemplates.map((t, i) => (
                 <button
@@ -428,7 +428,7 @@ const StudentHome = () => {
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder={loading ? "请稍候…" : "输入后与 AI 对话…"}
                 disabled={loading || !sessionId}
-                className="dark:text-white w-full pl-4 pr-28 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                className="student-input w-full pl-4 pr-28 py-3 rounded-xl disabled:opacity-60"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button type="button" className="p-2 text-gray-400 hidden sm:block">
@@ -454,7 +454,7 @@ const StudentHome = () => {
 
       {deleteTargetId != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+          <div className="student-panel rounded-2xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">删除这条对话？</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
               将永久删除对话 <strong>#{deleteTargetId}</strong> 及其全部聊天记录，<strong>无法恢复</strong>。确定要继续吗？
@@ -462,7 +462,7 @@ const StudentHome = () => {
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
-                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                className="student-action-secondary px-4 py-2 rounded-lg"
                 onClick={() => setDeleteTargetId(null)}
               >
                 取消

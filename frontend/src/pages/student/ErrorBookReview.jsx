@@ -74,7 +74,7 @@ const ErrorBookReview = () => {
 
   return (
     <StudentLayout>
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="student-page">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">📝 德语错题本与复习</h1>
           <p className="text-gray-500 dark:text-gray-400">收集所有错题，AI针对性生成复习计划，精准补漏</p>
@@ -95,10 +95,10 @@ const ErrorBookReview = () => {
 
         {/* 复习操作 */}
         {selectedCate && (
-          <div className="flex items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div className="student-card flex items-center gap-4 mb-6 p-4">
             <button onClick={handleStartReview}
               disabled={reviewMode === 'review' || loading.review || loading.operate}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium">
+              className="student-action-primary px-6 py-3 rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed font-medium">
               {loading.review ? '正在开启复习...' : '🤖 开始AI针对性复习'}
             </button>
             <span className="text-sm text-gray-500 dark:text-gray-400">当前模式：
@@ -120,17 +120,17 @@ const ErrorBookReview = () => {
             ) : (
               <div className="space-y-4">
                 {errorList.map(error => (
-                  <div key={error.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                  <div key={error.id} className="student-card p-5">
                     <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded w-fit mb-2">{error.source}</div>
                     <p className="font-medium text-gray-800 dark:text-gray-200 mb-3">{error.question}</p>
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-100">
+                      <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-100 dark:border-red-900/40">
                         <span className="text-xs text-red-500 block mb-1">你的答案</span>
-                        <span className="text-red-700">{error.userAnswer}</span>
+                        <span className="text-red-700 dark:text-red-300">{error.userAnswer}</span>
                       </div>
-                      <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100">
+                      <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-900/40">
                         <span className="text-xs text-green-500 block mb-1">正确答案</span>
-                        <span className="text-green-700">{error.correctAnswer}</span>
+                        <span className="text-green-700 dark:text-green-300">{error.correctAnswer}</span>
                       </div>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3"><span className="font-medium">解析：</span>{error.analysis}</p>
