@@ -114,6 +114,8 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
                 return fail("您的账号正在等待审核，请耐心等待", 403)
             elif getattr(user, "status", "approved") == "rejected":
                 return fail("您的注册申请已被拒绝", 403)
+            elif not getattr(user, "is_active", True):
+                return fail("您的账号已被管理员停用，请联系管理员", 403)
 
             if not verify_password(login_pwd, user.password_hash):
                 return fail("密码错误，请重新输入", 401)
@@ -149,6 +151,9 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         user = UserCRUD.get_by_id(db, student.user_id)
         if not user:
             return fail("用户记录异常", 500)
+
+        if not getattr(user, "is_active", True):
+            return fail("您的账号已被管理员停用，请联系管理员", 403)
 
         _migrate_legacy_password_hash(user, db)
         login_pwd = ensure_transport_hash(req.password)

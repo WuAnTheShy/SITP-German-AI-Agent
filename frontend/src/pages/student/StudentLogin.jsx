@@ -36,6 +36,8 @@ const StudentLogin = () => {
         captchaInput: ''
     });
 
+    const isDisabledError = /登录被停用|账号已被管理员停用|账号已被停用/.test(error || '');
+
     // 🎨 图形验证码生成逻辑
     const refreshCaptcha = () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -170,6 +172,27 @@ const StudentLogin = () => {
         } catch (err) {
             console.error('🔴 学生登录错误:', err);
 
+            const backendMessage =
+                err.response?.data?.message ||
+                err.response?.data?.detail ||
+                err.response?.data?.error ||
+                err.message ||
+                '未知错误';
+            const isDisabledLogin = /停用/.test(backendMessage);
+            const isAuditBlocked = /等待审核|已被拒绝/.test(backendMessage);
+
+            // 账号被停用或审核状态拦截时，不应计入密码错误次数
+            if (isDisabledLogin) {
+                setError(`登录被停用：${backendMessage}`);
+                setFormData(prev => ({ ...prev, captchaInput: '' }));
+                return;
+            }
+            if (isAuditBlocked) {
+                setError(`登录失败: ${backendMessage}`);
+                setFormData(prev => ({ ...prev, captchaInput: '' }));
+                return;
+            }
+
             const newAttempts = failedAttempts + 1;
             setFailedAttempts(newAttempts);
             localStorage.setItem('failed_attempts_student', newAttempts.toString());
@@ -249,9 +272,14 @@ const StudentLogin = () => {
                 <div className="theme-glass-card rounded-2xl py-8 px-6 sm:px-10">
                     {/* 错误提示 */}
                     {error && (
-                        <div className="mb-5 bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex items-start">
-                            <AlertCircle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" />
-                            <p className="text-sm text-red-300">{error}</p>
+                        <div className={`mb-5 p-4 rounded-xl flex items-start ${isDisabledError ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                            <AlertCircle className={`h-5 w-5 mr-2 flex-shrink-0 mt-0.5 ${isDisabledError ? 'text-amber-400' : 'text-red-400'}`} />
+                            <div>
+                                <p className={`text-sm font-medium ${isDisabledError ? 'text-amber-300' : 'text-red-300'}`}>{error}</p>
+                                {isDisabledError && (
+                                    <p className="text-xs text-amber-200/90 mt-1">该账号当前无法登录，请联系管理员恢复“可登录”状态后再重试。</p>
+                                )}
+                            </div>
                         </div>
                     )}
 
