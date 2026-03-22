@@ -526,7 +526,7 @@ const AdminDashboard = () => {
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <BookOpen className="text-indigo-500 dark:text-indigo-400" size={20} />
-                            <h2 className="font-semibold text-gray-900 dark:text-gray-100">按班级统一管理（教师模块 + 学生模块）</h2>
+                            <h2 className="font-semibold text-gray-900 dark:text-gray-100">按班级统一管理</h2>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
                             <div className="relative">

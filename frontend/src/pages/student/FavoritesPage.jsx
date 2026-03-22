@@ -76,7 +76,7 @@ const FavoritesPage = () => {
 
   return (
     <StudentLayout>
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="student-page">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">⭐ 我的学习收藏夹</h1>
@@ -84,7 +84,7 @@ const FavoritesPage = () => {
           </div>
           <button 
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="student-action-primary px-4 py-2 rounded-lg text-sm font-medium"
           >
             ✚ 新建收藏
           </button>
@@ -98,7 +98,7 @@ const FavoritesPage = () => {
         ) : (
           <div className="space-y-4">
             {favList.map(item => (
-              <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+              <div key={item.id} className="student-card p-5">
                 <div className="mb-3">
                   <p className="font-medium text-gray-800 dark:text-gray-200 text-lg">{item.content}</p>
                   {item.translate && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">💡 释义：{item.translate}</p>}
@@ -111,7 +111,7 @@ const FavoritesPage = () => {
                     {aiLoading ? '生成中...' : '🤖 AI拓展'}
                   </button>
                   <button onClick={() => handleDeleteFav(item.id)} disabled={deleteLoading}
-                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors text-sm">
+                    className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/45 disabled:opacity-50 transition-colors text-sm">
                     {deleteLoading ? '删除中...' : '删除'}
                   </button>
                 </div>
@@ -123,7 +123,7 @@ const FavoritesPage = () => {
         {/* 新建收藏弹窗 */}
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="student-panel rounded-2xl shadow-xl w-full max-w-md p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">新建收藏</h3>
               <form onSubmit={handleAddFav}>
                 <div className="mb-4">
@@ -132,7 +132,7 @@ const FavoritesPage = () => {
                     type="text" 
                     value={newFav.content} 
                     onChange={(e) => setNewFav({...newFav, content: e.target.value})}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm"
+                    className="student-input w-full px-3 py-2 rounded-lg text-sm"
                     placeholder="例如：德语语法规则、词汇等"
                   />
                 </div>
@@ -142,7 +142,7 @@ const FavoritesPage = () => {
                     type="text" 
                     value={newFav.translate} 
                     onChange={(e) => setNewFav({...newFav, translate: e.target.value})}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm"
+                    className="student-input w-full px-3 py-2 rounded-lg text-sm"
                     placeholder="例如：中文翻译、解释等"
                   />
                 </div>
@@ -152,7 +152,7 @@ const FavoritesPage = () => {
                     type="text" 
                     value={newFav.rule} 
                     onChange={(e) => setNewFav({...newFav, rule: e.target.value})}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm"
+                    className="student-input w-full px-3 py-2 rounded-lg text-sm"
                     placeholder="例如：语法规则、使用方法等"
                   />
                 </div>
@@ -161,14 +161,14 @@ const FavoritesPage = () => {
                   <textarea 
                     value={newFav.note} 
                     onChange={(e) => setNewFav({...newFav, note: e.target.value})}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm"
+                    className="student-input w-full px-3 py-2 rounded-lg text-sm"
                     placeholder="例如：个人笔记、重点标记等"
                     rows={3}
                   />
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
-                  <button type="submit" disabled={addLoading} className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50">{addLoading ? '添加中...' : '确认添加'}</button>
+                  <button type="button" onClick={() => setShowAddModal(false)} className="student-action-secondary flex-1 py-2 rounded-lg text-sm font-medium">取消</button>
+                  <button type="submit" disabled={addLoading} className="student-action-primary flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50">{addLoading ? '添加中...' : '确认添加'}</button>
                 </div>
               </form>
             </div>

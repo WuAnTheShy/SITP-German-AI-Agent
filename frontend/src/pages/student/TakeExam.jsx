@@ -79,7 +79,7 @@ const TakeExam = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
+            <div className="min-h-screen student-shell flex justify-center items-center">
                 <div className="text-indigo-600 flex items-center gap-2 font-bold animate-pulse">
                     正在加载试卷...
                 </div>
@@ -89,7 +89,7 @@ const TakeExam = () => {
 
     if (error && !examData) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center">
+            <div className="min-h-screen student-shell flex flex-col items-center justify-center">
                 <div className="bg-red-50 text-red-600 p-6 rounded-2xl flex flex-col items-center gap-4 max-w-md text-center">
                     <AlertCircle size={48} />
                     <p className="font-medium text-lg">{error}</p>
@@ -106,8 +106,8 @@ const TakeExam = () => {
 
     if (result) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl flex flex-col items-center max-w-lg w-full text-center border border-gray-100 dark:border-gray-700">
+            <div className="min-h-screen student-shell flex flex-col items-center justify-center p-4">
+                <div className="student-card p-8 rounded-3xl shadow-xl flex flex-col items-center max-w-lg w-full text-center">
                     <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex justify-center items-center mb-6">
                         <CheckCircle size={40} />
                     </div>
@@ -131,11 +131,11 @@ const TakeExam = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 flex justify-center">
+        <div className="min-h-screen student-shell py-8 px-4 flex justify-center">
             <div className="w-full max-w-4xl max-h-full flex flex-col gap-6">
 
                 {/* Header */}
-                <div className="flex items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="student-card flex items-center gap-4 p-4 rounded-2xl">
                     <button
                         onClick={() => navigate(`/student/${userId}/tasks`)}
                         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 transition"
@@ -164,7 +164,7 @@ const TakeExam = () => {
                     {examData.content && examData.content.map((q, idx) => {
                         const isGrammar = q.type === 'grammar';
                         return (
-                            <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden">
+                            <div key={idx} className="student-card p-6 relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-400 to-purple-500"></div>
 
                                 <div className="flex justify-between items-start mb-4">

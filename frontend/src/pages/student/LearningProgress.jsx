@@ -34,14 +34,14 @@ const LearningProgress = () => {
 
   return (
     <StudentLayout>
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+      <div className="student-page">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">📊 我的学习进度统计</h1>
           <p className="text-gray-500 dark:text-gray-400">实时查看学习数据，AI分析学习情况，精准提升</p>
         </div>
 
         {/* Tab切换 */}
-        <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800 p-1.5 rounded-lg w-fit mb-6">
+        <div className="flex flex-wrap gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-lg w-fit mb-6 border border-slate-200 dark:border-slate-700/70">
           {tabs.map(tab => (
             <button key={tab.key} onClick={() => setViewType(tab.key)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewType === tab.key ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:text-gray-200'}`}>
@@ -58,15 +58,15 @@ const LearningProgress = () => {
             {viewType === 'overview' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6 text-center">
+                  <div className="student-card p-6 text-center">
                     <h3 className="text-sm text-gray-500 dark:text-gray-400 mb-2">总学习时长</h3>
                     <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{learnStats.totalTime} <span className="text-base font-normal text-gray-500 dark:text-gray-400">小时</span></p>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6 text-center">
+                  <div className="student-card p-6 text-center">
                     <h3 className="text-sm text-gray-500 dark:text-gray-400 mb-2">本周学习时长</h3>
                     <p className="text-3xl font-bold text-green-600">{learnStats.weekTime} <span className="text-base font-normal text-gray-500 dark:text-gray-400">小时</span></p>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6 text-center">
+                  <div className="student-card p-6 text-center">
                     <h3 className="text-sm text-gray-500 dark:text-gray-400 mb-2">整体完成率</h3>
                     <p className="text-3xl font-bold text-purple-600">{learnStats.finishRate}%</p>
                     <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -86,7 +86,7 @@ const LearningProgress = () => {
                 {learnStats.modules.length === 0 ? (
                   <p className="text-center text-gray-400 dark:text-gray-500 py-8">暂无模块学习数据</p>
                 ) : learnStats.modules.map((item, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                  <div key={index} className="student-card flex items-center gap-4 p-4">
                     <div className="w-32 font-medium text-gray-700 dark:text-gray-300">{item.name}</div>
                     <div className="flex-1 h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div className="h-full rounded-full transition-all" style={{
@@ -119,7 +119,7 @@ const LearningProgress = () => {
             )}
 
             {viewType === 'week' && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="student-card overflow-hidden">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700"><h3 className="font-bold text-gray-700 dark:text-gray-300">本周学习明细</h3></div>
                 {learnStats.weekReport.length === 0 ? (
                   <p className="text-center text-gray-400 dark:text-gray-500 py-8">本周暂无学习记录，快去学习吧！</p>
@@ -134,7 +134,7 @@ const LearningProgress = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {learnStats.weekReport.map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50 dark:bg-gray-900">
+                        <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-900/55">
                           <td className="px-6 py-3 text-gray-700 dark:text-gray-300">{item.day}</td>
                           <td className="px-6 py-3 text-gray-700 dark:text-gray-300">{item.time}</td>
                           <td className="px-6 py-3 text-gray-700 dark:text-gray-300">{item.content}</td>

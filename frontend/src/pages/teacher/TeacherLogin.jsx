@@ -355,7 +355,7 @@ const TeacherLogin = () => {
                                         <img
                                             src={captcha.dataUrl || null}
                                             alt="Captcha"
-                                            className="h-[46px] w-[120px] rounded-xl border border-gray-200 dark:border-white/10 object-cover"
+                                            className="h-[44px] w-[108px] sm:h-[46px] sm:w-[120px] rounded-xl border border-gray-200 dark:border-white/10 object-cover"
                                         />
                                         <div className="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                             <RefreshCw className="text-white drop-shadow-md" size={20} />

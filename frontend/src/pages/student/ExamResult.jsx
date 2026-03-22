@@ -34,7 +34,7 @@ const ExamResult = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
+            <div className="min-h-screen student-shell flex justify-center items-center">
                 <div className="text-indigo-600 animate-pulse font-bold">正在加载答卷记录...</div>
             </div>
         );
@@ -42,12 +42,12 @@ const ExamResult = () => {
 
     if (error || !resultData) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+            <div className="min-h-screen student-shell flex flex-col items-center justify-center p-4">
                 <div className="bg-red-50 text-red-600 p-6 rounded-2xl max-w-md text-center">
                     <p className="font-bold mb-4">{error || '数据不存在'}</p>
                     <button
                         onClick={() => navigate(`/student/${userId}/tasks`)}
-                        className="bg-white px-4 py-2 rounded-lg border border-red-200 text-sm"
+                        className="bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-red-200 dark:border-red-800/60 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                     >
                         返回任务中心
                     </button>
@@ -59,11 +59,11 @@ const ExamResult = () => {
     const { exam_code, content, answers, score, ai_comment } = resultData;
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 flex justify-center">
+        <div className="min-h-screen student-shell py-8 px-4 flex justify-center">
             <div className="w-full max-w-4xl flex flex-col gap-6">
 
                 {/* Header */}
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="student-card p-6">
                     <div className="flex items-center gap-4 mb-6">
                         <button
                             onClick={() => navigate(`/student/${userId}/tasks`)}
@@ -110,7 +110,7 @@ const ExamResult = () => {
                         }
 
                         return (
-                            <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden">
+                            <div key={idx} className="student-card p-6 relative overflow-hidden">
                                 <div className={`absolute top-0 left-0 w-1 h-full ${isGrammar ? (isCorrect ? 'bg-green-500' : 'bg-red-500') : 'bg-blue-500'}`}></div>
 
                                 <div className="flex justify-between items-start mb-4">

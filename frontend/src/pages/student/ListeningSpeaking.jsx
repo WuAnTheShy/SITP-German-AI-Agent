@@ -63,7 +63,7 @@ const ListeningSpeaking = () => {
 
   return (
     <StudentLayout>
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="student-page">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">🎧 德语听说训练</h1>
           <p className="text-gray-500 dark:text-gray-400">听力磨耳朵 + 口语AI纠音，提升德语实战能力</p>
@@ -88,7 +88,7 @@ const ListeningSpeaking = () => {
 
         {/* 练习区 */}
         {selectedMaterial && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-6">
+          <div className="student-card p-6">
             <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4">当前练习：{selectedMaterial.title}</h2>
             {loadingDetail ? (
               <p className="text-gray-400 dark:text-gray-500 py-8 text-center">加载材料详情中...</p>
@@ -108,7 +108,7 @@ const ListeningSpeaking = () => {
                   <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">🎤 模仿口语练习</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">听完后，点击下方按钮开始录音，模仿刚才的内容</p>
                   <button onClick={toggleRecording} disabled={submittingEval}
-                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${recording ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${recording ? 'bg-red-600 text-white hover:bg-red-700' : 'student-action-primary'
                       } disabled:bg-gray-400`}>
                     {recording ? '⏹️ 结束录音' : '🎙️ 开始录音'}
                   </button>
@@ -118,7 +118,7 @@ const ListeningSpeaking = () => {
                       <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">你的录音：</h4>
                       <audio src={audioUrl} controls className="w-full mb-3" />
                       <button onClick={handleAIEvaluation} disabled={submittingEval}
-                        className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors font-medium">
+                        className="px-6 py-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-gray-400 transition-colors font-medium">
                         {submittingEval ? '评分中...' : '🤖 AI口语评分'}
                       </button>
                     </div>
