@@ -12,6 +12,7 @@ from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPu
 from schemas.entities import HomeworkCreate
 from core.responses import ok, fail
 from core.deps import current_student, require_student
+from services.metrics import track_learning_activity, refresh_student_metrics
 
 router = APIRouter()
 
@@ -160,8 +161,12 @@ def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session
             ai_comment="\n".join(ai_comment_lines) if ai_comment_lines else "语法全对！大题待教师评分。",
             exam_assignment_id=assignment.id
         ))
+        # 提交测验后将学习行为计入统计，并实时刷新评测指标
+        estimated_minutes = max(8, min(90, len(content) * 3))
+        track_learning_activity(db, student.id, "综合测验", estimated_minutes, f"完成测验 {exam.exam_code}")
         db.commit()
-        return ok({"score": earned_score, "message": "提交成功"})
+        latest = refresh_student_metrics(db, student.id)
+        return ok({"score": earned_score, "message": "提交成功", "metrics": latest})
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -204,4 +209,6 @@ def complete_task(req: TaskCompleteReq, request: Request, db: Session = Depends(
         if p and p.push_status != "completed":
             p.push_status = "completed"
             db.commit()
+            track_learning_activity(db, student.id, "情景对话", 5, "完成情景任务")
+            refresh_student_metrics(db, student.id)
     return ok()

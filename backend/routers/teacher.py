@@ -27,6 +27,7 @@ from schemas.entities import (
 from core.responses import ok, fail, to_float
 from core.deps import require_teacher, get_current_teacher_and_classroom
 from services.llm import generate_response
+from services.metrics import compute_student_interaction_minutes, refresh_student_metrics
 
 router = APIRouter()
 
@@ -76,6 +77,13 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
 
         classroom = classrooms[0]
         students = StudentCRUD.list_by_class(db, classroom.id)
+
+        metric_map: dict[int, dict] = {}
+        interaction_hours = []
+        for s in students:
+            metric_map[s.id] = refresh_student_metrics(db, s.id)
+            interaction_hours.append(compute_student_interaction_minutes(db, s.id, days=7) / 60)
+
         all_homeworks = []
         for s in students:
             all_homeworks.extend(HomeworkCRUD.list_by_student(db, s.id))
@@ -83,30 +91,32 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
         avg_score = round(mean([to_float(s.overall_score) for s in students]), 1) if students else 0
         completion_count = sum(1 for h in all_homeworks if h.status == "已完成")
         completion_rate = round((completion_count / len(all_homeworks)) * 100) if all_homeworks else 0
+        avg_duration = round(sum(interaction_hours) / len(interaction_hours), 1) if interaction_hours else 0
+        pending_count = sum(1 for s in students if s.status == "pending")
 
         payload = {
             "teacherName": teacher.display_name,
             "className": classroom.class_name,
             "classCode": classroom.class_code,
-            "pendingTasks": 3,
+            "pendingTasks": pending_count,
             "stats": {
                 "totalStudents": len(students),
                 "totalStudentsTrend": "+0",
-                "avgDuration": 12.5,
-                "avgDurationTrend": "↑ 2%",
+                "avgDuration": avg_duration,
+                "avgDurationTrend": "按近7天统计",
                 "avgScore": avg_score,
-                "avgScoreTrend": "↑ 0.5",
+                "avgScoreTrend": "按当前成绩",
                 "completionRate": completion_rate,
-                "completionRateTrend": "稳定",
+                "completionRateTrend": "按作业提交",
             },
             "students": [
                 {
                     "name": s.name,
                     "uid": s.uid,
                     "class": classroom.class_name,
-                    "active": s.active_score,
-                    "score": to_float(s.overall_score),
-                    "weak": s.weak_point or "暂无",
+                    "active": metric_map.get(s.id, {}).get("active_score", s.active_score),
+                    "score": metric_map.get(s.id, {}).get("overall_score", to_float(s.overall_score)),
+                    "weak": metric_map.get(s.id, {}).get("weak_point", s.weak_point or "暂无"),
                 }
                 for s in students
             ],
@@ -255,6 +265,21 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
                     })
             return ai_questions
 
+        def _personalize_questions(base_questions: list, weak_point: str | None) -> list:
+            """基于基础题快速个性化，避免逐个学生调用 AI 导致超时。"""
+            weak = (weak_point or "综合语法").strip() or "综合语法"
+            out = []
+            for q in base_questions or []:
+                item = dict(q)
+                if item.get("type") == "grammar":
+                    inst = str(item.get("instruction", "")).strip()
+                    item["instruction"] = f"{inst}（个性化强化：{weak}）" if inst else f"个性化强化：{weak}"
+                elif item.get("type") == "writing":
+                    content = str(item.get("content", "")).strip()
+                    item["content"] = f"{content}\n\n【个性化要求】请重点体现：{weak}。"
+                out.append(item)
+            return out
+
         students = StudentCRUD.list_by_class(db, classroom.id)
 
         if strategy != "personalized":
@@ -277,6 +302,7 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
                     ExamAssignmentCreate(exam_id=exam.id, student_id=s.id, status="assigned"),
                 )
         else:
+            base_questions = _generate_questions_for_student()
             exam = ExamCRUD.create(
                 db,
                 ExamCreate(
@@ -290,16 +316,7 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
                 ),
             )
             for s in students:
-                ability = StudentAbilityCRUD.get_by_student_id(db, s.id)
-                student_info = f"\n- 针对学生情况：该学生在【{s.weak_point or '其他'}】有薄弱点。"
-                if ability and ability.ai_diagnosis:
-                    student_info += f"\n- AI诊断信息：{ability.ai_diagnosis}"
-                student_info += "\n**请务必针对该学生的薄弱点设计题目，体现出个性化！**"
-                try:
-                    print(f"[千人千面] 正在为学生 id={s.id} 生成个性化试卷...", flush=True)
-                except Exception:
-                    print("[千人千面] 生成个性化试卷...", flush=True)
-                personalized_q = _generate_questions_for_student(student_info)
+                personalized_q = _personalize_questions(base_questions, s.weak_point)
                 ExamAssignmentCRUD.create_or_get(
                     db,
                     ExamAssignmentCreate(
@@ -410,6 +427,7 @@ def list_class_students(request: Request = None, db: Session = Depends(get_db)):
         students = StudentCRUD.list_by_class(db, classroom.id)
         result = []
         for s in students:
+            latest_metrics = refresh_student_metrics(db, s.id)
             result.append(
                 {
                     "id": s.id,
@@ -418,9 +436,9 @@ def list_class_students(request: Request = None, db: Session = Depends(get_db)):
                     "status": s.status,
                     "class_id": s.class_id,
                     "class_name": classroom.class_name,
-                    "active_score": s.active_score,
-                    "overall_score": to_float(s.overall_score),
-                    "weak_point": s.weak_point,
+                    "active_score": latest_metrics["active_score"],
+                    "overall_score": latest_metrics["overall_score"],
+                    "weak_point": latest_metrics["weak_point"],
                     "created_at": s.created_at.isoformat(),
                 }
             )
@@ -446,12 +464,10 @@ def update_class_student(
             return fail("无权操作该学生", 403)
 
         updates = body.model_dump(exclude_unset=True)
+        updates.pop("active_score", None)
+        updates.pop("overall_score", None)
         if "status" in updates and updates["status"] not in {"pending", "approved", "rejected"}:
             return fail("学生状态非法", 400)
-        if "active_score" in updates and not (0 <= updates["active_score"] <= 100):
-            return fail("活跃度需在 0-100 之间", 400)
-        if "overall_score" in updates and not (0 <= updates["overall_score"] <= 100):
-            return fail("综合评分需在 0-100 之间", 400)
         if "class_id" in updates:
             new_class_id = updates["class_id"]
             if new_class_id not in {None, classroom.id}:
@@ -467,6 +483,8 @@ def update_class_student(
                 user.status = updates["status"]
             db.commit()
 
+        latest_metrics = refresh_student_metrics(db, student.id)
+
         return ok(
             {
                 "id": student.id,
@@ -474,9 +492,9 @@ def update_class_student(
                 "name": student.name,
                 "status": student.status,
                 "class_id": student.class_id,
-                "active_score": student.active_score,
-                "overall_score": to_float(student.overall_score),
-                "weak_point": student.weak_point,
+                "active_score": latest_metrics["active_score"],
+                "overall_score": latest_metrics["overall_score"],
+                "weak_point": latest_metrics["weak_point"],
             },
             "学生信息更新成功",
         )

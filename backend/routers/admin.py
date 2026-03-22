@@ -11,6 +11,7 @@ from models.entities import Student
 from schemas.entities import ClassroomCreate
 from core.deps import require_admin
 from core.password import ensure_transport_hash, hash_password
+from services.metrics import refresh_student_metrics
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -137,6 +138,7 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
     students = list(db.scalars(select(Student).order_by(Student.id)))
     result = []
     for s in students:
+        latest_metrics = refresh_student_metrics(db, s.id)
         user = UserCRUD.get_by_id(db, s.user_id)
         classroom = ClassroomCRUD.get_by_id(db, s.class_id) if s.class_id else None
         result.append(
@@ -150,9 +152,9 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
                 "class_id": s.class_id,
                 "class_name": classroom.class_name if classroom else None,
                 "class_code": classroom.class_code if classroom else None,
-                "active_score": s.active_score,
-                "overall_score": float(s.overall_score),
-                "weak_point": s.weak_point,
+                "active_score": latest_metrics["active_score"],
+                "overall_score": latest_metrics["overall_score"],
+                "weak_point": latest_metrics["weak_point"],
                 "username": user.username if user else None,
                 "created_at": s.created_at.isoformat(),
             }
@@ -172,12 +174,10 @@ def update_student(
         raise HTTPException(status_code=404, detail="学生不存在")
 
     updates = body.model_dump(exclude_unset=True)
+    updates.pop("active_score", None)
+    updates.pop("overall_score", None)
     if "status" in updates and updates["status"] not in {"pending", "approved", "rejected"}:
         raise HTTPException(status_code=400, detail="学生状态非法")
-    if "active_score" in updates and not (0 <= updates["active_score"] <= 100):
-        raise HTTPException(status_code=400, detail="活跃度需在 0-100 之间")
-    if "overall_score" in updates and not (0 <= updates["overall_score"] <= 100):
-        raise HTTPException(status_code=400, detail="综合评分需在 0-100 之间")
     if "class_id" in updates and updates["class_id"] is not None:
         classroom = ClassroomCRUD.get_by_id(db, updates["class_id"])
         if not classroom:
@@ -198,6 +198,7 @@ def update_student(
 
     db.commit()
     db.refresh(student)
+    latest_metrics = refresh_student_metrics(db, student.id)
     classroom = ClassroomCRUD.get_by_id(db, student.class_id) if student.class_id else None
     return {
         "id": student.id,
@@ -207,9 +208,9 @@ def update_student(
         "is_active": bool(user.is_active) if user else True,
         "class_id": student.class_id,
         "class_name": classroom.class_name if classroom else None,
-        "active_score": student.active_score,
-        "overall_score": float(student.overall_score),
-        "weak_point": student.weak_point,
+        "active_score": latest_metrics["active_score"],
+        "overall_score": latest_metrics["overall_score"],
+        "weak_point": latest_metrics["weak_point"],
     }
 
 

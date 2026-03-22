@@ -296,8 +296,6 @@ const AdminDashboard = () => {
             name: (form.name?.value || '').trim(),
             class_id: form.class_id?.value === '' ? null : parseInt(form.class_id?.value, 10),
             status: form.status?.value,
-            active_score: parseInt(form.active_score?.value || '0', 10),
-            overall_score: parseFloat(form.overall_score?.value || '0'),
             weak_point: (form.weak_point?.value || '').trim() || null,
         };
 
@@ -846,19 +844,19 @@ const AdminDashboard = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">状态</label>
                                     <select name="status" defaultValue={editingStudent.status || 'approved'} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm">
-                                        <option value="approved">approved</option>
-                                        <option value="pending">pending</option>
-                                        <option value="rejected">rejected</option>
+                                        <option value="approved">审核通过</option>
+                                        <option value="pending">待审核</option>
+                                        <option value="rejected">已拒绝</option>
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度</label>
-                                        <input name="active_score" type="number" min="0" max="100" step="1" defaultValue={editingStudent.active_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度（系统测量）</label>
+                                        <input type="text" readOnly value={`${editingStudent.active_score ?? 0}%`} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/10 text-sm text-gray-500 dark:text-gray-400" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合分</label>
-                                        <input name="overall_score" type="number" min="0" max="100" step="0.1" defaultValue={editingStudent.overall_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合分（系统测量）</label>
+                                        <input type="text" readOnly value={`${editingStudent.overall_score ?? 0} 分`} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/10 text-sm text-gray-500 dark:text-gray-400" />
                                     </div>
                                 </div>
                                 <div>

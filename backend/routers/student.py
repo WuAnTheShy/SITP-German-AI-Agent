@@ -29,6 +29,7 @@ from schemas.entities import (
 )
 from core.responses import ok, fail, to_float
 from core.deps import require_teacher, get_current_teacher_and_classroom
+from services.metrics import refresh_student_metrics
 
 router = APIRouter()
 
@@ -56,6 +57,7 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
             return fail("学生不存在", 404)
         if student.class_id != classroom.id:
             return fail("无权查看该学生", 403)
+        refreshed = refresh_student_metrics(db, student.id)
         ability = StudentAbilityCRUD.get_by_student_id(db, student.id)
         homeworks = HomeworkCRUD.list_by_student(db, student.id)
         exam_assignments = list(db.scalars(
@@ -78,8 +80,8 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
                 "name": student.name,
                 "uid": student.uid,
                 "class": "软件工程",
-                "active": student.active_score,
-                "score": to_float(student.overall_score),
+                "active": refreshed["active_score"],
+                "score": refreshed["overall_score"],
             },
             "ability": {
                 "listening": ability.listening if ability else 0,
@@ -234,7 +236,8 @@ def save_homework_review(request: HomeworkSaveRequest, req: Request = None, db: 
             ),
         )
         HomeworkCRUD.update_score_feedback(db, request.homeworkId, request.score, request.feedback)
-        return ok({"homeworkId": request.homeworkId, "saved": True}, "评分保存成功")
+        latest = refresh_student_metrics(db, student.id)
+        return ok({"homeworkId": request.homeworkId, "saved": True, "metrics": latest}, "评分保存成功")
     except Exception as e:
         return fail(f"评分保存失败: {e}")
 
