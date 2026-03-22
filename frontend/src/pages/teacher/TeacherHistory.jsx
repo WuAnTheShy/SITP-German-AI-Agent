@@ -87,29 +87,29 @@ const TeacherHistory = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-8">
+        <div className="teacher-shell flex flex-col items-center py-4 sm:py-8">
             <div className="w-full max-w-6xl px-4 flex flex-col gap-6">
 
                 {/* 1. 顶部 Header 区 */}
-                <div className="flex justify-between items-center w-full">
-                    <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4">
                         <button
                             onClick={() => navigate(`/teacher/${userInfo.id}/dashboard`)}
-                            className="bg-white dark:bg-gray-800 p-2.5 rounded-full shadow hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                            className="teacher-action-secondary p-2.5 rounded-full"
                             title="返回控制台"
                         >
-                            <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
+                            <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
                         </button>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-3">
-                            <FileText size={32} className="text-indigo-600 dark:text-indigo-400" />
+                        <h1 className="text-xl sm:text-3xl teacher-section-title flex items-center gap-2 sm:gap-3">
+                            <FileText size={24} className="sm:w-8 sm:h-8 text-teal-700 dark:text-teal-300" />
                             发布历史记录
                         </h1>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
                         <button
                             onClick={() => fetchHistoryList(activeTab)}
                             disabled={loading}
-                            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                            className="teacher-action-secondary px-4 py-2.5 rounded-xl font-medium flex items-center gap-2 disabled:opacity-50"
                         >
                             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 刷新
                         </button>
@@ -130,33 +130,33 @@ const TeacherHistory = () => {
                 )}
 
                 {/* 2. 内容区区 (白底卡片) */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col min-h-[600px]">
+                <div className="teacher-panel rounded-2xl overflow-hidden flex flex-col min-h-[500px] sm:min-h-[600px]">
 
                     {/* Tabs */}
-                    <div className="flex border-b border-gray-200 dark:border-gray-700">
+                    <div className="grid grid-cols-2 border-b border-gray-200 dark:border-gray-700">
                         <button
-                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'scenarios' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                            className={`py-3 sm:py-4 font-bold text-xs sm:text-lg flex justify-center items-center gap-1 sm:gap-2 transition-colors ${activeTab === 'scenarios' ? 'bg-teal-50 dark:bg-teal-900/30 border-b-2 border-teal-600 text-teal-700 dark:text-teal-300' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             onClick={() => setActiveTab('scenarios')}
                         >
-                            <MessageSquare size={20} /> 情景任务记录
+                            <MessageSquare size={16} className="sm:w-5 sm:h-5" /> 情景任务
                         </button>
                         <button
-                            className={`flex-1 py-4 font-bold text-lg flex justify-center items-center gap-2 transition-colors ${activeTab === 'exams' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-b-2 border-indigo-600 text-indigo-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                            className={`py-3 sm:py-4 font-bold text-xs sm:text-lg flex justify-center items-center gap-1 sm:gap-2 transition-colors ${activeTab === 'exams' ? 'bg-teal-50 dark:bg-teal-900/30 border-b-2 border-teal-600 text-teal-700 dark:text-teal-300' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             onClick={() => setActiveTab('exams')}
                         >
-                            <FileText size={20} /> 试卷生成记录
+                            <FileText size={16} className="sm:w-5 sm:h-5" /> 试卷记录
                         </button>
                     </div>
 
                     {/* Table View */}
-                    <div className="p-6 flex-1 overflow-auto">
+                    <div className="p-3 sm:p-6 flex-1 overflow-auto">
                         {loading && !modalOpen ? (
                             <div className="flex justify-center items-center h-full text-indigo-500">
                                 <RefreshCw className="animate-spin mr-2" size={24} /> 加载数据中...
                             </div>
                         ) : activeTab === 'scenarios' ? (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
+                                <table className="w-full min-w-[780px] text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                             <th className="p-4 font-medium rounded-tl-lg">任务编号</th>
@@ -187,7 +187,7 @@ const TeacherHistory = () => {
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
+                                <table className="w-full min-w-[820px] text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                             <th className="p-4 font-medium rounded-tl-lg">试卷编号</th>
@@ -232,10 +232,10 @@ const TeacherHistory = () => {
 
             {/* 查看详情 Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center px-4">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center px-3 sm:px-4">
                     <div className="bg-white dark:bg-gray-800 w-full max-w-4xl rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-t-2xl">
-                            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-t-2xl">
+                            <h2 className="text-base sm:text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                                 <FileText className="text-indigo-600 dark:text-indigo-400" />
                                 试卷内容预览
                             </h2>
@@ -247,7 +247,7 @@ const TeacherHistory = () => {
                             </button>
                         </div>
 
-                        <div className="p-6 flex-1 overflow-auto bg-gray-900 text-gray-300 relative">
+                        <div className="p-3 sm:p-6 flex-1 overflow-auto bg-gray-900 text-gray-300 relative">
                             {examLoading ? (
                                 <div className="flex justify-center items-center h-48 text-indigo-400">
                                     <RefreshCw className="animate-spin mr-2" size={24} /> 解析试卷数据中...

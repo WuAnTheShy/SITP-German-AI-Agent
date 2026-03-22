@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LayoutDashboard, LogOut, Users, FileText, Settings, Activity, ArrowRight, TrendingUp, Clock, BookOpen, Search, Zap, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key, UserPlus, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
+import { LayoutDashboard, LogOut, Users, FileText, Activity, ArrowRight, TrendingUp, Clock, Search, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key, UserPlus, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
 import { API_DASHBOARD, API_TEACHER_PENDING_STUDENTS, API_TEACHER_APPROVE_STUDENT, API_TEACHER_REJECT_STUDENT, API_TEACHER_STUDENTS, API_TEACHER_UPDATE_STUDENT, API_TEACHER_REMOVE_STUDENT } from '../../api/config';
 import { useToast } from '../../components/Toast';
 import PasswordChangeModal from '../../components/PasswordChangeModal';
@@ -22,6 +22,7 @@ const TeacherDashboard = () => {
     const [editingStudent, setEditingStudent] = useState(null);
     const [studentFormError, setStudentFormError] = useState('');
     const [studentSubmitLoading, setStudentSubmitLoading] = useState(false);
+    const [isPendingPanelOpen, setIsPendingPanelOpen] = useState(false);
 
     // 🟢 从 localStorage 读取教师名称
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -177,91 +178,128 @@ const TeacherDashboard = () => {
 
     // 渲染主界面（未关联班级时后端返回 className: "未关联"、students: []，同屏正常展示）
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+        <div className="teacher-shell p-3 sm:p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
 
-                {/* 1. 顶部 Header */}
-                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-6">
-                    <div className="w-full">
-                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
-                            <LayoutDashboard className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                {/* 1. 页面标题区（与功能按钮分离） */}
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div>
+                        <h1 className="text-xl sm:text-2xl md:text-3xl teacher-section-title flex items-center gap-2 sm:gap-3">
+                            <LayoutDashboard className="text-teal-700 dark:text-teal-300 shrink-0" />
                             <span>教师控制台</span>
-                            {/* 动态班级名称 */}
-                            <span className="text-xs md:text-sm font-normal text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-md truncate max-w-[150px] md:max-w-none">
-                                {data?.className || '加载中...'}
-                            </span>
-                            {data?.classCode && (
-                                <span 
-                                    className="text-xs md:text-sm font-normal text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(data.classCode);
-                                        // 可以考虑用更优雅的 toast，但这里先保持 alert 或简单的状态提示
-                                        alert('班级邀请码已复制：' + data.classCode);
-                                    }}
-                                    title="点击复制邀请码"
-                                >
-                                    <Key size={14} />
-                                    邀请码: <span className="font-mono font-bold tracking-wider">{data.classCode}</span>
-                                </span>
-                            )}
                         </h1>
-                        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态。</p>
+                        <p className="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-400 mt-1.5 sm:mt-2">欢迎回来，{teacherName}。今日有 {data?.pendingTasks || 0} 条新的学情动态。</p>
                     </div>
-                    {/* 3. 操作按钮区 (重新组织布局) */}
-                    <div className="flex flex-col xl:flex-row items-end xl:items-center gap-3 w-full lg:w-auto mt-4 lg:mt-0">
-
-                        {/* 辅助操作与账号管理 (次要按钮) */}
-                        <div className="flex flex-wrap items-center gap-2 order-2 xl:order-1 w-full xl:w-auto justify-end">
+                    <div className="teacher-panel rounded-2xl px-3 sm:px-4 py-3 flex flex-col gap-2.5 w-full sm:w-auto shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="h-11 w-11 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-bold flex items-center justify-center">
+                                {(teacherName || '教')[0]}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[150px]">{teacherName}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">教师账号</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
                             <button
-                                onClick={() => fetchDashboardData(true)}
-                                disabled={refreshing}
-                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 shadow-sm"
-                            >
-                                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新数据
-                            </button>
-                            <button
-                                onClick={() => navigate(`/teacher/${userInfo.id}/history`)}
-                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
-                            >
-                                <FileText size={16} /> 发布记录
-                            </button>
-                            <button
+                                type="button"
                                 onClick={() => setIsPasswordModalOpen(true)}
-                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+                                className="teacher-action-secondary h-9 px-3 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5"
                             >
-                                <Key size={16} /> 修改密码
+                                <Key size={14} /> 修改密码
                             </button>
                             <button
+                                type="button"
                                 onClick={handleLogout}
-                                className="h-10 px-4 rounded-xl font-medium flex items-center gap-2 transition-colors text-sm md:text-base bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800/30 hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm"
+                                className="h-9 px-3 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/25 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/40 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
                             >
-                                <LogOut size={16} /> 退出登录
+                                <LogOut size={14} /> 退出登录
                             </button>
                         </div>
+                    </div>
+                </div>
 
-                        {/* 分隔线 (仅超大屏幕显示) */}
-                        <div className="hidden xl:block w-px h-8 bg-gray-200 dark:bg-gray-700 order-2"></div>
+                {/* 2. 班级信息区 */}
+                <div className="teacher-panel rounded-2xl p-3 sm:p-4 md:p-5 flex flex-wrap items-center gap-2">
+                    <span className="text-xs md:text-sm font-normal text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 rounded-md">
+                        班级：{data?.className || '加载中...'}
+                    </span>
+                    {data?.classCode && (
+                        <button
+                            type="button"
+                            className="text-xs md:text-sm font-normal text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 rounded-md flex items-center gap-1.5 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
+                            onClick={() => {
+                                navigator.clipboard.writeText(data.classCode);
+                                alert('班级邀请码已复制：' + data.classCode);
+                            }}
+                            title="点击复制邀请码"
+                        >
+                            <Key size={14} />
+                            邀请码: <span className="font-mono font-bold tracking-wider">{data.classCode}</span>
+                        </button>
+                    )}
+                </div>
 
-                        {/* 核心教务功能 (主要按钮) */}
-                        <div className="flex flex-wrap items-center gap-2 md:gap-3 order-1 xl:order-3 w-full xl:w-auto justify-end">
-                            <button
-                                onClick={() => navigate(`/teacher/${userInfo.id}/ai`)}
-                                className="h-10 md:h-11 px-4 rounded-xl font-bold flex items-center gap-2 transition-colors text-sm md:text-base bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-100 dark:border-purple-800/30 shadow-sm"
-                            >
-                                <Bot size={18} /> AI 助手
-                            </button>
-                            <button
-                                onClick={() => navigate(`/teacher/${userInfo.id}/exam`)}
-                                className="h-10 md:h-11 px-4 rounded-xl font-bold flex items-center gap-2 transition-colors text-sm md:text-base bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-100 dark:border-blue-800/30 shadow-sm"
-                            >
-                                <GraduationCap size={18} /> 生成试卷
-                            </button>
-                            <button
-                                onClick={() => navigate(`/teacher/${userInfo.id}/scenario`)}
-                                className="h-10 md:h-11 px-5 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm shadow-indigo-200 dark:shadow-none text-sm md:text-base"
-                            >
-                                <Plus size={18} /> 发布任务
-                            </button>
+                {/* 3. 操作按钮区 */}
+                <div className="teacher-panel rounded-2xl p-3 sm:p-4 md:p-6">
+                    <div className="w-full grid grid-cols-1 xl:grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3 bg-white/50 dark:bg-slate-900/50">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400 mb-2">教务操作</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/teacher/${userInfo.id}/scenario`)}
+                                    className="teacher-action-primary h-10 px-4 rounded-xl font-bold flex items-center gap-2 text-sm"
+                                >
+                                    <Plus size={16} /> 发布任务
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/teacher/${userInfo.id}/exam`)}
+                                    className="h-10 px-4 rounded-xl font-bold flex items-center gap-2 transition-colors text-sm bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/40"
+                                >
+                                    <GraduationCap size={16} /> 生成试卷
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/teacher/${userInfo.id}/ai`)}
+                                    className="h-10 px-4 rounded-xl font-bold flex items-center gap-2 transition-colors text-sm bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 border border-sky-200 dark:border-sky-800/40"
+                                >
+                                    <Bot size={16} /> AI 助手
+                                </button>
+                            </div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3 bg-white/50 dark:bg-slate-900/50">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400 mb-2">班级与系统</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPendingPanelOpen(true)}
+                                    className="teacher-action-secondary h-10 px-4 rounded-xl font-medium flex items-center gap-2 text-sm"
+                                >
+                                    <UserPlus size={16} /> 审核学生
+                                    {pendingStudents.length > 0 && (
+                                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-xs font-bold">
+                                            {pendingStudents.length}
+                                        </span>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => fetchDashboardData(true)}
+                                    disabled={refreshing}
+                                    className="teacher-action-secondary h-10 px-4 rounded-xl font-medium flex items-center gap-2 text-sm disabled:opacity-50"
+                                >
+                                    <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> 刷新
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/teacher/${userInfo.id}/history`)}
+                                    className="teacher-action-secondary h-10 px-4 rounded-xl font-medium flex items-center gap-2 text-sm"
+                                >
+                                    <FileText size={16} /> 作业记录
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -305,72 +343,29 @@ const TeacherDashboard = () => {
                     />
                 </div>
 
-                {/* 待审核学生 */}
-                <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-amber-200 dark:border-amber-900/50 overflow-hidden mb-6">
-                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                            <UserPlus size={20} className="text-amber-500 dark:text-amber-400" /> 待审核学生
-                            {pendingStudents.length > 0 && (
-                                <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingStudents.length}</span>
-                            )}
-                        </h2>
-                    </div>
-                    <div className="p-4">
-                        {pendingStudents.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 px-2 py-2">暂无待审核申请</p>
-                        ) : (
-                            <ul className="space-y-3">
-                                {pendingStudents.map((s) => (
-                                    <li key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                            <span className="font-bold text-gray-800 dark:text-gray-200">{s.name}</span>
-                                            <span className="text-sm text-gray-500 dark:text-gray-400">学号: {s.uid}</span>
-                                            <span className="text-xs text-gray-400 dark:text-gray-500">申请时间: {new Date(s.created_at).toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button 
-                                                onClick={() => handleApproveStudent(s.id)}
-                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors"
-                                            >
-                                                <CheckCircle size={14} /> 允许加入
-                                            </button>
-                                            <button 
-                                                onClick={() => handleRejectStudent(s.id)}
-                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 text-sm font-medium transition-colors"
-                                            >
-                                                <XCircle size={14} /> 拒绝
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </section>
-
                 {/* 3. 学生列表区块 */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="teacher-panel rounded-2xl overflow-hidden">
                     {/* 列表头部工具栏 */}
-                    <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <Users size={20} className="text-indigo-600 dark:text-indigo-400" /> 学情监控列表
                         </h2>
-                        <div className="relative">
+                        <div className="relative w-full sm:w-auto">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                             <input
                                 type="text"
                                 placeholder="搜索姓名或学号..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 transition-all dark:text-white"
+                                className="teacher-input pl-10 pr-4 py-2 rounded-lg text-sm w-full sm:w-64 transition-all"
                             />
                         </div>
                     </div>
 
-                    {/* 表格 */}
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
+                    {/* 表格（桌面端） */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full min-w-[920px]">
+                            <thead className="bg-slate-50/90 dark:bg-slate-900/70 border-b border-slate-200/80 dark:border-slate-700">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">学生信息</th>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">活跃度</th>
@@ -384,11 +379,11 @@ const TeacherDashboard = () => {
                                     <tr
                                         key={student.id || student.uid}
                                         onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
-                                        className="hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group"
+                                        className="hover:bg-teal-50/70 dark:hover:bg-teal-900/20 transition-colors cursor-pointer group"
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+                                                <div className="flex-shrink-0 h-10 w-10 bg-teal-100 dark:bg-teal-900/40 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold">
                                                     {(student.name || '匿')[0]}
                                                 </div>
                                                 <div className="ml-4">
@@ -425,7 +420,7 @@ const TeacherDashboard = () => {
                                                         e.stopPropagation();
                                                         openEditStudentModal(student);
                                                     }}
-                                                    className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-colors"
+                                                    className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/50 rounded-lg transition-colors"
                                                 >
                                                     <Pencil size={16} />
                                                 </button>
@@ -438,7 +433,7 @@ const TeacherDashboard = () => {
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
-                                                <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-lg transition-colors">
+                                                <button className="text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/50 rounded-lg transition-colors">
                                                     <ArrowRight size={18} />
                                                 </button>
                                             </div>
@@ -448,8 +443,69 @@ const TeacherDashboard = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* 卡片（移动端） */}
+                    <div className="md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/70">
+                        {filteredStudents.map((student) => (
+                            <div
+                                key={student.id || student.uid}
+                                onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
+                                className="p-4 active:bg-slate-50 dark:active:bg-slate-800/50"
+                            >
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="h-9 w-9 bg-teal-100 dark:bg-teal-900/40 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold shrink-0">
+                                            {(student.name || '匿')[0]}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{student.name || '匿名用户'}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{student.uid || '无学号'}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded-full ${Number(student.overall_score ?? 0) >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' : Number(student.overall_score ?? 0) >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'}`}>
+                                        {Number(student.overall_score ?? 0).toFixed(1)} 分
+                                    </span>
+                                </div>
+                                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                    <div className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-2">
+                                        <p className="text-slate-500 dark:text-slate-400">活跃度</p>
+                                        <p className="text-slate-700 dark:text-slate-200 font-semibold">{Number(student.active_score ?? 0)}%</p>
+                                    </div>
+                                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-2.5 py-2">
+                                        <p className="text-slate-500 dark:text-slate-400">薄弱点</p>
+                                        <p className="text-red-600 dark:text-red-400 font-semibold truncate">{student.weak_point || '暂无'}</p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 flex items-center justify-end gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openEditStudentModal(student);
+                                        }}
+                                        className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/50"
+                                    >
+                                        <Pencil size={16} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleRemoveStudent(student.id);
+                                        }}
+                                        className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/50"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                    <button type="button" className="text-teal-700 dark:text-teal-300 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/50">
+                                        <ArrowRight size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                     {filteredStudents.length === 0 && (
-                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                        <div className="p-8 sm:p-12 text-center text-gray-500 dark:text-gray-400 text-sm sm:text-base">
                             {!(classStudents.length) && (data?.className === '未关联')
                                 ? '暂无学生。请联系管理员在「管理员工作台」为您分配班级后，即可使用任务发布、学情查看等功能。'
                                 : '未找到匹配的学生'}
@@ -465,18 +521,18 @@ const TeacherDashboard = () => {
 
             {editingStudent && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !studentSubmitLoading && setEditingStudent(null)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                    <div className="teacher-panel rounded-2xl shadow-xl w-full max-w-md p-4 sm:p-6" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">编辑学生信息 · {editingStudent.uid}</h3>
                         <form onSubmit={handleUpdateStudent}>
                             {studentFormError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{studentFormError}</p>}
                             <div className="space-y-3">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">姓名</label>
-                                    <input name="name" type="text" required defaultValue={editingStudent.name} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    <input name="name" type="text" required defaultValue={editingStudent.name} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">状态</label>
-                                    <select name="status" defaultValue={editingStudent.status || 'approved'} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm">
+                                    <select name="status" defaultValue={editingStudent.status || 'approved'} className="teacher-input w-full px-3 py-2 rounded-lg text-sm">
                                         <option value="approved">approved</option>
                                         <option value="pending">pending</option>
                                         <option value="rejected">rejected</option>
@@ -485,23 +541,80 @@ const TeacherDashboard = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度</label>
-                                        <input name="active_score" type="number" min="0" max="100" step="1" defaultValue={editingStudent.active_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                        <input name="active_score" type="number" min="0" max="100" step="1" defaultValue={editingStudent.active_score ?? 0} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合评分</label>
-                                        <input name="overall_score" type="number" min="0" max="100" step="0.1" defaultValue={editingStudent.overall_score ?? 0} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                        <input name="overall_score" type="number" min="0" max="100" step="0.1" defaultValue={editingStudent.overall_score ?? 0} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">薄弱点（选填）</label>
-                                    <input name="weak_point" type="text" defaultValue={editingStudent.weak_point ?? ''} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    <input name="weak_point" type="text" defaultValue={editingStudent.weak_point ?? ''} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
                                 </div>
                             </div>
                             <div className="flex gap-2 mt-6">
-                                <button type="button" onClick={() => !studentSubmitLoading && setEditingStudent(null)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
-                                <button type="submit" disabled={studentSubmitLoading} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50">{studentSubmitLoading ? '保存中…' : '保存'}</button>
+                                <button type="button" onClick={() => !studentSubmitLoading && setEditingStudent(null)} className="teacher-action-secondary flex-1 py-2 rounded-lg text-sm font-medium">取消</button>
+                                <button type="submit" disabled={studentSubmitLoading} className="teacher-action-primary flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50">{studentSubmitLoading ? '保存中…' : '保存'}</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {isPendingPanelOpen && (
+                <div className="fixed inset-0 z-50 bg-black/35" onClick={() => setIsPendingPanelOpen(false)}>
+                    <div
+                        className="absolute top-0 right-0 h-full w-full sm:w-[460px] teacher-panel border-l border-amber-200/70 dark:border-amber-900/50 p-4 sm:p-5 overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                <UserPlus size={20} className="text-amber-500 dark:text-amber-400" />
+                                待审核学生
+                                {pendingStudents.length > 0 && (
+                                    <span className="ml-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingStudents.length}</span>
+                                )}
+                            </h3>
+                            <button
+                                type="button"
+                                className="teacher-action-secondary px-3 py-1.5 rounded-lg text-sm"
+                                onClick={() => setIsPendingPanelOpen(false)}
+                            >
+                                关闭
+                            </button>
+                        </div>
+                        {pendingStudents.length === 0 ? (
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 text-sm text-slate-500 dark:text-slate-400">
+                                当前暂无待审核申请。
+                            </div>
+                        ) : (
+                            <ul className="space-y-3">
+                                {pendingStudents.map((s) => (
+                                    <li key={s.id} className="rounded-xl bg-amber-50 dark:bg-amber-900/12 border border-amber-200/70 dark:border-amber-900/40 p-4">
+                                        <div className="mb-3">
+                                            <p className="font-bold text-slate-800 dark:text-slate-100">{s.name}</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">学号: {s.uid}</p>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">申请时间: {new Date(s.created_at).toLocaleString()}</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                onClick={() => handleApproveStudent(s.id)}
+                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
+                                            >
+                                                <CheckCircle size={14} /> 允许加入
+                                            </button>
+                                            <button
+                                                onClick={() => handleRejectStudent(s.id)}
+                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 text-sm font-medium transition-colors"
+                                            >
+                                                <XCircle size={14} /> 拒绝
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 </div>
             )}
@@ -515,7 +628,7 @@ const StatCard = ({ icon, label, value, trend, bg }) => {
     const isPositive = trend.includes('+') || trend.includes('↑');
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 hover:shadow-md dark:shadow-gray-900/50 transition-shadow">
+        <div className="teacher-panel p-6 rounded-2xl border border-slate-200/70 dark:border-slate-700/80 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${bg}`}>{icon}</div>
                 <span className={`text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900'}`}>

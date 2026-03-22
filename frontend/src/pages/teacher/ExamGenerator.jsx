@@ -54,16 +54,16 @@ const ExamGenerator = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 md:p-8">
-            <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="teacher-shell p-3 md:p-8">
+            <div className="max-w-3xl mx-auto teacher-panel rounded-2xl overflow-hidden">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
+                    <button onClick={() => navigate(-1)} className="teacher-action-secondary p-2 rounded-lg text-slate-500 dark:text-slate-300">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                            <Wand2 className="text-blue-600 dark:text-blue-400" /> 智能试卷生成引擎
+                        <h1 className="text-xl teacher-section-title flex items-center gap-2">
+                            <Wand2 className="text-teal-700 dark:text-teal-300" /> 智能试卷生成引擎
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400">基于学情数据的差异化出题系统</p>
                     </div>
@@ -71,14 +71,14 @@ const ExamGenerator = () => {
 
                 <div className="p-4 md:p-8 space-y-6 md:space-y-8">
                     {/* AI 建议 */}
-                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-5 rounded-xl flex gap-4 items-start border border-indigo-100 dark:border-indigo-800/50">
+                    <div className="bg-teal-50 dark:bg-teal-900/30 p-5 rounded-xl flex gap-4 items-start border border-teal-200 dark:border-teal-800/50">
                         <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm dark:shadow-gray-900/50 text-indigo-600 dark:text-indigo-400">
                             <Brain size={24} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-indigo-900 dark:text-indigo-200 mb-1">AI 诊断建议</h3>
-                            <p className="text-sm text-indigo-800 dark:text-indigo-100 leading-relaxed">
-                                系统检测到班级近期在 <span className="font-bold border-b-2 border-indigo-300 dark:border-indigo-500">被动语态</span> 和 <span className="font-bold border-b-2 border-indigo-300 dark:border-indigo-500">虚拟式</span> 模块错误率较高（平均错误率 42%）。建议生成专项强化练习。
+                            <h3 className="font-bold text-teal-900 dark:text-teal-200 mb-1">AI 诊断建议</h3>
+                            <p className="text-sm text-teal-800 dark:text-teal-100 leading-relaxed">
+                                系统检测到班级近期在 <span className="font-bold border-b-2 border-teal-300 dark:border-teal-500">被动语态</span> 和 <span className="font-bold border-b-2 border-teal-300 dark:border-teal-500">虚拟式</span> 模块错误率较高（平均错误率 42%）。建议生成专项强化练习。
                             </p>
                         </div>
                     </div>
@@ -176,18 +176,18 @@ const ExamGenerator = () => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3">
+                <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-slate-50/70 dark:bg-slate-900/40 flex justify-end gap-3">
                     <button
                         onClick={() => navigate(-1)}
                         disabled={isProcessing}
-                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="teacher-action-secondary px-6 py-2.5 rounded-xl font-medium disabled:opacity-50"
                     >
                         取消
                     </button>
                     <button
                         onClick={handleGenerate}
                         disabled={isProcessing}
-                        className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="teacher-action-primary px-8 py-2.5 rounded-xl font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? (
                             <><Loader2 size={20} className="animate-spin" /> 生成中...</>
