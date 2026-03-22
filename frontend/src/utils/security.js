@@ -5,7 +5,7 @@ function rightRotate(value, amount) {
 function sha256Fallback(text) {
     const maxWord = Math.pow(2, 32);
     const words = [];
-    const ascii = unescape(encodeURIComponent(text));
+    let ascii = unescape(encodeURIComponent(text));
     const asciiBitLength = ascii.length * 8;
 
     const hash = [];
