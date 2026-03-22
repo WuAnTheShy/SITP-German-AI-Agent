@@ -17,6 +17,10 @@ def require_teacher(req: Request, db: Session = Depends(get_db)):
                 raise HTTPException(status_code=401, detail="无效的教师令牌")
             user = UserCRUD.get_by_id(db, user_id)
             if user and user.role == "teacher":
+                if getattr(user, "status", "approved") != "approved":
+                    raise HTTPException(status_code=403, detail="教师账号未通过审核，无法访问")
+                if not getattr(user, "is_active", True):
+                    raise HTTPException(status_code=403, detail="教师账号已被停用，请联系管理员")
                 return user
     raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
 
@@ -65,6 +69,13 @@ def require_student(req: Request, db: Session = Depends(get_db)):
             uid = parts[2]
             s = StudentCRUD.get_by_uid(db, uid)
             if s:
+                user = UserCRUD.get_by_id(db, s.user_id)
+                if not user:
+                    raise HTTPException(status_code=401, detail="用户不存在，请重新登录")
+                if getattr(s, "status", "approved") != "approved":
+                    raise HTTPException(status_code=403, detail="学生账号未通过审核，无法访问")
+                if not getattr(user, "is_active", True):
+                    raise HTTPException(status_code=403, detail="学生账号已被停用，请联系管理员")
                 return s
     raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
 
@@ -78,5 +89,7 @@ def current_student(req: Request, db: Session):
             uid = parts[2]
             s = StudentCRUD.get_by_uid(db, uid)
             if s:
-                return s
+                user = UserCRUD.get_by_id(db, s.user_id)
+                if user and getattr(s, "status", "approved") == "approved" and getattr(user, "is_active", True):
+                    return s
     return None

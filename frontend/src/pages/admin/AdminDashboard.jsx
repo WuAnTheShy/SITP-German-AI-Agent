@@ -42,8 +42,7 @@ const AdminDashboard = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [teacherKeyword, setTeacherKeyword] = useState('');
     const [studentKeyword, setStudentKeyword] = useState('');
-    const [studentStatusFilter, setStudentStatusFilter] = useState('all');
-    const [classFilter, setClassFilter] = useState('all');
+    const [isPendingPanelOpen, setIsPendingPanelOpen] = useState(false);
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const adminName = userInfo.name || '管理员';
@@ -57,27 +56,58 @@ const AdminDashboard = () => {
         return status || '未知';
     };
 
-    const filteredTeachers = useMemo(() => {
-        const kw = teacherKeyword.trim().toLowerCase();
-        if (!kw) return teachers;
-        return teachers.filter((t) =>
-            String(t.display_name || '').toLowerCase().includes(kw) ||
-            String(t.username || '').toLowerCase().includes(kw) ||
-            String(t.id || '').toLowerCase().includes(kw)
-        );
-    }, [teachers, teacherKeyword]);
+    const classUnits = useMemo(() => {
+        const teacherMap = new Map(teachers.map((t) => [t.id, t]));
+        const studentMap = new Map();
 
-    const filteredStudents = useMemo(() => {
-        const kw = studentKeyword.trim().toLowerCase();
-        return students.filter((s) => {
-            const hitKeyword = !kw ||
-                String(s.name || '').toLowerCase().includes(kw) ||
-                String(s.uid || '').toLowerCase().includes(kw);
-            const hitStatus = studentStatusFilter === 'all' || s.status === studentStatusFilter;
-            const hitClass = classFilter === 'all' || String(s.class_id ?? 'none') === classFilter;
-            return hitKeyword && hitStatus && hitClass;
+        students.forEach((s) => {
+            const key = s.class_id == null ? 'none' : String(s.class_id);
+            const arr = studentMap.get(key) || [];
+            arr.push(s);
+            studentMap.set(key, arr);
         });
-    }, [students, studentKeyword, studentStatusFilter, classFilter]);
+
+        const byClass = classes.map((c) => ({
+            classId: c.id,
+            classCode: c.class_code,
+            className: c.class_name,
+            grade: c.grade,
+            teacher: c.teacher_user_id ? teacherMap.get(c.teacher_user_id) || null : null,
+            students: studentMap.get(String(c.id)) || [],
+            classInfo: c,
+        }));
+
+        const unassigned = studentMap.get('none') || [];
+        if (unassigned.length > 0) {
+            byClass.push({
+                classId: 'none',
+                classCode: 'UNASSIGNED',
+                className: '未分班学生池',
+                grade: null,
+                teacher: null,
+                students: unassigned,
+                classInfo: null,
+            });
+        }
+
+        const classKeyword = teacherKeyword.trim().toLowerCase();
+        const stuKeyword = studentKeyword.trim().toLowerCase();
+
+        return byClass.filter((unit) => {
+            const hitClass = !classKeyword ||
+                String(unit.className || '').toLowerCase().includes(classKeyword) ||
+                String(unit.classCode || '').toLowerCase().includes(classKeyword) ||
+                String(unit.teacher?.display_name || '').toLowerCase().includes(classKeyword) ||
+                String(unit.teacher?.username || '').toLowerCase().includes(classKeyword);
+
+            const hitStudents = !stuKeyword || unit.students.some((s) =>
+                String(s.name || '').toLowerCase().includes(stuKeyword) ||
+                String(s.uid || '').toLowerCase().includes(stuKeyword)
+            );
+
+            return hitClass && hitStudents;
+        });
+    }, [classes, teachers, students, teacherKeyword, studentKeyword]);
 
     const fetchData = useCallback(async (showToast = false) => {
         setError('');
@@ -301,6 +331,17 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleUpdateStudentQuick = async (id, payload) => {
+        try {
+            await request.put(API_ADMIN_UPDATE_STUDENT(id), payload);
+            fetchData();
+            toast.success('学生信息已更新');
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || '学生信息更新失败');
+            toast.error(err.response?.data?.detail || err.message || '学生信息更新失败');
+        }
+    };
+
     const openResetPasswordModal = (account) => {
         setResettingAccount(account);
         setNewPassword('');
@@ -352,33 +393,105 @@ const AdminDashboard = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-            <div className="max-w-5xl mx-auto space-y-6">
-                {/* 顶部 */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="teacher-shell p-3 sm:p-4 md:p-8">
+            <div className="max-w-6xl mx-auto space-y-5 md:space-y-6">
+                {/* 页面标题区 */}
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                     <div>
-                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
+                        <h1 className="text-xl sm:text-2xl md:text-3xl teacher-section-title flex items-center gap-2 sm:gap-3">
                             <Shield className="text-amber-500 dark:text-amber-400 shrink-0" />
                             管理员工作台
                         </h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">欢迎，{adminName}。</p>
+                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5">欢迎，{adminName}。请先处理待审核，再进行班级和账号维护。</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => fetchData(true)}
-                            disabled={refreshing}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors disabled:opacity-60"
-                        >
-                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                            刷新
-                        </button>
-                        <button
-                            onClick={handleLogout}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                        >
-                            <LogOut size={18} />
-                            退出登录
-                        </button>
+                    <div className="teacher-panel rounded-2xl px-3 sm:px-4 py-3 flex flex-col gap-2.5 w-full sm:w-auto shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="h-11 w-11 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold flex items-center justify-center">
+                                {(adminName || '管')[0]}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[160px]">{adminName}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">管理员账号</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => fetchData(true)}
+                                disabled={refreshing}
+                                className="teacher-action-secondary h-9 px-3 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 disabled:opacity-60"
+                            >
+                                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> 刷新
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="h-9 px-3 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/25 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/40 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                            >
+                                <LogOut size={14} /> 退出
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 管理操作区 */}
+                <div className="teacher-panel rounded-2xl p-3 sm:p-4 md:p-5">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3 bg-white/50 dark:bg-slate-900/50">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400 mb-2">日常管理</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowCreateModal(true); setFormError(''); }}
+                                    className="teacher-action-primary h-10 px-3 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5"
+                                >
+                                    <Plus size={16} /> 新建班级
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPendingPanelOpen(true)}
+                                    className="teacher-action-secondary h-10 px-3 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5"
+                                >
+                                    <UserPlus size={16} /> 审核教师
+                                    {pendingTeachers.length > 0 && (
+                                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-xs font-bold">
+                                            {pendingTeachers.length}
+                                        </span>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setTeacherKeyword('');
+                                        setStudentKeyword('');
+                                    }}
+                                    className="teacher-action-secondary h-10 px-3 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5"
+                                >
+                                    <Search size={16} /> 清空筛选
+                                </button>
+                            </div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3 bg-white/50 dark:bg-slate-900/50">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400 mb-2">状态总览</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-2.5 py-2">
+                                    <p className="text-amber-700 dark:text-amber-300">待审核教师</p>
+                                    <p className="text-base font-bold text-amber-700 dark:text-amber-300">{pendingTeachers.length}</p>
+                                </div>
+                                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 px-2.5 py-2">
+                                    <p className="text-emerald-700 dark:text-emerald-300">可登录教师</p>
+                                    <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">{activeTeacherCount}</p>
+                                </div>
+                                <div className="rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800/40 px-2.5 py-2">
+                                    <p className="text-sky-700 dark:text-sky-300">班级总数</p>
+                                    <p className="text-base font-bold text-sky-700 dark:text-sky-300">{classes.length}</p>
+                                </div>
+                                <div className="rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40 px-2.5 py-2">
+                                    <p className="text-rose-700 dark:text-rose-300">未分班学生</p>
+                                    <p className="text-base font-bold text-rose-700 dark:text-rose-300">{unassignedStudentCount}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -390,307 +503,160 @@ const AdminDashboard = () => {
                 )}
 
                 <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                    <div className="teacher-panel rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3">
                         <p className="text-xs text-gray-500 dark:text-gray-400">教师总数</p>
                         <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{teachers.length}</p>
                     </div>
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                    <div className="teacher-panel rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3">
                         <p className="text-xs text-gray-500 dark:text-gray-400">可登录教师</p>
                         <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">{activeTeacherCount}</p>
                     </div>
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                    <div className="teacher-panel rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3">
                         <p className="text-xs text-gray-500 dark:text-gray-400">班级总数</p>
                         <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{classes.length}</p>
                     </div>
-                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-3">
+                    <div className="teacher-panel rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3">
                         <p className="text-xs text-gray-500 dark:text-gray-400">未分班学生</p>
                         <p className="text-xl font-semibold text-amber-600 dark:text-amber-400">{unassignedStudentCount}</p>
                     </div>
                 </section>
 
-                {/* 教师列表 */}
-                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
-                        <Users className="text-indigo-500 dark:text-indigo-400" size={20} />
-                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">教师列表</h2>
-                    </div>
-                    <div className="px-4 pt-3 text-xs text-gray-500 dark:text-gray-400">
-                        说明：登录权限用于控制教师是否可登录系统；审核状态用于注册审批流程。
-                    </div>
-                    <div className="p-4">
-                        <div className="mb-3 relative max-w-md">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                value={teacherKeyword}
-                                onChange={(e) => setTeacherKeyword(e.target.value)}
-                                placeholder="搜索教师姓名、工号或 ID"
-                                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
-                            />
-                        </div>
-                        {teachers.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">暂无教师账号</p>
-                        ) : filteredTeachers.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">没有匹配的教师。</p>
-                        ) : (
-                            <ul className="space-y-2">
-                                {filteredTeachers.map((t) => (
-                                    <li key={t.id} className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-white/5 text-sm">
-                                        <span className="font-mono text-gray-500 dark:text-gray-400 w-20">ID {t.id}</span>
-                                        <span className="font-medium text-gray-800 dark:text-gray-200">{t.display_name}</span>
-                                        <span className="text-gray-500 dark:text-gray-400">({t.username})</span>
-                                        <span className="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">负责班级: {t.class_count || 0}</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded ${t.status === 'approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : t.status === 'pending' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'}`}>
-                                            {statusLabel(t.status)}
-                                        </span>
-                                        <select
-                                            value={t.status || 'approved'}
-                                            onChange={(e) => handleUpdateTeacher(t.id, { status: e.target.value })}
-                                            className="ml-auto px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
-                                        >
-                                            <option value="approved">审核通过</option>
-                                            <option value="pending">待审核</option>
-                                            <option value="rejected">已拒绝</option>
-                                        </select>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleUpdateTeacher(t.id, { is_active: !t.is_active })}
-                                            className={`px-2 py-1 rounded text-xs font-medium ${t.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
-                                            title={t.is_active ? '当前允许该教师登录系统，点击后将停用登录权限' : '当前不允许该教师登录系统，点击后将恢复登录权限'}
-                                        >
-                                            {t.is_active ? '可登录' : '已停用登录'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteTeacher(t.id)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                                        >
-                                            <Trash2 size={12} /> 删除
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => openResetPasswordModal({ id: t.id, name: t.display_name || t.username, role: 'teacher' })}
-                                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
-                                        >
-                                            <KeyRound size={12} /> 重置密码
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </section>
-
-                {/* 待审核教师 */}
-                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
-                        <UserPlus className="text-amber-500 dark:text-amber-400" size={20} />
-                        <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                            待审核教师
-                            {pendingTeachers.length > 0 && (
-                                <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingTeachers.length}</span>
-                            )}
-                        </h2>
-                    </div>
-                    <div className="p-4">
-                        {pendingTeachers.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">暂无待审核申请</p>
-                        ) : (
-                            <ul className="space-y-2">
-                                {pendingTeachers.map((t) => (
-                                    <li key={t.id} className="flex flex-wrap flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 text-sm">
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                            <span className="font-bold text-gray-800 dark:text-gray-200">{t.display_name}</span>
-                                            <span className="text-gray-500 dark:text-gray-400">工号: {t.username}</span>
-                                            <span className="text-gray-400 dark:text-gray-500 text-xs">申请时间: {new Date(t.created_at).toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button 
-                                                onClick={() => handleApproveTeacher(t.id)}
-                                                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
-                                            >
-                                                <CheckCircle size={14} /> 允许加入
-                                            </button>
-                                            <button 
-                                                onClick={() => handleRejectTeacher(t.id)}
-                                                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 font-medium transition-colors"
-                                            >
-                                                <XCircle size={14} /> 拒绝
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </section>
-
-                {/* 班级列表 */}
-                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center justify-between gap-2">
+                {/* 统一按班级管理 */}
+                <section className="teacher-panel rounded-2xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <BookOpen className="text-indigo-500 dark:text-indigo-400" size={20} />
-                            <h2 className="font-semibold text-gray-900 dark:text-gray-100">班级列表</h2>
+                            <h2 className="font-semibold text-gray-900 dark:text-gray-100">按班级统一管理（教师模块 + 学生模块）</h2>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => { setShowCreateModal(true); setFormError(''); }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
-                        >
-                            <Plus size={16} />
-                            新建班级
-                        </button>
-                    </div>
-                    <div className="p-4">
-                        {classes.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">暂无班级，可点击「新建班级」添加。</p>
-                        ) : (
-                            <ul className="space-y-2">
-                                {classes.map((c) => (
-                                    <li key={c.id} className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-white/5 text-sm group">
-                                        <span 
-                                            className="font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
-                                            title="点击复制邀请码"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(c.class_code);
-                                                toast.success(`班级邀请码已复制：${c.class_code}`);
-                                            }}
-                                        >
-                                            {c.class_code}
-                                        </span>
-                                        <span className="font-medium text-gray-800 dark:text-gray-200">{c.class_name}</span>
-                                        {c.grade && <span className="text-gray-500 dark:text-gray-400">({c.grade})</span>}
-                                        <span className="text-gray-500 dark:text-gray-400">— 负责教师: {c.teacher_display_name ?? c.teacher_username ?? `ID ${c.teacher_user_id}`}</span>
-                                        <div className="ml-auto flex items-center gap-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => openEditModal(c)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium"
-                                            >
-                                                <Pencil size={12} />
-                                                编辑
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteClass(c.id)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium"
-                                            >
-                                                <Trash2 size={12} />
-                                                删除
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </section>
-
-                {/* 学生名单管理 */}
-                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
-                        <Users className="text-teal-500 dark:text-teal-400" size={20} />
-                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">学生名单管理</h2>
-                    </div>
-                    <div className="p-4 overflow-x-auto">
-                        <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto">
+                            <div className="relative">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    value={teacherKeyword}
+                                    onChange={(e) => setTeacherKeyword(e.target.value)}
+                                    placeholder="筛选班级/教师"
+                                    className="w-full md:w-56 pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                                />
+                            </div>
                             <div className="relative">
                                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
                                     value={studentKeyword}
                                     onChange={(e) => setStudentKeyword(e.target.value)}
-                                    placeholder="搜索学号或姓名"
-                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                                    placeholder="筛选学生"
+                                    className="w-full md:w-56 pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
                                 />
                             </div>
-                            <select
-                                value={studentStatusFilter}
-                                onChange={(e) => setStudentStatusFilter(e.target.value)}
-                                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
-                            >
-                                <option value="all">全部状态</option>
-                                <option value="approved">审核通过</option>
-                                <option value="pending">待审核</option>
-                                <option value="rejected">已拒绝</option>
-                            </select>
-                            <select
-                                value={classFilter}
-                                onChange={(e) => setClassFilter(e.target.value)}
-                                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
-                            >
-                                <option value="all">全部班级</option>
-                                <option value="none">未分班</option>
-                                {classes.map((c) => (
-                                    <option key={c.id} value={String(c.id)}>{c.class_name}</option>
-                                ))}
-                            </select>
                         </div>
-                        {students.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">暂无学生</p>
+                    </div>
+                    <div className="p-4 space-y-4">
+                        {classUnits.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">当前没有匹配的班级单元。</p>
                         ) : (
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-white/10">
-                                        <th className="py-2 pr-3">学号</th>
-                                        <th className="py-2 pr-3">姓名</th>
-                                        <th className="py-2 pr-3">班级</th>
-                                        <th className="py-2 pr-3">状态</th>
-                                        <th className="py-2 pr-3">活跃度</th>
-                                        <th className="py-2 pr-3">综合分</th>
-                                        <th className="py-2 text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredStudents.map((s) => (
-                                        <tr key={s.id} className="border-b border-gray-100 dark:border-white/5">
-                                            <td className="py-2 pr-3 font-mono">{s.uid}</td>
-                                            <td className="py-2 pr-3">{s.name}</td>
-                                            <td className="py-2 pr-3">{s.class_name || '未分班'}</td>
-                                            <td className="py-2 pr-3">
-                                                <span className={`text-xs px-2 py-0.5 rounded ${s.status === 'approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : s.status === 'pending' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'}`}>
-                                                    {statusLabel(s.status)}
-                                                </span>
-                                            </td>
-                                            <td className="py-2 pr-3">{Number(s.active_score ?? 0)}%</td>
-                                            <td className="py-2 pr-3">{Number(s.overall_score ?? 0).toFixed(1)}</td>
-                                            <td className="py-2 text-right space-x-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openEditStudentModal(s)}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
-                                                >
-                                                    <Pencil size={12} /> 编辑
+                            classUnits.map((unit) => (
+                                <article key={String(unit.classId)} className="rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/60 dark:bg-slate-900/40 p-3 sm:p-4 space-y-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded text-xs">{unit.classCode}</span>
+                                            <span className="font-semibold text-slate-800 dark:text-slate-100">{unit.className}</span>
+                                            {unit.grade && <span className="text-xs text-slate-500 dark:text-slate-400">({unit.grade})</span>}
+                                        </div>
+                                        {unit.classInfo && (
+                                            <div className="flex items-center gap-1">
+                                                <button type="button" onClick={() => openEditModal(unit.classInfo)} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-xs font-medium">
+                                                    <Pencil size={12} /> 编辑班级
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDeleteStudent(s.id)}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                                                >
-                                                    <Trash2 size={12} /> 删除
+                                                <button type="button" onClick={() => handleDeleteClass(unit.classInfo.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium">
+                                                    <Trash2 size={12} /> 删除班级
                                                 </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="rounded-xl border border-sky-200/70 dark:border-sky-800/50 bg-sky-50/60 dark:bg-sky-900/10 p-3">
+                                        <p className="text-xs font-semibold text-sky-700 dark:text-sky-300 mb-2">教师模块</p>
+                                        {unit.teacher ? (
+                                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                                                <span className="font-medium text-slate-800 dark:text-slate-100">{unit.teacher.display_name}</span>
+                                                <span className="text-slate-500 dark:text-slate-400">({unit.teacher.username})</span>
+                                                <select
+                                                    value={unit.teacher.status || 'approved'}
+                                                    onChange={(e) => handleUpdateTeacher(unit.teacher.id, { status: e.target.value })}
+                                                    className="px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
+                                                >
+                                                    <option value="approved">审核通过</option>
+                                                    <option value="pending">待审核</option>
+                                                    <option value="rejected">已拒绝</option>
+                                                </select>
                                                 <button
                                                     type="button"
-                                                    disabled={!s.user_id}
-                                                    onClick={() => s.user_id && openResetPasswordModal({ id: s.user_id, name: s.name || s.uid, role: 'student' })}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    onClick={() => handleUpdateTeacher(unit.teacher.id, { is_active: !unit.teacher.is_active })}
+                                                    className={`px-2 py-1 rounded text-xs font-medium ${unit.teacher.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
                                                 >
+                                                    {unit.teacher.is_active ? '可登录' : '已停用登录'}
+                                                </button>
+                                                <button type="button" onClick={() => openResetPasswordModal({ id: unit.teacher.id, name: unit.teacher.display_name || unit.teacher.username, role: 'teacher' })} className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 text-xs">
                                                     <KeyRound size={12} /> 重置密码
                                                 </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                        {students.length > 0 && filteredStudents.length === 0 && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 py-3">没有符合筛选条件的学生。</p>
+                                                <button type="button" onClick={() => handleDeleteTeacher(unit.teacher.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 text-xs">
+                                                    <Trash2 size={12} /> 删除教师
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">该班级暂未分配教师。</p>
+                                        )}
+                                    </div>
+
+                                    <div className="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/10 p-3">
+                                        <p className="text-xs font-semibold text-teal-700 dark:text-teal-300 mb-2">学生模块</p>
+                                        {unit.students.length === 0 ? (
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">暂无学生。</p>
+                                        ) : (
+                                            <ul className="space-y-2">
+                                                {unit.students.map((s) => (
+                                                    <li key={s.id} className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-white/70 dark:bg-slate-900/45 text-sm">
+                                                        <span className="font-mono text-slate-500 dark:text-slate-400">{s.uid}</span>
+                                                        <span className="font-medium text-slate-800 dark:text-slate-100">{s.name}</span>
+                                                        <select
+                                                            value={s.status || 'approved'}
+                                                            onChange={(e) => handleUpdateStudentQuick(s.id, { status: e.target.value })}
+                                                            className="px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
+                                                        >
+                                                            <option value="approved">审核通过</option>
+                                                            <option value="pending">待审核</option>
+                                                            <option value="rejected">已拒绝</option>
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleUpdateStudentQuick(s.id, { is_active: !s.is_active })}
+                                                            className={`px-2 py-1 rounded text-xs font-medium ${s.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
+                                                        >
+                                                            {s.is_active ? '可登录' : '已停用登录'}
+                                                        </button>
+                                                        <button type="button" onClick={() => openEditStudentModal(s)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 text-xs">
+                                                            <Pencil size={12} /> 编辑
+                                                        </button>
+                                                        <button type="button" disabled={!s.user_id} onClick={() => s.user_id && openResetPasswordModal({ id: s.user_id, name: s.name || s.uid, role: 'student' })} className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 text-xs disabled:opacity-50 disabled:cursor-not-allowed">
+                                                            <KeyRound size={12} /> 重置密码
+                                                        </button>
+                                                        <button type="button" onClick={() => handleDeleteStudent(s.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 text-xs">
+                                                            <Trash2 size={12} /> 删除
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </article>
+                            ))
                         )}
                     </div>
                 </section>
 
                 {/* 系统设置 */}
-                <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
+                <section className="teacher-panel rounded-2xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
                         <Settings className="text-gray-700 dark:text-gray-300" size={20} />
                         <h2 className="font-semibold text-gray-900 dark:text-gray-100">系统设置</h2>
@@ -729,6 +695,65 @@ const AdminDashboard = () => {
                     </div>
                 </section>
             </div>
+
+            {isPendingPanelOpen && (
+                <div className="fixed inset-0 z-50 bg-black/35" onClick={() => setIsPendingPanelOpen(false)}>
+                    <div
+                        className="absolute top-0 right-0 h-full w-full sm:w-[460px] teacher-panel border-l border-amber-200/70 dark:border-amber-900/50 p-4 sm:p-5 overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                <UserPlus size={20} className="text-amber-500 dark:text-amber-400" />
+                                待审核教师
+                                {pendingTeachers.length > 0 && (
+                                    <span className="ml-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingTeachers.length}</span>
+                                )}
+                            </h3>
+                            <button
+                                type="button"
+                                className="teacher-action-secondary px-3 py-1.5 rounded-lg text-sm"
+                                onClick={() => setIsPendingPanelOpen(false)}
+                            >
+                                关闭
+                            </button>
+                        </div>
+                        {pendingTeachers.length === 0 ? (
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 text-sm text-slate-500 dark:text-slate-400">
+                                当前暂无待审核教师申请。
+                            </div>
+                        ) : (
+                            <ul className="space-y-3">
+                                {pendingTeachers.map((t) => (
+                                    <li key={t.id} className="rounded-xl bg-amber-50 dark:bg-amber-900/12 border border-amber-200/70 dark:border-amber-900/40 p-4">
+                                        <div className="mb-3">
+                                            <p className="font-bold text-slate-800 dark:text-slate-100">{t.display_name}</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">工号: {t.username}</p>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">申请时间: {new Date(t.created_at).toLocaleString()}</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleApproveTeacher(t.id)}
+                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
+                                            >
+                                                <CheckCircle size={14} /> 允许加入
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRejectTeacher(t.id)}
+                                                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 text-sm font-medium transition-colors"
+                                            >
+                                                <XCircle size={14} /> 拒绝
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* 新建班级弹窗 */}
             {showCreateModal && (

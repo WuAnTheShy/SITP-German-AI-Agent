@@ -39,6 +39,7 @@ class StudentUpdateBody(BaseModel):
     name: str | None = None
     class_id: int | None = None
     status: str | None = None
+    is_active: bool | None = None
     active_score: int | None = None
     overall_score: float | None = None
     weak_point: str | None = None
@@ -145,6 +146,7 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
                 "uid": s.uid,
                 "name": s.name,
                 "status": s.status,
+                "is_active": bool(user.is_active) if user else True,
                 "class_id": s.class_id,
                 "class_name": classroom.class_name if classroom else None,
                 "class_code": classroom.class_code if classroom else None,
@@ -191,6 +193,8 @@ def update_student(
             user.display_name = updates["name"]
         if "status" in updates:
             user.status = updates["status"]
+        if "is_active" in updates:
+            user.is_active = bool(updates["is_active"])
 
     db.commit()
     db.refresh(student)
@@ -200,6 +204,7 @@ def update_student(
         "uid": student.uid,
         "name": student.name,
         "status": student.status,
+        "is_active": bool(user.is_active) if user else True,
         "class_id": student.class_id,
         "class_name": classroom.class_name if classroom else None,
         "active_score": student.active_score,

@@ -43,6 +43,8 @@ const Login = () => {
         captchaInput: ''
     });
 
+    const isDisabledError = /登录被停用|账号已被管理员停用|账号已被停用/.test(error || '');
+
     const isLocked = lockoutUntil > Date.now();
 
     // 🎨 图形验证码生成逻辑
@@ -125,10 +127,21 @@ const Login = () => {
     const attemptLogin = async (url, credentials) => {
         try {
             const response = await request.post(url, credentials, { skipAuthRedirect: true });
-            if (response.data.code === 200) return response.data;
-            return null;
+            const payload = response?.data || {};
+            if (payload.code === 200) {
+                return { ok: true, data: payload, code: 200, message: payload.message || '登录成功' };
+            }
+            return {
+                ok: false,
+                code: Number(payload.code || 500),
+                message: payload.message || payload.detail || '登录失败',
+            };
         } catch (err) {
-            return null;
+            return {
+                ok: false,
+                code: Number(err?.response?.status || 500),
+                message: err?.response?.data?.message || err?.response?.data?.detail || err?.message || '网络错误',
+            };
         }
     };
 
@@ -154,26 +167,38 @@ const Login = () => {
         try {
             const encryptedPassword = await sha256Hex(formData.password);
             // 1. 尝试学生登录
-            let loginData = await attemptLogin(API_STUDENT_LOGIN, {
+            let studentResult = await attemptLogin(API_STUDENT_LOGIN, {
                 username: formData.username,
                 password: encryptedPassword
             });
 
-            if (loginData) {
+            if (studentResult.ok) {
                 // 学生登录成功
-                handleLoginSuccess('student', loginData);
+                handleLoginSuccess('student', studentResult.data);
+                return;
+            }
+
+            const studentBlocked = studentResult.code === 403 && /停用|等待审核|已被拒绝/.test(studentResult.message || '');
+            if (studentBlocked) {
+                handleBusinessBlocked(studentResult.message);
                 return;
             }
 
             // 2. 尝试教工登录
-            loginData = await attemptLogin(API_LOGIN, {
+            const teacherResult = await attemptLogin(API_LOGIN, {
                 username: formData.username,
                 password: encryptedPassword
             });
 
-            if (loginData) {
+            if (teacherResult.ok) {
                 // 教工登录成功
-                handleLoginSuccess('teacher', loginData);
+                handleLoginSuccess('teacher', teacherResult.data);
+                return;
+            }
+
+            const teacherBlocked = teacherResult.code === 403 && /停用|等待审核|已被拒绝/.test(teacherResult.message || '');
+            if (teacherBlocked) {
+                handleBusinessBlocked(teacherResult.message);
                 return;
             }
 
@@ -246,6 +271,16 @@ const Login = () => {
         setFormData(prev => ({ ...prev, captchaInput: '' }));
     };
 
+    const handleBusinessBlocked = (message) => {
+        const normalized = message || '登录受限，请联系管理员';
+        if (/停用/.test(normalized)) {
+            setError(`登录被停用：${normalized}`);
+        } else {
+            setError(`登录失败：${normalized}`);
+        }
+        setFormData(prev => ({ ...prev, captchaInput: '' }));
+    };
+
     const clearLoginLimits = () => {
         localStorage.removeItem('captcha_unified');
         localStorage.removeItem('failed_attempts_unified');
@@ -286,9 +321,14 @@ const Login = () => {
                 </h2>
 
                 {error && (
-                    <div className="mb-5 bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex items-start">
-                        <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400 mr-2 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
+                    <div className={`mb-5 p-4 rounded-xl flex items-start ${isDisabledError ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                        <AlertCircle className={`h-5 w-5 mr-2 flex-shrink-0 mt-0.5 ${isDisabledError ? 'text-amber-500 dark:text-amber-400' : 'text-red-500 dark:text-red-400'}`} />
+                        <div>
+                            <p className={`text-sm font-medium ${isDisabledError ? 'text-amber-700 dark:text-amber-300' : 'text-red-600 dark:text-red-300'}`}>{error}</p>
+                            {isDisabledError && (
+                                <p className="text-xs text-amber-700/80 dark:text-amber-200/90 mt-1">账号当前被管理员停用，请联系管理员恢复“可登录”后再尝试。</p>
+                            )}
+                        </div>
                     </div>
                 )}
 
