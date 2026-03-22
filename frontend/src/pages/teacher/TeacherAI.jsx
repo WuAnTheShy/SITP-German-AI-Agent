@@ -263,22 +263,22 @@ const TeacherAI = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="teacher-shell flex flex-col min-h-screen">
       {/* 顶部：返回 + 标题 */}
-      <div className="shrink-0 flex items-center gap-4 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div className="shrink-0 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 teacher-panel">
         <button
           onClick={() => navigate(`/teacher/${userInfo.id}/dashboard`)}
-          className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+          className="teacher-action-secondary p-2.5 rounded-full"
           title="返回控制台"
         >
-          <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
+          <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
         </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-            <Bot size={24} className="text-indigo-600 dark:text-indigo-400" />
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl teacher-section-title flex items-center gap-2 truncate">
+            <Bot size={24} className="text-teal-700 dark:text-teal-300" />
             AI 教研助手
           </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             智能分析学情，自动化教务辅助
           </p>
         </div>
@@ -289,9 +289,9 @@ const TeacherAI = () => {
         <aside
           className={`${
             sidebarOpen ? "flex" : "hidden"
-          } ${sidebarDesktopOpen ? "md:flex" : "md:hidden"} w-full md:w-72 shrink-0 flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900`}
+          } ${sidebarDesktopOpen ? "md:flex" : "md:hidden"} w-full md:w-72 shrink-0 flex-col border-r border-slate-200/80 dark:border-slate-800 teacher-panel`}
         >
-          <div className="p-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2">
+          <div className="p-3 border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <MessageSquare
                 className="text-indigo-600 shrink-0"
@@ -305,14 +305,14 @@ const TeacherAI = () => {
               <button
                 type="button"
                 onClick={handleNewChat}
-                className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+                className="teacher-action-primary p-2 rounded-lg"
                 title="新对话"
               >
                 <Plus size={18} />
               </button>
               <button
                 type="button"
-                className="hidden md:flex p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="hidden md:flex p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
                 title="收起历史列表"
                 onClick={() => setSidebarDesktopOpen(false)}
               >
@@ -326,8 +326,8 @@ const TeacherAI = () => {
                 key={s.id}
                 className={`flex items-stretch gap-0 rounded-lg overflow-hidden ${
                   sessionId === s.id
-                    ? "bg-indigo-100 dark:bg-indigo-900/40"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                    ? "bg-teal-100 dark:bg-teal-900/40"
+                    : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
               >
                 <button
@@ -335,8 +335,8 @@ const TeacherAI = () => {
                   onClick={() => handleSelectSession(s)}
                   className={`flex-1 text-left px-3 py-2.5 text-sm min-w-0 ${
                     sessionId === s.id
-                      ? "text-indigo-900 dark:text-indigo-100"
-                      : "text-gray-700 dark:text-gray-300"
+                      ? "text-teal-900 dark:text-teal-100"
+                      : "text-slate-700 dark:text-slate-300"
                   }`}
                 >
                   <div className="truncate font-medium" title={`#${s.id}`}>
@@ -351,7 +351,7 @@ const TeacherAI = () => {
                 <button
                   type="button"
                   title="删除此对话"
-                  className="shrink-0 px-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                  className="shrink-0 px-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDeleteTargetId(s.id);
@@ -376,10 +376,10 @@ const TeacherAI = () => {
 
         {/* 主区 */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          <div className="md:hidden flex items-center gap-2 p-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <div className="md:hidden flex items-center gap-2 p-2 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90">
             <button
               type="button"
-              className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800"
+              className="teacher-action-secondary p-2 rounded-lg"
               onClick={() => setSidebarOpen(true)}
             >
               <MessageSquare size={18} />
@@ -390,17 +390,17 @@ const TeacherAI = () => {
             <button
               type="button"
               onClick={handleNewChat}
-              className="ml-auto p-2 rounded-lg bg-indigo-600 text-white"
+              className="teacher-action-primary ml-auto p-2 rounded-lg"
             >
               <Plus size={18} />
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b border-slate-200/80 dark:border-slate-800 teacher-panel">
             {!sidebarDesktopOpen && (
               <button
                 type="button"
-                className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-300"
+                className="teacher-action-secondary p-2 rounded-lg text-slate-600 dark:text-slate-300"
                 title="展开对话历史"
                 onClick={() => setSidebarDesktopOpen(true)}
               >
@@ -414,7 +414,7 @@ const TeacherAI = () => {
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-gray-50 dark:bg-gray-900/50">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 bg-transparent">
             {loadingMessages ? (
               <div className="flex justify-center py-8 text-gray-500">
                 <Loader2 className="animate-spin mr-2" /> 加载历史…
@@ -428,28 +428,28 @@ const TeacherAI = () => {
                   }`}
                 >
                   <div
-                    className={`flex items-start gap-3 max-w-[90%] md:max-w-2xl ${
+                    className={`flex items-start gap-2 sm:gap-3 max-w-[95%] sm:max-w-[90%] md:max-w-2xl ${
                       msg.sender === "user" ? "flex-row-reverse" : ""
                     }`}
                   >
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                         msg.sender === "user"
-                          ? "bg-indigo-600"
-                          : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                          ? "bg-teal-700"
+                          : "teacher-panel border border-slate-200/80 dark:border-slate-700"
                       }`}
                     >
                       {msg.sender === "user" ? (
                         <User size={20} className="text-white" />
                       ) : (
-                        <Bot size={24} className="text-indigo-600 dark:text-indigo-400" />
+                        <Bot size={24} className="text-teal-700 dark:text-teal-300" />
                       )}
                     </div>
                     <div
-                      className={`p-4 rounded-2xl text-base whitespace-pre-wrap ${
+                      className={`p-3 sm:p-4 rounded-2xl text-sm sm:text-base whitespace-pre-wrap ${
                         msg.sender === "user"
-                          ? "bg-indigo-600 text-white rounded-tr-none"
-                          : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-tl-none text-gray-800 dark:text-gray-200"
+                          ? "bg-teal-700 text-white rounded-tr-none"
+                          : "teacher-panel border border-slate-200/80 dark:border-slate-700 rounded-tl-none text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       {msg.text}
@@ -461,11 +461,11 @@ const TeacherAI = () => {
             {loading && (
               <div className="flex justify-start">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center">
-                    <Bot size={24} className="text-indigo-600 dark:text-indigo-400" />
+                  <div className="w-10 h-10 rounded-full teacher-panel border border-slate-200/80 dark:border-slate-700 flex items-center justify-center">
+                    <Bot size={24} className="text-teal-700 dark:text-teal-300" />
                   </div>
-                  <div className="p-4 rounded-2xl rounded-tl-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center gap-2 text-gray-500">
-                    <Loader2 className="animate-spin text-indigo-500" size={18} />{" "}
+                  <div className="p-4 rounded-2xl rounded-tl-none teacher-panel border border-slate-200/80 dark:border-slate-700 flex items-center gap-2 text-slate-500 dark:text-slate-300">
+                    <Loader2 className="animate-spin text-teal-600" size={18} />{" "}
                     AI 助教正在分析您的需求...
                   </div>
                 </div>
@@ -474,14 +474,14 @@ const TeacherAI = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex flex-wrap gap-3 mb-3">
+          <div className="p-3 sm:p-4 teacher-panel border-t border-slate-200/80 dark:border-slate-700">
+            <div className="flex flex-wrap gap-2 mb-3">
               {promptTemplates.map((template, index) => (
                 <button
                   key={index}
                   type="button"
                   onClick={() => setInput(template.text)}
-                  className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 rounded-xl text-sm font-medium border border-indigo-100 dark:border-indigo-800/50 flex items-center"
+                  className="px-3 py-1.5 bg-teal-50 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-300 rounded-xl text-xs sm:text-sm font-medium border border-teal-200 dark:border-teal-800/50 flex items-center transition-colors"
                   disabled={loading}
                 >
                   {template.icon}
@@ -489,7 +489,7 @@ const TeacherAI = () => {
                 </button>
               ))}
             </div>
-            <div className="flex gap-3 max-w-4xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-4xl mx-auto">
               <input
                 ref={inputRef}
                 type="text"
@@ -500,15 +500,15 @@ const TeacherAI = () => {
                   loading ? "正在处理请求..." : "输入您要咨询的教研问题或指令..."
                 }
                 disabled={loading}
-                className="flex-1 px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 dark:text-white disabled:opacity-60"
+                className="teacher-input flex-1 px-4 sm:px-5 py-3 sm:py-4 rounded-xl text-sm sm:text-base disabled:opacity-60"
               />
               <button
                 onClick={handleSend}
                 disabled={loading || !sessionId}
-                className={`px-6 py-4 rounded-xl font-bold flex items-center gap-2 ${
+                className={`w-full sm:w-auto px-6 py-3 sm:py-4 rounded-xl font-bold flex items-center justify-center gap-2 text-sm sm:text-base ${
                   loading || !sessionId
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                    ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-300 cursor-not-allowed"
+                    : "teacher-action-primary"
                 }`}
               >
                 {loading ? (

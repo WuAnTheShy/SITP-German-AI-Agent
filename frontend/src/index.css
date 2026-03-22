@@ -277,3 +277,94 @@ body {
     background-clip: text;
     animation: shimmer 3s linear infinite;
 }
+
+/* ═══════════ 教师端统一视觉系统 ═══════════ */
+.teacher-shell {
+    min-height: 100vh;
+    background:
+        radial-gradient(1200px 500px at -8% -20%, rgba(14, 116, 144, 0.16), transparent 62%),
+        radial-gradient(900px 380px at 110% 5%, rgba(22, 163, 74, 0.12), transparent 60%),
+        linear-gradient(180deg, #f4f9fb 0%, #edf3f7 100%);
+}
+
+.dark .teacher-shell {
+    background:
+        radial-gradient(1100px 420px at -10% -25%, rgba(14, 116, 144, 0.22), transparent 60%),
+        radial-gradient(800px 360px at 110% 0%, rgba(22, 163, 74, 0.16), transparent 58%),
+        linear-gradient(180deg, #0b1520 0%, #101a26 100%);
+}
+
+.teacher-panel {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.dark .teacher-panel {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.teacher-section-title {
+    color: #0f172a;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.dark .teacher-section-title {
+    color: #e2e8f0;
+}
+
+.teacher-action-primary {
+    background: linear-gradient(135deg, #0ea5a4 0%, #0f766e 100%);
+    color: #ffffff;
+    border: 1px solid rgba(15, 118, 110, 0.65);
+    transition: all 0.2s ease;
+}
+
+.teacher-action-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(13, 148, 136, 0.25);
+}
+
+.teacher-action-secondary {
+    background: rgba(255, 255, 255, 0.84);
+    color: #334155;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    transition: all 0.2s ease;
+}
+
+.teacher-action-secondary:hover {
+    background: rgba(241, 245, 249, 0.95);
+}
+
+.dark .teacher-action-secondary {
+    background: rgba(30, 41, 59, 0.8);
+    color: #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.dark .teacher-action-secondary:hover {
+    background: rgba(51, 65, 85, 0.95);
+}
+
+.teacher-input {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    color: #0f172a;
+}
+
+.teacher-input:focus {
+    outline: none;
+    border-color: rgba(13, 148, 136, 0.8);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+
+.dark .teacher-input {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #e2e8f0;
+}

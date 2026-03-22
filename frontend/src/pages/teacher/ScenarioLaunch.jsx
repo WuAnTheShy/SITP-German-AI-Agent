@@ -69,16 +69,16 @@ const ScenarioLaunch = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 md:p-8">
-            <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="teacher-shell p-3 md:p-8">
+            <div className="max-w-3xl mx-auto teacher-panel rounded-2xl overflow-hidden">
                 {/* 顶部导航 */}
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors">
+                    <button onClick={() => navigate(-1)} className="teacher-action-secondary p-2 rounded-lg text-slate-500 dark:text-slate-300">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                            <MessageSquare className="text-purple-600 dark:text-purple-400" /> 发布情景模拟任务
+                        <h1 className="text-xl teacher-section-title flex items-center gap-2">
+                            <MessageSquare className="text-teal-700 dark:text-teal-300" /> 发布情景模拟任务
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400">配置 AI 陪练角色与场景参数</p>
                     </div>
@@ -95,13 +95,13 @@ const ScenarioLaunch = () => {
                                     key={theme}
                                     onClick={() => setSelectedTheme(theme)}
                                     className={`relative group cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${selectedTheme === theme
-                                        ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200'
-                                        : 'border-gray-200 dark:border-gray-700 hover:border-purple-200 text-gray-700 dark:text-gray-300'
+                                        ? 'border-teal-600 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-200'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-teal-300 text-gray-700 dark:text-gray-300'
                                         }`}
                                 >
                                     <div className="font-medium">{theme}</div>
                                     {selectedTheme === theme && (
-                                        <div className="absolute top-2 right-2 text-purple-600 animate-in zoom-in duration-200">
+                                        <div className="absolute top-2 right-2 text-teal-700 dark:text-teal-300 animate-in zoom-in duration-200">
                                             <CheckCircle size={16} />
                                         </div>
                                     )}
@@ -117,7 +117,7 @@ const ScenarioLaunch = () => {
                             <select
                                 value={difficulty}
                                 onChange={(e) => setDifficulty(e.target.value)}
-                                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:bg-white dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
+                                className="teacher-input w-full rounded-xl p-3 transition-all cursor-pointer"
                             >
                                 {LEVELS.map(level => <option key={level} value={level}>{level}</option>)}
                             </select>
@@ -129,7 +129,7 @@ const ScenarioLaunch = () => {
                             <select
                                 value={persona}
                                 onChange={(e) => setPersona(e.target.value)}
-                                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:bg-white dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer"
+                                className="teacher-input w-full rounded-xl p-3 transition-all cursor-pointer"
                             >
                                 {PERSONAS.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
@@ -137,24 +137,24 @@ const ScenarioLaunch = () => {
                     </div>
 
                     {/* 4. 训练目标 (Checkbox 变更状态) */}
-                    <div className="bg-purple-50 dark:bg-purple-900/30 p-6 rounded-xl border border-purple-100 dark:border-purple-900/50">
-                        <label className="block text-sm font-bold text-purple-900 dark:text-purple-200 mb-3">训练目标设定</label>
+                    <div className="bg-teal-50 dark:bg-teal-900/30 p-6 rounded-xl border border-teal-200 dark:border-teal-900/50">
+                        <label className="block text-sm font-bold text-teal-900 dark:text-teal-200 mb-3">训练目标设定</label>
                         <div className="space-y-3">
-                            <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
+                            <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-teal-200/70 dark:border-teal-800/40 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
                                     type="checkbox"
                                     checked={goals.perfectTense}
                                     onChange={(e) => setGoals({ ...goals, perfectTense: e.target.checked })}
-                                    className="w-5 h-5 text-purple-600 dark:text-purple-400 dark:bg-gray-700 rounded focus:ring-purple-500"
+                                    className="w-5 h-5 text-teal-600 dark:text-teal-400 dark:bg-gray-700 rounded focus:ring-teal-500"
                                 />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">强制使用完成时态 (Perfekt)</span>
                             </label>
-                            <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
+                            <label className="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-teal-200/70 dark:border-teal-800/40 cursor-pointer hover:shadow-sm dark:shadow-gray-900/50 transition-shadow select-none">
                                 <input
                                     type="checkbox"
                                     checked={goals.b1Vocab}
                                     onChange={(e) => setGoals({ ...goals, b1Vocab: e.target.checked })}
-                                    className="w-5 h-5 text-purple-600 dark:text-purple-400 dark:bg-gray-700 rounded focus:ring-purple-500"
+                                    className="w-5 h-5 text-teal-600 dark:text-teal-400 dark:bg-gray-700 rounded focus:ring-teal-500"
                                 />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">包含至少 5 个 B1 级词汇</span>
                             </label>
@@ -163,18 +163,18 @@ const ScenarioLaunch = () => {
                 </div>
 
                 {/* 底部按钮 */}
-                <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3">
+                <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-slate-50/70 dark:bg-slate-900/40 flex justify-end gap-3">
                     <button
                         onClick={() => navigate(-1)}
                         disabled={isProcessing}
-                        className="px-6 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="teacher-action-secondary px-6 py-2.5 rounded-xl font-medium disabled:opacity-50"
                     >
                         取消
                     </button>
                     <button
                         onClick={handlePublish}
                         disabled={isProcessing}
-                        className="px-8 py-2.5 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="teacher-action-primary px-8 py-2.5 rounded-xl font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? (
                             <><Loader2 size={20} className="animate-spin" /> 发布中...</>
