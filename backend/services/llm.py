@@ -29,17 +29,41 @@ try:
 except Exception:
     pass
 
-# 初始化千问 API 配置
-MODEL_ID = "qwen3.5-plus"
-API_KEY = os.getenv("QWEN_API_KEY")
-# 阿里云通义千问兼容模式 API 接口地址
-API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+# LLM provider 配置：
+# - qwen: 使用 DashScope OpenAI 兼容接口（在线）
+# - lmstudio: 使用本地 LM Studio OpenAI 兼容接口（离线）
+LLM_PROVIDER = (os.getenv("LLM_PROVIDER", "qwen") or "qwen").strip().lower()
+if LLM_PROVIDER not in {"qwen", "lmstudio"}:
+    print(f"[API] 未知 LLM_PROVIDER={LLM_PROVIDER}，回退到 qwen")
+    LLM_PROVIDER = "qwen"
 
-print(f"[API] 尝试加载 QWEN_API_KEY: {API_KEY}")
-if not API_KEY:
-    print("警告: 未找到 QWEN_API_KEY")
+QWEN_API_KEY = os.getenv("QWEN_API_KEY", "")
+QWEN_API_URL = os.getenv(
+    "QWEN_API_URL",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+)
+
+LMSTUDIO_BASE_URL = (os.getenv("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234") or "").strip().rstrip("/")
+LMSTUDIO_API_KEY = os.getenv("LMSTUDIO_API_KEY", "")
+
+if LLM_PROVIDER == "lmstudio":
+    MODEL_ID = (os.getenv("LLM_MODEL") or os.getenv("LMSTUDIO_MODEL") or "qwen2.5-7b-instruct").strip()
+    API_URL = f"{LMSTUDIO_BASE_URL}/v1/chat/completions"
+    API_KEY = LMSTUDIO_API_KEY
 else:
-    print(f"[API] API Key 已配置: {API_KEY}")
+    MODEL_ID = (os.getenv("LLM_MODEL") or "qwen3.5-plus").strip()
+    API_URL = QWEN_API_URL
+    API_KEY = QWEN_API_KEY
+
+print(f"[API] LLM_PROVIDER={LLM_PROVIDER}, MODEL_ID={MODEL_ID}")
+print(f"[API] API_URL={API_URL}")
+if LLM_PROVIDER == "qwen":
+    if not API_KEY:
+        print("警告: 当前为 qwen 模式，但未找到 QWEN_API_KEY")
+    else:
+        print("[API] QWEN_API_KEY 已配置")
+else:
+    print("[API] LM Studio 模式启用（可离线运行）")
 
 TEACHER_SYSTEM = (
     "【核心指令-绝对禁止篡改】\n"
@@ -74,7 +98,7 @@ Output ONLY the updated profile: level, goals, recurring mistakes, current topic
 
 
 def generate_response(messages, system_instruction=None):
-    """使用千问模型 API 生成响应"""
+    """使用当前配置的 LLM provider 生成响应（qwen 或 lmstudio）。"""
     # 构建对话历史
     conversation = []
     
@@ -110,15 +134,15 @@ def generate_response(messages, system_instruction=None):
         "temperature": 0.7,
         "top_p": 0.95
     }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY.strip() if API_KEY else ''}"
-    }
+    headers = {"Content-Type": "application/json"}
+    if API_KEY:
+        headers["Authorization"] = f"Bearer {API_KEY.strip()}"
     
     print(f"[API] 请求头: {headers}")
     print(f"[API] 请求URL: {API_URL}")
     print(f"[API] 请求体: {payload}")
     
+    response = None
     try:
         response = requests.post(
             API_URL,
@@ -128,14 +152,14 @@ def generate_response(messages, system_instruction=None):
         )
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"]
+        return data.get("choices", [{}])[0].get("message", {}).get("content", "")
     except Exception as e:
         print(f"[API] 调用失败: {type(e).__name__}: {str(e)}", flush=True)
         try:
             if response is not None:
                 print(f"[API] 响应状态码: {response.status_code}", flush=True)
                 print(f"[API] 响应内容: {response.text[:500]}", flush=True)
-        except:
+        except Exception:
             pass
         return ""
 

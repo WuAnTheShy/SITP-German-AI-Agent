@@ -96,7 +96,7 @@ from schemas.entities import (
 from core.responses import ok, fail, to_float
 from core.deps import require_teacher, require_student, current_student
 from core.seed import _ensure_demo_data
-from services.llm import ai_text, ai_json, MODEL_ID
+from services.llm import ai_text, ai_json, MODEL_ID, LLM_PROVIDER
 from routers.auth import router as auth_router
 from routers.admin import router as admin_router
 from routers.teacher import router as teacher_router
@@ -110,9 +110,10 @@ _proxy = os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
 if _proxy:
     print(f"代理已启用: {_proxy}")
 else:
-    print("提示: 未配置代理，如果 Qwen API 连不上请在 .env 中设置 HTTP_PROXY")
-if not os.getenv("QWEN_API_KEY"):
-    print("警告: 未找到 QWEN_API_KEY")
+    print("提示: 未配置代理，如需访问在线 API 请在 .env 中设置 HTTP_PROXY")
+if LLM_PROVIDER == "qwen" and not os.getenv("QWEN_API_KEY"):
+    print("警告: 当前为 qwen 模式，但未找到 QWEN_API_KEY")
+print(f"[AI] Provider={LLM_PROVIDER}, Model={MODEL_ID}")
 
 app = FastAPI()
 
