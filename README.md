@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Vite-7.2-646CFF?logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Qwen-Plus-AI-FF6B6B?logo=alibabacloud&logoColor=white" alt="Qwen" />
+  <img src="https://img.shields.io/badge/Qwen-Plus_AI-FF6B6B?style=flat-square" alt="Qwen" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker" />
 </p>
@@ -18,7 +18,7 @@
 
 ## 📖 项目简介
 
-在传统大学德语教学中，课堂练习时间有限、难以兼顾每位学生的个性化需求。本项目通过构建 **"教师 — 学生 — AI 智能体"** 三元协同教学模式，利用 Qwen（通义千问）大语言模型作为德语 AI 助教，为学生提供 1 对 1 高频互动训练，为教师提供学情洞察与智能教学工具。
+在传统大学德语教学中，课堂练习时间有限、难以兼顾每位学生的个性化需求。本项目通过构建 **"教师 — 学生 — AI 智能体"** 三元协同教学模式，支持 Qwen（通义千问）与 LM Studio（本地）双模式大语言模型接入，为学生提供 1 对 1 高频互动训练，为教师提供学情洞察与智能教学工具。
 
 ### 核心特性
 
@@ -27,7 +27,7 @@
 | 🛡️ **管理员端** | 教师审核与账号启停 · 班级创建/编辑/删除 · 学生名单与分班管理 · 账号密码重置（教师/学生） · 系统审核策略开关 |
 | 🎓 **教师端**  | 教学仪表盘 · 学情监控 · AI教研助手 · 智能试卷生成 · 情景任务发布 · 发布历史溯源 · 作业全轨批改      |
 | 📚 **学生端**  | 专属 AI 语伴 · 词汇/语法/听说写作跨板块评测 · 错题精练诊断 · 学习进度追踪 · 收藏夹          |
-| 🤖 **AI 引擎** | 基于 Qwen-Plus · 德语助教人设 · 语法纠错 · 中德双语解释                                     |
+| 🤖 **AI 引擎** | Qwen / LM Studio 双模式 · 德语助教人设 · 语法纠错 · 中德双语解释                                     |
 
 ---
 
@@ -43,11 +43,10 @@
                │   React SPA   │    │   Uvicorn    │    │   :5432    │
                └───────────────┘    └──────┬───────┘    └────────────┘
                                            │
-                                    ┌──────▼───────┐
-                                    │  Qwen API    │
-                                    │  通义千问     │
-                                    │  Compatible  │
-                                    └──────────────┘
+                                    ┌──────▼──────────────┐
+                                    │ OpenAI Compatible LLM│
+                                    │ Qwen / LM Studio     │
+                                    └──────────────────────┘
 ```
 
 ---
@@ -73,7 +72,7 @@
 | -------------------------------------------------- | ----------------- |
 | [FastAPI](https://fastapi.tiangolo.com/)           | Web 框架 (Python) |
 | [Uvicorn](https://www.uvicorn.org/)                | ASGI 服务器       |
-| [Qwen API](https://help.aliyun.com/zh/dashscope/) | 通义千问模型调用   |
+| [Qwen API](https://help.aliyun.com/zh/dashscope/) / [LM Studio](https://lmstudio.ai/) | OpenAI 兼容模型调用（云端/本地） |
 | [SQLAlchemy](https://www.sqlalchemy.org/)          | ORM 数据库操作    |
 | [Psycopg](https://www.psycopg.org/psycopg3/)       | PostgreSQL 驱动   |
 | [Alembic](https://alembic.sqlalchemy.org/)         | 数据库迁移管理    |
@@ -167,17 +166,45 @@ SITP-German-AI-Agent/
 
 ## 🚀 快速开始
 
-### 前置准备：环境变量与网络
+### 前置准备：LLM 模式与环境变量
 
-** 配置 Qwen API Key**
+本项目后端支持两种 LLM provider：
 
-在项目根目录创建 `.env` 文件：
+- `qwen`：调用阿里云 DashScope（在线）
+- `lmstudio`：调用本机 LM Studio OpenAI 兼容服务（本地）
 
-```bash
-echo QWEN_API_KEY=你的_通义千问_API_密钥 > .env
+在项目根目录创建 `.env` 文件，并按需二选一配置。
+
+**方案 A：Qwen（在线）**
+
+```dotenv
+LLM_PROVIDER=qwen
+QWEN_API_KEY=你的_通义千问_API_密钥
+# 可选，不填则使用后端默认值
+# QWEN_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+# 可选，不填则使用默认模型 qwen3.5-plus
+# LLM_MODEL=qwen3.5-plus
 ```
 
-> 💡 Qwen API Key 获取方式：访问 [阿里云 DashScope](https://dashscope.aliyun.com/) 申请API密钥。
+> 💡 Qwen API Key 获取方式：访问 [阿里云 DashScope](https://dashscope.aliyun.com/) 申请 API 密钥。
+
+**方案 B：LM Studio（本地）**
+
+```dotenv
+LLM_PROVIDER=lmstudio
+
+# 使用 docker compose 启动后端容器时
+LMSTUDIO_BASE_URL=http://host.docker.internal:1234
+
+# 本地运行后端时使用，请改为
+# LMSTUDIO_BASE_URL=http://127.0.0.1:1234
+
+# 模型名需与 LM Studio 当前加载模型一致
+LMSTUDIO_MODEL=qwen2.5-7b-instruct
+
+# LM Studio 默认可留空；如你在 LM Studio 开启了鉴权再填写
+LMSTUDIO_API_KEY=
+```
 
 ---
 
@@ -220,9 +247,11 @@ python -m venv venv
 # 安装依赖
 pip install -r requirements.txt
 
-# 配置环境变量
-$env:QWEN_API_KEY="你的密钥"          # PowerShell
-# export QWEN_API_KEY="你的密钥"      # macOS/Linux
+# 推荐直接在项目根目录维护 .env 文件；临时调试也可在当前终端导出变量
+# PowerShell 示例（LM Studio 本地模式）：
+# $env:LLM_PROVIDER="lmstudio"
+# $env:LMSTUDIO_BASE_URL="http://127.0.0.1:1234"
+# $env:LMSTUDIO_MODEL="qwen2.5-7b-instruct"
 
 # 启动开发服务器 (热重载)
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -241,6 +270,68 @@ npm run dev
 ```
 
 > 前端开发服务器运行在 `http://localhost:5173`，已配置 Vite Proxy 将 `/api` 请求自动代理至后端 `http://localhost:8000`，无需手动修改 API 地址。
+
+---
+
+## 🧠 LM Studio 本地使用说明（重点）
+
+### 1. 安装并准备模型
+
+1. 安装 [LM Studio](https://lmstudio.ai/)（Windows/macOS/Linux）。
+2. 在 LM Studio 内下载可用的对话模型（建议 7B 级别先跑通流程）。
+3. 确认模型已加载，并可在 Chat 页面正常响应。
+
+### 2. 启动 LM Studio 本地 OpenAI 服务
+
+在 LM Studio 的开发者/服务页面启动本地 API 服务，默认监听：
+
+- `http://127.0.0.1:1234`
+
+本项目后端会请求：
+
+- `/v1/chat/completions`
+
+### 3. 配置项目 `.env`
+
+#### 本地开发（后端直接在宿主机运行）
+
+```dotenv
+LLM_PROVIDER=lmstudio
+LMSTUDIO_BASE_URL=http://127.0.0.1:1234
+LMSTUDIO_MODEL=qwen2.5-7b-instruct
+LMSTUDIO_API_KEY=
+```
+
+#### Docker Compose（后端在容器内运行）
+
+```dotenv
+LLM_PROVIDER=lmstudio
+LMSTUDIO_BASE_URL=http://host.docker.internal:1234
+LMSTUDIO_MODEL=qwen2.5-7b-instruct
+LMSTUDIO_API_KEY=
+```
+
+> 关键点：容器内 `127.0.0.1` 指向容器自身，不是宿主机，因此 Docker 模式应使用 `host.docker.internal` 访问宿主机上的 LM Studio。
+
+### 4. 启动系统并验证
+
+启动后端（本地）或全栈（Docker）后，查看后端日志应出现类似信息：
+
+- `[API] LLM_PROVIDER=lmstudio, MODEL_ID=...`
+- `[API] API_URL=http://.../v1/chat/completions`
+- `[API] LM Studio 模式启用（可离线运行）`
+
+若页面可正常发起 AI 对话并返回结果，说明联通成功。
+
+### 5. 常见问题排查
+
+| 现象 | 常见原因 | 处理方式 |
+| ---- | ---- | ---- |
+| AI 对话无响应 / 超时 | LM Studio 服务未启动 | 在 LM Studio 中重新启动本地 API 服务 |
+| 后端报 404 | `LMSTUDIO_BASE_URL` 配错（缺端口或路径） | 使用 `http://127.0.0.1:1234` 或 `http://host.docker.internal:1234`，不要手动拼 `/v1/chat/completions` |
+| Docker 模式连接失败 | 容器内写成了 `127.0.0.1` | 改为 `host.docker.internal` |
+| 模型调用报错 | `LMSTUDIO_MODEL` 与当前加载模型名不一致 | 在 LM Studio 中复制准确模型 ID 到 `.env` |
+| 切换 provider 后行为异常 | 后端未重启，仍使用旧环境变量 | 重启后端服务（本地重启 uvicorn / Docker 重启 backend） |
 
 ---
 

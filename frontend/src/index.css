@@ -3,7 +3,6 @@
 @tailwind utilities;
 
 * {
-    user-select: none;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -303,6 +302,119 @@ body {
 .btn-gradient-blue:active,
 .btn-gradient-indigo:active {
     transform: translateY(0);
+}
+
+/* Markdown rendering for AI-generated text */
+.markdown-content {
+    line-height: 1.65;
+    word-break: break-word;
+}
+
+.markdown-content>*:first-child {
+    margin-top: 0;
+}
+
+.markdown-content>*:last-child {
+    margin-bottom: 0;
+}
+
+.markdown-content p,
+.markdown-content ul,
+.markdown-content ol,
+.markdown-content pre,
+.markdown-content blockquote,
+.markdown-content table {
+    margin: 0 0 0.72rem;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+    margin: 0.2rem 0 0.6rem;
+    line-height: 1.35;
+    font-weight: 700;
+}
+
+.markdown-content h1 {
+    font-size: 1.25rem;
+}
+
+.markdown-content h2 {
+    font-size: 1.13rem;
+}
+
+.markdown-content h3 {
+    font-size: 1.02rem;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    padding-left: 1.2rem;
+}
+
+.markdown-content li+li {
+    margin-top: 0.25rem;
+}
+
+.markdown-content a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.markdown-content blockquote {
+    border-left: 3px solid rgba(148, 163, 184, 0.7);
+    padding-left: 0.8rem;
+    color: rgba(51, 65, 85, 0.95);
+}
+
+.dark .markdown-content blockquote {
+    color: rgba(203, 213, 225, 0.95);
+    border-left-color: rgba(148, 163, 184, 0.8);
+}
+
+.markdown-content code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    background: rgba(148, 163, 184, 0.2);
+    padding: 0.12rem 0.3rem;
+    border-radius: 0.35rem;
+    font-size: 0.9em;
+}
+
+.dark .markdown-content code {
+    background: rgba(148, 163, 184, 0.28);
+}
+
+.markdown-content pre {
+    background: rgba(15, 23, 42, 0.94);
+    color: #f8fafc;
+    border-radius: 0.65rem;
+    padding: 0.8rem 0.9rem;
+    overflow-x: auto;
+}
+
+.markdown-content pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    color: inherit;
+}
+
+.markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92em;
+}
+
+.markdown-content th,
+.markdown-content td {
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+}
+
+.markdown-content th {
+    background: rgba(148, 163, 184, 0.18);
 }
 
 .input-glow,

@@ -23,6 +23,7 @@ import {
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react";
+import MarkdownContent from "../../components/MarkdownContent";
 
 const WELCOME_AI =
   "您好，老师！我是您的 AI 教研助手。我可以帮您分析学情数据、制定教学计划或自动生成德语试卷，请问今天需要什么协助？";
@@ -446,13 +447,17 @@ const TeacherAI = () => {
                       )}
                     </div>
                     <div
-                      className={`p-3 sm:p-4 rounded-2xl text-sm sm:text-base whitespace-pre-wrap ${
+                      className={`p-3 sm:p-4 rounded-2xl text-sm sm:text-base ${
                         msg.sender === "user"
                           ? "bg-teal-700 text-white rounded-tr-none"
                           : "teacher-panel border border-slate-200/80 dark:border-slate-700 rounded-tl-none text-slate-800 dark:text-slate-200"
                       }`}
                     >
-                      {msg.text}
+                      {msg.sender === "user" ? (
+                        <span className="whitespace-pre-wrap">{msg.text}</span>
+                      ) : (
+                        <MarkdownContent content={msg.text} />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -490,17 +495,24 @@ const TeacherAI = () => {
               ))}
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-4xl mx-auto">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
                 placeholder={
-                  loading ? "正在处理请求..." : "输入您要咨询的教研问题或指令..."
+                  loading
+                    ? "正在处理请求..."
+                    : "输入您要咨询的教研问题或指令...（Enter 换行，Ctrl/Cmd+Enter 发送）"
                 }
                 disabled={loading}
-                className="teacher-input flex-1 px-4 sm:px-5 py-3 sm:py-4 rounded-xl text-sm sm:text-base disabled:opacity-60"
+                rows={3}
+                className="teacher-input flex-1 px-4 sm:px-5 py-3 sm:py-4 rounded-xl text-sm sm:text-base disabled:opacity-60 resize-y min-h-[96px]"
               />
               <button
                 onClick={handleSend}

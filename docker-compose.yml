@@ -26,7 +26,13 @@ services:
       - "9000:8000"
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-qwen}
+      - LLM_MODEL=${LLM_MODEL}
       - QWEN_API_KEY=${QWEN_API_KEY}
+      - QWEN_API_URL=${QWEN_API_URL}
+      - LMSTUDIO_BASE_URL=${LMSTUDIO_BASE_URL}
+      - LMSTUDIO_API_KEY=${LMSTUDIO_API_KEY}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL}
       # 覆盖后端的默认 DB 连接，将 localhost 替换为 db 容器的服务名
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/sitp_german_ai_agent
     depends_on:

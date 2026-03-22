@@ -20,6 +20,7 @@ import {
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react";
+import MarkdownContent from "../../components/MarkdownContent";
 
 const WELCOME_AI =
   "Hallo! Ich bin dein KI-Tutor. Wie kann ich dir heute helfen? (你好！我是你的AI导师。今天我能为你做什么？)";
@@ -378,13 +379,17 @@ const StudentHome = () => {
                       )}
                     </div>
                     <div
-                      className={`p-3 md:p-4 rounded-2xl whitespace-pre-wrap text-sm md:text-base ${
+                      className={`p-3 md:p-4 rounded-2xl text-sm md:text-base ${
                         msg.sender === "user"
                           ? "bg-blue-600 text-white rounded-tr-none"
                           : "student-card rounded-tl-none text-gray-800 dark:text-white"
                       }`}
                     >
-                      {msg.text}
+                      {msg.sender === "user" ? (
+                        <span className="whitespace-pre-wrap">{msg.text}</span>
+                      ) : (
+                        <MarkdownContent content={msg.text} />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -420,15 +425,24 @@ const StudentHome = () => {
               ))}
             </div>
             <div className="relative max-w-4xl mx-auto">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder={loading ? "请稍候…" : "输入后与 AI 对话…"}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder={
+                  loading
+                    ? "请稍候…"
+                    : "输入后与 AI 对话…（Enter 换行，Ctrl/Cmd+Enter 发送）"
+                }
                 disabled={loading || !sessionId}
-                className="student-input w-full pl-4 pr-28 py-3 rounded-xl disabled:opacity-60"
+                rows={3}
+                className="student-input w-full pl-4 pr-28 py-3 rounded-xl disabled:opacity-60 resize-y min-h-[96px]"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button type="button" className="p-2 text-gray-400 hidden sm:block">

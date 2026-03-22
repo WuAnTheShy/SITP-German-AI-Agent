@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { API_HOMEWORK_DETAIL, API_HOMEWORK_SAVE, API_STUDENT_DETAIL, API_PUSH_SCHEME } from '../../api/config';
 import { useToast } from '../../components/Toast';
+import MarkdownContent from '../../components/MarkdownContent';
 
 // ----------------------------------------------------------------------
 // 📡 API 请求函数
@@ -214,7 +215,10 @@ const HomeworkModal = ({ isOpen, onClose, homework, toast }) => {
                                                 <span>AI 助教点评</span>
                                                 <span className="bg-white dark:bg-gray-800/50 px-2 py-0.5 rounded text-xs text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1"><CheckCircle size={10} /> 自动批改完成</span>
                                             </div>
-                                            <p className="text-sm text-indigo-800 leading-relaxed text-justify whitespace-pre-wrap">{data.aiComment || "暂无 AI 评价数据。"}</p>
+                                            <MarkdownContent
+                                                className="text-sm text-indigo-800 leading-relaxed text-justify"
+                                                content={data.aiComment || "暂无 AI 评价数据。"}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -519,7 +523,10 @@ const StudentDetail = () => {
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white dark:bg-gray-800 opacity-5 rounded-full -mr-16 -mt-16"></div>
                         <div>
                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Brain size={20} className="text-indigo-200" /> AI 智能诊断</h2>
-                            <p className="text-indigo-100 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{aiDiagnosis}</p>
+                            <MarkdownContent
+                                className="text-indigo-100 text-sm leading-relaxed mb-6"
+                                content={aiDiagnosis}
+                            />
                         </div>
                         <div className="bg-white dark:bg-gray-800/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                             <button onClick={handlePushScheme} disabled={isPushing} className="w-full bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-2">

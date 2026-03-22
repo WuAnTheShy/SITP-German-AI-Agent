@@ -7,6 +7,7 @@ import {
   API_SCENE_CHAT_CLEAR,
 } from "../../api/config";
 import { Bot, User, Send, Loader2, Trash2 } from "lucide-react";
+import MarkdownContent from "../../components/MarkdownContent";
 
 const WELCOME = (name) =>
   `你好！现在进入【${name}】场景，开始用德语对话吧～我会纠正你的表达错误哦！（本情景一条连续对话，会自动接续上次练习）`;
@@ -207,7 +208,10 @@ const AISceneChat = () => {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !loading) handleSendMsg();
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !loading) {
+      e.preventDefault();
+      handleSendMsg();
+    }
   };
 
   useEffect(() => {
@@ -298,7 +302,7 @@ const AISceneChat = () => {
                         </div>
                         <div>
                           <div
-                            className={`p-3 rounded-2xl whitespace-pre-wrap ${
+                            className={`p-3 rounded-2xl ${
                               msg.sender === "我"
                                 ? "bg-blue-600 text-white rounded-tr-none"
                                 : msg.sender === "系统"
@@ -306,7 +310,11 @@ const AISceneChat = () => {
                                   : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-gray-900/50 rounded-tl-none text-gray-800 dark:text-white"
                             }`}
                           >
-                            {msg.content}
+                            {msg.sender === "我" ? (
+                              <span className="whitespace-pre-wrap">{msg.content}</span>
+                            ) : (
+                              <MarkdownContent content={msg.content} />
+                            )}
                           </div>
                           {msg.time ? (
                             <span className="text-xs text-gray-400 dark:text-gray-500 mt-1 block">
@@ -334,19 +342,19 @@ const AISceneChat = () => {
 
                 <div className="student-panel p-4 border-t border-slate-200/70 dark:border-slate-700/70">
                   <div className="max-w-3xl mx-auto flex gap-3">
-                    <input
+                    <textarea
                       ref={inputRef}
-                      type="text"
                       placeholder={
                         loading
                           ? "AI正在回复，请稍候..."
-                          : "请输入德语内容（按回车发送）..."
+                          : "请输入德语内容（Enter 换行，Ctrl/Cmd+Enter 发送）..."
                       }
                       value={inputMsg}
                       onChange={(e) => setInputMsg(e.target.value)}
                       onKeyDown={handleKeyDown}
                       disabled={loading}
-                      className="student-input flex-1 px-4 py-3 rounded-xl disabled:bg-gray-100 dark:disabled:bg-gray-800/80"
+                      rows={3}
+                      className="student-input flex-1 px-4 py-3 rounded-xl disabled:bg-gray-100 dark:disabled:bg-gray-800/80 resize-y min-h-[96px]"
                     />
                     <button
                       onClick={handleSendMsg}
