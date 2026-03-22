@@ -12,6 +12,17 @@ from core.seed import _ensure_demo_data, _ensure_admin
 from core.password import ensure_transport_hash, hash_password, verify_password
 
 router = APIRouter()
+_SEED_CHECK_DONE = False
+
+
+def _ensure_seed_once(db: Session) -> None:
+    """避免每次登录都执行补种逻辑导致响应变慢。"""
+    global _SEED_CHECK_DONE
+    if _SEED_CHECK_DONE:
+        return
+    _ensure_demo_data(db)
+    _ensure_admin(db)
+    _SEED_CHECK_DONE = True
 
 
 def _migrate_legacy_password_hash(user, db: Session) -> None:
@@ -91,9 +102,7 @@ def update_user_password(req_body: PasswordUpdateReq, req: Request, db: Session 
 @router.post("/api/auth/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     try:
-        _ensure_demo_data(db)
-        # 登录时再次确保默认管理员存在且身份正确，避免库中原有 admin 为教师
-        _ensure_admin(db)
+        _ensure_seed_once(db)
         # 确保后续查询拿到最新数据（避免 session 缓存导致 role 仍是旧值）
         db.expire_all()
 

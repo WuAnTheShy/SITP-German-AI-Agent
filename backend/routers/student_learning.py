@@ -33,10 +33,37 @@ from schemas.entities import (
 from core.responses import ok, fail
 from core.deps import require_student, current_student
 from services.llm import ai_text, ai_json
+from services.metrics import (
+    track_learning_activity,
+    refresh_student_metrics,
+    parse_duration_minutes,
+    compute_student_interaction_minutes,
+)
 
 router = APIRouter()
 
 DAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+
+def _track_and_refresh(
+    db: Session,
+    student_id: int,
+    module: str,
+    duration_minutes: int,
+    content: str | None = None,
+) -> None:
+    """写入学习行为并刷新积极度；统计失败不影响主流程。"""
+    try:
+        track_learning_activity(
+            db,
+            student_id=student_id,
+            module=module,
+            duration_minutes=duration_minutes,
+            content=content,
+        )
+        refresh_student_metrics(db, student_id)
+    except Exception:
+        pass
 
 
 def _match_error_category(grammar_name: str, error_cats: dict[str, int]) -> int | None:
@@ -140,6 +167,7 @@ def vocab_collect(req: VocabCollectReq, request: Request, db: Session = Depends(
                         translate=vocab.chinese,
                         note=vocab.example,
                     ))
+            _track_and_refresh(db, student.id, "词汇学习", 2, "词汇收藏")
         else:
             StudentVocabCollectionCRUD.uncollect(db, student.id, req.vocabId)
             vocab = VocabularyCRUD.get_by_id(db, req.vocabId)
@@ -264,6 +292,13 @@ def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depend
                 "analysis": analysis if not is_correct else "",
             })
         wrong_count = len(req.answers) - correct_count
+        _track_and_refresh(
+            db,
+            student.id,
+            "语法练习",
+            max(3, len(req.answers) * 2),
+            f"语法提交: 正确{correct_count}/{len(req.answers)}",
+        )
         return ok({
             "totalCount": len(req.answers), "correctCount": correct_count,
             "wrongCount": wrong_count, "detailList": details,
@@ -330,6 +365,14 @@ def speaking_evaluate(req: SpeakingEvalReq, request: Request, db: Session = Depe
                 suggestion=result.get("suggestion"),
             ),
         )
+        duration_minutes = parse_duration_minutes(getattr(material, "duration", None))
+        _track_and_refresh(
+            db,
+            student.id,
+            "听说训练",
+            duration_minutes,
+            f"口语评测: {material.title}",
+        )
         return ok(result)
     except Exception as e:
         return fail(f"评估失败: {e}")
@@ -353,6 +396,8 @@ def writing_check(req: WritingReq, request: Request, db: Session = Depends(get_d
                     user_text=req.userText, result_json=result,
                 ),
             )
+            writing_minutes = max(2, min(25, len(req.userText.strip()) // 80 + 2))
+            _track_and_refresh(db, student.id, "写作辅助", writing_minutes, "写作纠错")
         return ok(result)
     except Exception as e:
         return fail(f"检查失败: {e}")
@@ -379,6 +424,8 @@ def writing_generate_sample(req: WritingReq, request: Request, db: Session = Dep
                     user_text=req.userText, result_json=result,
                 ),
             )
+            writing_minutes = max(3, min(30, len(req.userText.strip()) // 70 + 3))
+            _track_and_refresh(db, student.id, "写作辅助", writing_minutes, "写作范文")
         return ok(result)
     except Exception as e:
         return fail(f"生成范文失败: {e}")
@@ -435,6 +482,7 @@ def error_book_start_review(req: ErrorReviewReq, request: Request, db: Session =
             f"请用中文给出针对性的复习建议(100字以内)。"
         )
         tip = ai_text(prompt, f"建议重点复习「{cat_name}」相关语法规则，结合例句反复练习。")
+        _track_and_refresh(db, student.id, "语法练习", 3, f"错题复盘: {cat_name}")
         return ok({"reviewTip": tip})
     except Exception as e:
         return fail(f"生成复习建议失败: {e}")
@@ -571,8 +619,11 @@ def learning_progress(request: Request, db: Session = Depends(get_db)):
         student = current_student(request, db)
         if not student:
             return fail("未找到学生信息", 401)
+
+        latest_metrics = refresh_student_metrics(db, student.id)
         total_time = LearningSessionCRUD.total_minutes(db, student.id)
         week_time = LearningSessionCRUD.week_minutes(db, student.id)
+        interaction_minutes = compute_student_interaction_minutes(db, student.id, days=7)
         sessions = LearningSessionCRUD.list_by_student(db, student.id)
         module_map: dict[str, int] = {}
         for s in sessions:
@@ -606,15 +657,31 @@ def learning_progress(request: Request, db: Session = Depends(get_db)):
         week_report = [
             {
                 "day": DAY_NAMES[i],
-                "time": day_map[i]["time"] if i in day_map else 0,
+                "time": round((day_map[i]["time"] if i in day_map else 0) / 60, 1),
                 "content": "、".join(day_map[i]["contents"]) if i in day_map else "",
             }
             for i in range(7)
         ]
+
+        total_hours = round(total_time / 60, 1)
+        week_hours = round(week_time / 60, 1)
+        interaction_hours = round(interaction_minutes / 60, 1)
+        if week_time > 0:
+            insight = (
+                f"最近7天累计学习 {week_hours} 小时，互动时长 {interaction_hours} 小时，"
+                f"当前积极度 {latest_metrics['active_score']}%，综合评分 {latest_metrics['overall_score']}。"
+            )
+        else:
+            insight = "最近7天暂未记录到学习行为，建议先完成一次词汇或语法练习。"
+
         return ok({
-            "totalTime": total_time,
-            "weekTime": week_time,
+            "totalTime": total_hours,
+            "weekTime": week_hours,
             "finishRate": finish_rate,
+            "activeScore": latest_metrics["active_score"],
+            "overallScore": latest_metrics["overall_score"],
+            "interactionTime": interaction_hours,
+            "insight": insight,
             "modules": modules,
             "knowledge": knowledge,
             "weekReport": week_report,

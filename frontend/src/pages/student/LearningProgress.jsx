@@ -5,7 +5,8 @@ import { API_LEARNING_PROGRESS } from '../../api/config';
 
 const LearningProgress = () => {
   const [learnStats, setLearnStats] = useState({
-    totalTime: 0, weekTime: 0, finishRate: 0,
+    totalTime: 0, weekTime: 0, interactionTime: 0, activeScore: 0, finishRate: 0,
+    insight: '',
     modules: [], knowledge: [], weekReport: []
   });
   const [viewType, setViewType] = useState('overview');
@@ -67,16 +68,17 @@ const LearningProgress = () => {
                     <p className="text-3xl font-bold text-green-600">{learnStats.weekTime} <span className="text-base font-normal text-gray-500 dark:text-gray-400">小时</span></p>
                   </div>
                   <div className="student-card p-6 text-center">
-                    <h3 className="text-sm text-gray-500 dark:text-gray-400 mb-2">整体完成率</h3>
-                    <p className="text-3xl font-bold text-purple-600">{learnStats.finishRate}%</p>
+                    <h3 className="text-sm text-gray-500 dark:text-gray-400 mb-2">互动时长（近7天）</h3>
+                    <p className="text-3xl font-bold text-purple-600">{learnStats.interactionTime} <span className="text-base font-normal text-gray-500 dark:text-gray-400">小时</span></p>
                     <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${learnStats.finishRate}%` }}></div>
+                      <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, Number(learnStats.activeScore || 0)))}%` }}></div>
                     </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">积极度 {learnStats.activeScore}%</p>
                   </div>
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-6 border border-blue-200">
                   <h4 className="font-bold text-blue-800 mb-2">🤖 AI学习分析</h4>
-                  <p className="text-gray-700 dark:text-gray-300">本周学习时长较上周提升20%，但语法和写作模块完成度偏低，建议后续重点练习！</p>
+                  <p className="text-gray-700 dark:text-gray-300">{learnStats.insight || '正在基于你的学习行为生成分析...'}</p>
                 </div>
               </div>
             )}

@@ -71,8 +71,7 @@ const TeacherDashboard = () => {
     const handleLogout = () => {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userInfo');
-        toast.info('已安全退出');
-        setTimeout(() => navigate('/'), 500);
+        navigate('/');
     };
 
     const handleApproveStudent = async (id) => {
@@ -117,8 +116,6 @@ const TeacherDashboard = () => {
         const payload = {
             name: (form.name?.value || '').trim(),
             status: form.status?.value,
-            active_score: parseInt(form.active_score?.value || '0', 10),
-            overall_score: parseFloat(form.overall_score?.value || '0'),
             weak_point: (form.weak_point?.value || '').trim() || null,
         };
 
@@ -533,19 +530,19 @@ const TeacherDashboard = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">状态</label>
                                     <select name="status" defaultValue={editingStudent.status || 'approved'} className="teacher-input w-full px-3 py-2 rounded-lg text-sm">
-                                        <option value="approved">approved</option>
-                                        <option value="pending">pending</option>
-                                        <option value="rejected">rejected</option>
+                                        <option value="approved">审核通过</option>
+                                        <option value="pending">待审核</option>
+                                        <option value="rejected">已拒绝</option>
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度</label>
-                                        <input name="active_score" type="number" min="0" max="100" step="1" defaultValue={editingStudent.active_score ?? 0} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度（系统测量）</label>
+                                        <input type="text" readOnly value={`${editingStudent.active_score ?? 0}%`} className="teacher-input w-full px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合评分</label>
-                                        <input name="overall_score" type="number" min="0" max="100" step="0.1" defaultValue={editingStudent.overall_score ?? 0} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合评分（系统测量）</label>
+                                        <input type="text" readOnly value={`${editingStudent.overall_score ?? 0} 分`} className="teacher-input w-full px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400" />
                                     </div>
                                 </div>
                                 <div>

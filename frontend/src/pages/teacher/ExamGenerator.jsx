@@ -46,7 +46,7 @@ const ExamGenerator = () => {
             }
         } catch (err) {
             console.error('生成出错:', err);
-            const errMsg = err.response?.data?.message || err.message || '网络连接超时';
+            const errMsg = err.response?.data?.message || err.response?.data?.detail || err.message || '网络连接超时';
             toast.error(`生成失败: ${errMsg}`);
         } finally {
             setIsProcessing(false);

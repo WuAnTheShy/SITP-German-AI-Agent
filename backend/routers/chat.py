@@ -32,6 +32,7 @@ from services.llm import (
     refresh_teacher_memory,
     MEMORY_REFRESH_EVERY,
 )
+from services.metrics import track_learning_activity, refresh_student_metrics
 
 router = APIRouter()
 
@@ -166,6 +167,15 @@ def student_chat_endpoint(
             db,
             ChatMessageCreate(session_id=session.id, role="assistant", content=reply_text, correction=None),
         )
+        chat_minutes = max(1, min(8, len(request.message.strip()) // 60 + 1))
+        track_learning_activity(
+            db,
+            student_id=student.id,
+            module="情景对话",
+            duration_minutes=chat_minutes,
+            content="大厅AI对话",
+        )
+        refresh_student_metrics(db, student.id)
         ChatSessionCRUD.touch(db, session.id)
         n = len(history) + 2
         if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
@@ -376,6 +386,15 @@ def scene_chat(req: SceneChatReq, request: Request, db: Session = Depends(get_db
                 session_id=session.id, role="assistant", content=reply, correction=correction
             ),
         )
+        chat_minutes = max(1, min(8, len(req.userMessage.strip()) // 60 + 1))
+        track_learning_activity(
+            db,
+            student_id=student.id,
+            module="情景对话",
+            duration_minutes=chat_minutes,
+            content=f"场景对话: {scene_name}",
+        )
+        refresh_student_metrics(db, student.id)
         ChatSessionCRUD.touch(db, session.id)
         return ok({"reply": reply, "correction": correction, "session_id": session.id})
     except Exception as e:
