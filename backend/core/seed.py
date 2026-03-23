@@ -1,4 +1,7 @@
 from datetime import datetime
+import os
+import secrets
+import string
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +23,40 @@ from core.responses import to_float
 from core.password import ensure_transport_hash, hash_password, verify_password
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = (os.getenv(name, "") or "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
+def _is_production() -> bool:
+    env = (os.getenv("APP_ENV", "") or "").strip().lower()
+    return env in {"prod", "production"}
+
+
+def _random_password(length: int = 20) -> str:
+    alphabet = string.ascii_letters + string.digits + "@#$%&*_-+!"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+ADMIN_USERNAME = (os.getenv("INIT_ADMIN_USERNAME", "admin") or "admin").strip()
+ADMIN_PASSWORD = (os.getenv("INIT_ADMIN_PASSWORD", "") or "").strip()
+RESET_ADMIN_PASSWORD_ON_STARTUP = _env_flag("RESET_ADMIN_PASSWORD_ON_STARTUP", False)
+
+DEMO_TEACHER_PASSWORD = (os.getenv("DEMO_TEACHER_PASSWORD", "") or "").strip()
+DEMO_STUDENT_PASSWORD = (os.getenv("DEMO_STUDENT_PASSWORD", "") or "").strip()
+RESET_DEMO_PASSWORDS_ON_STARTUP = _env_flag("RESET_DEMO_PASSWORDS_ON_STARTUP", False)
+ENABLE_DEMO_SEED = _env_flag("ENABLE_DEMO_SEED", not _is_production())
+
+_WARNED_DEMO_TEACHER_PASSWORD = False
+_WARNED_DEMO_STUDENT_PASSWORD = False
+
+
+def should_seed_demo_data() -> bool:
+    return ENABLE_DEMO_SEED
+
+
 def _ensure_user_password(db: Session, user, raw_password: str) -> None:
     """确保账号密码与约定默认值一致，兼容旧库残留哈希格式。"""
     if not user:
@@ -31,22 +68,34 @@ def _ensure_user_password(db: Session, user, raw_password: str) -> None:
 
 
 def _ensure_admin(db: Session):
-    """确保默认管理员存在：username=admin, password=admin123，项目启动时调用。
-    若已存在用户名为 admin 的账号（如曾注册为教师），则强制改为管理员身份。
+    """确保管理员存在。
+
+    用户名来自 INIT_ADMIN_USERNAME（默认 admin）。
+    密码来自 INIT_ADMIN_PASSWORD。
+    生产环境首次引导若未配置 INIT_ADMIN_PASSWORD，则不会创建管理员。
     """
-    admin_user = UserCRUD.get_by_username(db, "admin")
+    admin_user = UserCRUD.get_by_username(db, ADMIN_USERNAME)
     if admin_user:
         if admin_user.role != "admin":
             admin_user.role = "admin"
             admin_user.display_name = "管理员"
             db.commit()
-        _ensure_user_password(db, admin_user, "admin123")
+        if RESET_ADMIN_PASSWORD_ON_STARTUP and ADMIN_PASSWORD:
+            _ensure_user_password(db, admin_user, ADMIN_PASSWORD)
         return
+
+    if not ADMIN_PASSWORD and _is_production():
+        raise RuntimeError("INIT_ADMIN_PASSWORD is required when bootstrapping admin in production")
+
+    init_password = ADMIN_PASSWORD or _random_password()
+    if not ADMIN_PASSWORD:
+        print("[Seed] 未设置 INIT_ADMIN_PASSWORD，已生成一次性随机管理员密码（仅开发环境）。", flush=True)
+
     UserCRUD.create(
         db,
         UserCreate(
-            username="admin",
-            password_hash=hash_password(ensure_transport_hash("admin123")),
+            username=ADMIN_USERNAME,
+            password_hash=hash_password(ensure_transport_hash(init_password)),
             role="admin",
             display_name="管理员",
         ),
@@ -54,6 +103,21 @@ def _ensure_admin(db: Session):
 
 
 def _ensure_demo_data(db: Session):
+    if not should_seed_demo_data():
+        return None, None
+
+    global _WARNED_DEMO_TEACHER_PASSWORD, _WARNED_DEMO_STUDENT_PASSWORD
+
+    teacher_password = DEMO_TEACHER_PASSWORD or _random_password()
+    student_password = DEMO_STUDENT_PASSWORD or _random_password()
+
+    if not DEMO_TEACHER_PASSWORD and not _WARNED_DEMO_TEACHER_PASSWORD:
+        print("[Seed] 未设置 DEMO_TEACHER_PASSWORD，新建演示教师账号将使用随机密码。", flush=True)
+        _WARNED_DEMO_TEACHER_PASSWORD = True
+    if not DEMO_STUDENT_PASSWORD and not _WARNED_DEMO_STUDENT_PASSWORD:
+        print("[Seed] 未设置 DEMO_STUDENT_PASSWORD，新建演示学生账号将使用随机密码。", flush=True)
+        _WARNED_DEMO_STUDENT_PASSWORD = True
+
     def ensure_teacher(username: str, display_name: str):
         teacher = UserCRUD.get_by_username(db, username)
         if not teacher:
@@ -61,13 +125,15 @@ def _ensure_demo_data(db: Session):
                 db,
                 UserCreate(
                     username=username,
-                    password_hash=hash_password(ensure_transport_hash("demo_hash_teacher")),
+                    password_hash=hash_password(ensure_transport_hash(teacher_password)),
                     role="teacher",
                     display_name=display_name,
                 ),
             )
-        else:
-            _ensure_user_password(db, teacher, "demo_hash_teacher")
+        elif DEMO_TEACHER_PASSWORD:
+            _ensure_user_password(db, teacher, DEMO_TEACHER_PASSWORD)
+        elif RESET_DEMO_PASSWORDS_ON_STARTUP:
+            _ensure_user_password(db, teacher, teacher_password)
         return teacher
 
     def ensure_classroom(class_code: str, class_name: str, grade: str, teacher_user_id: int):
@@ -99,13 +165,15 @@ def _ensure_demo_data(db: Session):
                 db,
                 UserCreate(
                     username=username,
-                    password_hash=hash_password(ensure_transport_hash("demo_hash_student")),
+                    password_hash=hash_password(ensure_transport_hash(student_password)),
                     role="student",
                     display_name=name,
                 ),
             )
-        else:
-            _ensure_user_password(db, stu_user, "demo_hash_student")
+        elif DEMO_STUDENT_PASSWORD:
+            _ensure_user_password(db, stu_user, DEMO_STUDENT_PASSWORD)
+        elif RESET_DEMO_PASSWORDS_ON_STARTUP:
+            _ensure_user_password(db, stu_user, student_password)
 
         student = StudentCRUD.get_by_uid(db, uid)
         if not student:

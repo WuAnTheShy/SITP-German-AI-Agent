@@ -1,4 +1,4 @@
-from uuid import uuid4
+import os
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -8,8 +8,9 @@ from db.session import get_db
 from crud.repositories import UserCRUD, StudentCRUD, ClassroomCRUD, StudentAbilityCRUD, SystemSettingCRUD
 from schemas.entities import UserCreate, StudentCreate, StudentAbilityUpsert
 from core.responses import ok, fail
-from core.seed import _ensure_demo_data, _ensure_admin
+from core.seed import _ensure_demo_data, _ensure_admin, should_seed_demo_data
 from core.password import ensure_transport_hash, hash_password, verify_password
+from core.token import issue_token, parse_token, allow_legacy_tokens
 
 router = APIRouter()
 _SEED_CHECK_DONE = False
@@ -20,7 +21,8 @@ def _ensure_seed_once(db: Session) -> None:
     global _SEED_CHECK_DONE
     if _SEED_CHECK_DONE:
         return
-    _ensure_demo_data(db)
+    if should_seed_demo_data():
+        _ensure_demo_data(db)
     _ensure_admin(db)
     _SEED_CHECK_DONE = True
 
@@ -64,18 +66,22 @@ def update_user_password(req_body: PasswordUpdateReq, req: Request, db: Session 
         if not auth.startswith("Bearer "):
             return fail("未登录", 401)
 
-        token = auth.replace("Bearer ", "")
-        parts = token.split("-")
+        token = auth.replace("Bearer ", "").strip()
+        payload = parse_token(token, allow_legacy=allow_legacy_tokens())
+        if not payload:
+            return fail("无效的令牌或用户不存在", 401)
 
         user = None
-        if token.startswith("teacher-token-") and len(parts) >= 4:
+        role = str(payload.get("role", "")).strip()
+        subject = str(payload.get("sub", "")).strip()
+        if role in {"teacher", "admin"}:
             try:
-                user_id = int(parts[2])
+                user_id = int(subject)
                 user = UserCRUD.get_by_id(db, user_id)
             except ValueError:
                 pass
-        elif token.startswith("student-token-") and len(parts) >= 4:
-            uid = parts[2]
+        elif role == "student":
+            uid = subject
             student = StudentCRUD.get_by_uid(db, uid)
             if student:
                 user = UserCRUD.get_by_id(db, student.user_id)
@@ -117,7 +123,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         if user.role == "admin":
             if not verify_password(login_pwd, user.password_hash):
                 return fail("密码错误，请重新输入", 401)
-            token = f"admin-token-{user.id}-{uuid4().hex[:8]}"
+            token = issue_token("admin", str(user.id))
         elif user.role == "teacher":
             if getattr(user, "status", "approved") == "pending":
                 return fail("您的账号正在等待审核，请耐心等待", 403)
@@ -128,7 +134,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
             if not verify_password(login_pwd, user.password_hash):
                 return fail("密码错误，请重新输入", 401)
-            token = f"teacher-token-{user.id}-{uuid4().hex[:8]}"
+            token = issue_token("teacher", str(user.id))
         else:
             return fail("该账号不是教师或管理员账号", 403)
         user_info = {"id": user.username, "name": user.display_name, "role": user.role}
@@ -140,8 +146,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             "data": {"token": token, "user": user_info},
         }
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        if (os.getenv("APP_ENV", "") or "").strip().lower() not in {"prod", "production"}:
+            import traceback
+            traceback.print_exc()
         return fail("登录失败", 500)
 
 
@@ -170,7 +177,7 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
         if not verify_password(login_pwd, user.password_hash):
             return fail("密码错误，请重新输入", 401)
 
-        token = f"student-token-{student.uid}-{uuid4().hex[:8]}"
+        token = issue_token("student", str(student.uid))
         class_id = getattr(student, "class_id", None)
         class_name = None
         if class_id:
@@ -207,7 +214,8 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
         if existing_student:
             return fail("该学号已被注册", 409)
 
-        _ensure_demo_data(db)
+        if should_seed_demo_data():
+            _ensure_demo_data(db)
 
         class_id_val = None
         if req.class_code:

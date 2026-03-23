@@ -4,9 +4,9 @@ services:
     image: postgres:16
     container_name: german-db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=sitp_german_ai_agent
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_DB=${POSTGRES_DB:-sitp_german_ai_agent}
     volumes:
       # 利用 PostgreSQL 官方镜像特性，将初始化脚本挂载到该目录，容器首次启动时会自动执行建表和插入数据
       - ./backend/db/sql/001_init_schema.sql:/docker-entrypoint-initdb.d/1_init_schema.sql
@@ -25,16 +25,29 @@ services:
     ports:
       - "9000:8000"
     environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - APP_ENV=${APP_ENV:-production}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - LLM_PROVIDER=${LLM_PROVIDER:-qwen}
-      - LLM_MODEL=${LLM_MODEL}
-      - QWEN_API_KEY=${QWEN_API_KEY}
-      - QWEN_API_URL=${QWEN_API_URL}
-      - LMSTUDIO_BASE_URL=${LMSTUDIO_BASE_URL}
-      - LMSTUDIO_API_KEY=${LMSTUDIO_API_KEY}
-      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - QWEN_API_URL=${QWEN_API_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions}
+      - LMSTUDIO_BASE_URL=${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234}
+      - LMSTUDIO_API_KEY=${LMSTUDIO_API_KEY:-}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-qwen2.5-7b-instruct}
+      - INIT_ADMIN_USERNAME=${INIT_ADMIN_USERNAME:-admin}
+      - INIT_ADMIN_PASSWORD=${INIT_ADMIN_PASSWORD:-}
+      - RESET_ADMIN_PASSWORD_ON_STARTUP=${RESET_ADMIN_PASSWORD_ON_STARTUP:-false}
+      - DEMO_TEACHER_PASSWORD=${DEMO_TEACHER_PASSWORD:-}
+      - DEMO_STUDENT_PASSWORD=${DEMO_STUDENT_PASSWORD:-}
+      - RESET_DEMO_PASSWORDS_ON_STARTUP=${RESET_DEMO_PASSWORDS_ON_STARTUP:-false}
+      - ENABLE_DEMO_SEED=${ENABLE_DEMO_SEED:-false}
+      - AUTH_TOKEN_SECRET=${AUTH_TOKEN_SECRET:?AUTH_TOKEN_SECRET is required}
+      - AUTH_TOKEN_TTL_HOURS=${AUTH_TOKEN_TTL_HOURS:-12}
+      - ALLOW_LEGACY_TOKENS=${ALLOW_LEGACY_TOKENS:-false}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-}
+      - DEBUG_LLM_LOGS=${DEBUG_LLM_LOGS:-false}
       # 覆盖后端的默认 DB 连接，将 localhost 替换为 db 容器的服务名
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/sitp_german_ai_agent
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-sitp_german_ai_agent}
     depends_on:
       - db # 确保数据库先启动
     restart: always

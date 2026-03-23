@@ -37,21 +37,41 @@ if LLM_PROVIDER not in {"qwen", "lmstudio"}:
     print(f"[API] 未知 LLM_PROVIDER={LLM_PROVIDER}，回退到 qwen")
     LLM_PROVIDER = "qwen"
 
-QWEN_API_KEY = os.getenv("QWEN_API_KEY", "")
-QWEN_API_URL = os.getenv(
+def _env_or_default(name: str, default: str = "") -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = str(raw).strip()
+    return value if value else default
+
+
+def _is_production() -> bool:
+    env = (os.getenv("APP_ENV", "") or "").strip().lower()
+    return env in {"prod", "production"}
+
+
+def _debug_llm_logs_enabled() -> bool:
+    raw = (os.getenv("DEBUG_LLM_LOGS", "") or "").strip().lower()
+    if raw:
+        return raw in {"1", "true", "yes", "on"}
+    return not _is_production()
+
+
+QWEN_API_KEY = _env_or_default("QWEN_API_KEY", "")
+QWEN_API_URL = _env_or_default(
     "QWEN_API_URL",
     "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
 )
 
-LMSTUDIO_BASE_URL = (os.getenv("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234") or "").strip().rstrip("/")
-LMSTUDIO_API_KEY = os.getenv("LMSTUDIO_API_KEY", "")
+LMSTUDIO_BASE_URL = _env_or_default("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234").rstrip("/")
+LMSTUDIO_API_KEY = _env_or_default("LMSTUDIO_API_KEY", "")
 
 if LLM_PROVIDER == "lmstudio":
-    MODEL_ID = (os.getenv("LLM_MODEL") or os.getenv("LMSTUDIO_MODEL") or "qwen2.5-7b-instruct").strip()
+    MODEL_ID = _env_or_default("LLM_MODEL", _env_or_default("LMSTUDIO_MODEL", "qwen2.5-7b-instruct"))
     API_URL = f"{LMSTUDIO_BASE_URL}/v1/chat/completions"
     API_KEY = LMSTUDIO_API_KEY
 else:
-    MODEL_ID = (os.getenv("LLM_MODEL") or "qwen3.5-plus").strip()
+    MODEL_ID = _env_or_default("LLM_MODEL", "qwen3.5-plus")
     API_URL = QWEN_API_URL
     API_KEY = QWEN_API_KEY
 
@@ -137,10 +157,14 @@ def generate_response(messages, system_instruction=None):
     headers = {"Content-Type": "application/json"}
     if API_KEY:
         headers["Authorization"] = f"Bearer {API_KEY.strip()}"
-    
-    print(f"[API] 请求头: {headers}")
-    print(f"[API] 请求URL: {API_URL}")
-    print(f"[API] 请求体: {payload}")
+
+    if _debug_llm_logs_enabled():
+        safe_headers = dict(headers)
+        if "Authorization" in safe_headers:
+            safe_headers["Authorization"] = "Bearer ***"
+        print(f"[API] 请求头: {safe_headers}")
+        print(f"[API] 请求URL: {API_URL}")
+        print(f"[API] 请求体摘要: model={payload.get('model')}, messages={len(conversation)}")
     
     response = None
     try:
@@ -158,7 +182,8 @@ def generate_response(messages, system_instruction=None):
         try:
             if response is not None:
                 print(f"[API] 响应状态码: {response.status_code}", flush=True)
-                print(f"[API] 响应内容: {response.text[:500]}", flush=True)
+                if _debug_llm_logs_enabled():
+                    print(f"[API] 响应内容: {response.text[:500]}", flush=True)
         except Exception:
             pass
         return ""

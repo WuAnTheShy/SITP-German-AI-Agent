@@ -3,16 +3,18 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from crud.repositories import UserCRUD, StudentCRUD, ClassroomCRUD
+from core.token import parse_token, allow_legacy_tokens
 
 
 def require_teacher(req: Request, db: Session = Depends(get_db)):
     """从 Authorization 头解析教师身份，失败则抛 401"""
     auth = req.headers.get("authorization", "")
-    if auth.startswith("Bearer teacher-token-"):
-        parts = auth.replace("Bearer ", "").split("-")
-        if len(parts) >= 4:
+    if auth.startswith("Bearer "):
+        token = auth.replace("Bearer ", "").strip()
+        payload = parse_token(token, allow_legacy=allow_legacy_tokens())
+        if payload and str(payload.get("role", "")) == "teacher":
             try:
-                user_id = int(parts[2])
+                user_id = int(str(payload.get("sub", "")))
             except ValueError:
                 raise HTTPException(status_code=401, detail="无效的教师令牌")
             user = UserCRUD.get_by_id(db, user_id)
@@ -28,13 +30,14 @@ def require_teacher(req: Request, db: Session = Depends(get_db)):
 def require_admin(req: Request, db: Session = Depends(get_db)):
     """从 Authorization 头解析管理员身份，失败则抛 401/403。仅管理员可调用。"""
     auth = req.headers.get("authorization", "")
-    if not auth.startswith("Bearer admin-token-"):
+    if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="未登录或令牌无效，请使用管理员账号登录")
-    parts = auth.replace("Bearer ", "").split("-")
-    if len(parts) < 4:
+    token = auth.replace("Bearer ", "").strip()
+    payload = parse_token(token, allow_legacy=allow_legacy_tokens())
+    if not payload or str(payload.get("role", "")) != "admin":
         raise HTTPException(status_code=401, detail="无效的管理员令牌")
     try:
-        user_id = int(parts[2])
+        user_id = int(str(payload.get("sub", "")))
     except ValueError:
         raise HTTPException(status_code=401, detail="无效的管理员令牌")
     user = UserCRUD.get_by_id(db, user_id)
@@ -63,10 +66,11 @@ def get_current_teacher_and_classroom(req: Request, db: Session = Depends(get_db
 def require_student(req: Request, db: Session = Depends(get_db)):
     """从 Authorization 头解析学生身份，失败则抛 401"""
     auth = req.headers.get("authorization", "")
-    if auth.startswith("Bearer student-token-"):
-        parts = auth.replace("Bearer ", "").split("-")
-        if len(parts) >= 4:
-            uid = parts[2]
+    if auth.startswith("Bearer "):
+        token = auth.replace("Bearer ", "").strip()
+        payload = parse_token(token, allow_legacy=allow_legacy_tokens())
+        if payload and str(payload.get("role", "")) == "student":
+            uid = str(payload.get("sub", "")).strip()
             s = StudentCRUD.get_by_uid(db, uid)
             if s:
                 user = UserCRUD.get_by_id(db, s.user_id)
@@ -83,10 +87,11 @@ def require_student(req: Request, db: Session = Depends(get_db)):
 def current_student(req: Request, db: Session):
     """从 Authorization 头解析学生，无有效 token 返回 None"""
     auth = req.headers.get("authorization", "")
-    if auth.startswith("Bearer student-token-"):
-        parts = auth.replace("Bearer ", "").split("-")
-        if len(parts) >= 4:
-            uid = parts[2]
+    if auth.startswith("Bearer "):
+        token = auth.replace("Bearer ", "").strip()
+        payload = parse_token(token, allow_legacy=allow_legacy_tokens())
+        if payload and str(payload.get("role", "")) == "student":
+            uid = str(payload.get("sub", "")).strip()
             s = StudentCRUD.get_by_uid(db, uid)
             if s:
                 user = UserCRUD.get_by_id(db, s.user_id)

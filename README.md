@@ -173,7 +173,47 @@ SITP-German-AI-Agent/
 - `qwen`：调用阿里云 DashScope（在线）
 - `lmstudio`：调用本机 LM Studio OpenAI 兼容服务（本地）
 
-在项目根目录创建 `.env` 文件，并按需二选一配置。
+在项目根目录准备 `.env` 文件（已存在则直接编辑），并按需二选一配置。
+
+建议同时配置以下安全变量（避免默认口令）：
+
+```dotenv
+# 数据库（Docker Compose 必填）
+POSTGRES_PASSWORD=请设置高强度数据库密码
+POSTGRES_USER=postgres
+POSTGRES_DB=sitp_german_ai_agent
+
+# 初始化管理员（建议首启即设置）
+INIT_ADMIN_USERNAME=admin
+INIT_ADMIN_PASSWORD=请设置高强度管理员密码
+
+# 示例账号（可选；不配置则新建示例用户会生成随机密码）
+DEMO_TEACHER_PASSWORD=
+DEMO_STUDENT_PASSWORD=
+
+# 是否每次启动都重置账号口令（生产环境建议 false）
+RESET_ADMIN_PASSWORD_ON_STARTUP=false
+RESET_DEMO_PASSWORDS_ON_STARTUP=false
+
+# 生产环境开关
+APP_ENV=production
+
+# 演示数据注入（生产环境建议 false）
+ENABLE_DEMO_SEED=false
+
+# 鉴权令牌签名密钥（生产必填，建议 32+ 随机字符）
+AUTH_TOKEN_SECRET=请设置高强度随机密钥
+AUTH_TOKEN_TTL_HOURS=12
+
+# 是否兼容旧版明文 token（生产建议 false）
+ALLOW_LEGACY_TOKENS=false
+
+# CORS 白名单（逗号分隔；前后端同域可留空）
+CORS_ALLOW_ORIGINS=
+
+# 是否打印 LLM 调试日志（生产建议 false）
+DEBUG_LLM_LOGS=false
+```
 
 **方案 A：Qwen（在线）**
 
@@ -216,7 +256,112 @@ LMSTUDIO_API_KEY=
 docker compose up -d --build
 ```
 
+若出现以下错误：
+
+```text
+required variable POSTGRES_PASSWORD is missing a value
+```
+
+说明 `.env` 中缺少 `POSTGRES_PASSWORD`。请补齐后重试：
+
+```dotenv
+POSTGRES_PASSWORD=请设置高强度数据库密码
+AUTH_TOKEN_SECRET=请设置32位以上随机密钥
+INIT_ADMIN_PASSWORD=请设置高强度管理员密码
+```
+
 > 💡 Docker 模式下，前端 Nginx 会自动将 `/api` 请求反向代理到后端容器，无需任何额外配置。无论是本地 Docker 还是服务器 Docker，前端代码完全一致。
+
+### 服务器部署详细步骤（推荐按此执行）
+
+以下流程适用于 Linux 服务器（Windows Server 同理）。
+
+#### 1. 先准备 `.env`（生产建议示例）
+
+```dotenv
+APP_ENV=production
+
+# ===== Database =====
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=YourStrongDbPassword_ReplaceMe
+POSTGRES_DB=sitp_german_ai_agent
+
+# ===== Auth & Bootstrap =====
+INIT_ADMIN_USERNAME=admin
+INIT_ADMIN_PASSWORD=admin123
+AUTH_TOKEN_SECRET=YourVeryLongRandomSecret_AtLeast32Chars
+AUTH_TOKEN_TTL_HOURS=12
+ALLOW_LEGACY_TOKENS=false
+
+# ===== Seed policy =====
+ENABLE_DEMO_SEED=false
+RESET_ADMIN_PASSWORD_ON_STARTUP=false
+RESET_DEMO_PASSWORDS_ON_STARTUP=false
+DEMO_TEACHER_PASSWORD=
+DEMO_STUDENT_PASSWORD=
+
+# ===== CORS / Logs =====
+# 改为你的前端正式域名；同域部署可留空
+CORS_ALLOW_ORIGINS=https://your-domain.com
+DEBUG_LLM_LOGS=false
+
+# ===== LLM =====
+LLM_PROVIDER=qwen
+QWEN_API_KEY=YourQwenApiKey
+```
+
+#### 2. 首次部署（无历史数据卷）
+
+```bash
+docker compose up -d --build
+docker compose ps
+docker compose logs -f backend
+```
+
+看到 `Application startup complete` 且无数据库认证错误，即表示启动成功。
+
+#### 3. 升级部署（已有历史数据卷）
+
+如果你修改过 `.env` 中的 `POSTGRES_PASSWORD`，但数据库卷 `pg_data` 已存在，最常见问题是：
+
+- 后端日志反复出现 `password authentication failed for user "postgres"`
+- 前端登录接口偶发 `502 Bad Gateway`
+
+原因：PostgreSQL 首次初始化后会把密码写入数据库；后续仅改 `.env` 不会自动改库内密码。
+
+处理方式（二选一）：
+
+1. 保持旧密码：把 `.env` 的 `POSTGRES_PASSWORD` 改回数据库当前密码。
+2. 同步新密码：进入数据库容器执行 `ALTER USER`。
+
+示例命令：
+
+```bash
+docker exec -u postgres german-db psql -d sitp_german_ai_agent -c "ALTER USER postgres WITH PASSWORD 'YourStrongDbPassword_ReplaceMe';"
+docker compose restart backend
+docker compose logs -f backend
+```
+
+#### 4. 启动后验证（建议执行）
+
+```bash
+# 服务状态
+docker compose ps
+
+# 后端健康检查
+curl http://localhost:9000/
+
+# 反向代理链路检查（应返回业务 JSON，不应是 502）
+curl -X POST http://localhost/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"wrong"}'
+```
+
+#### 5. 高风险项提醒
+
+- `QWEN_API_KEY`、`POSTGRES_PASSWORD`、`AUTH_TOKEN_SECRET` 仅可用于服务器，不要提交到 Git。
+- 若密钥已在仓库或聊天中暴露，务必立即在对应平台轮换。
+- `INIT_ADMIN_PASSWORD=admin123` 仅建议首启演示使用；生产建议登录后立即改密。
 
 ---
 
@@ -337,20 +482,26 @@ LMSTUDIO_API_KEY=
 
 ### 演示账号
 
-系统首次启动时会自动初始化以下演示账号，可直接用于登录测试（含多班级样例）：
+系统首次启动时会自动初始化以下演示账号（含多班级样例）。
+账号名固定，但密码不再在后端硬编码：
 
-| 角色  | 用户名/学号 | 密码 | 班级 | 备注 |
-| ----  | ----------- | ---- | ---- | ---- |
-| 教师  | `t_zhang` | `demo_hash_teacher` | 软件工程(四)班（SE-2026-4） | 张老师 |
-| 教师  | `t_liu` | `demo_hash_teacher` | 数据科学(一)班（DS-2026-1） | 刘老师 |
-| 教师  | `t_chen` | `demo_hash_teacher` | 德语强化(二)班（FA-2025-2） | 陈老师 |
-| 学生  | `2452001` | `demo_hash_student` | 软件工程(四)班（SE-2026-4） | 李娜（含完整演示数据） |
-| 学生  | `2452002` | `demo_hash_student` | 软件工程(四)班（SE-2026-4） | 王强 |
-| 学生  | `2452003` | `demo_hash_student` | 数据科学(一)班（DS-2026-1） | 赵敏 |
-| 学生  | `2452004` | `demo_hash_student` | 数据科学(一)班（DS-2026-1） | 孙浩 |
-| 学生  | `2452005` | `demo_hash_student` | 德语强化(二)班（FA-2025-2） | 钱雨 |
-| 学生  | `2452006` | `demo_hash_student` | 德语强化(二)班（FA-2025-2） | 何宁 |
-| 管理员  | `admin` | `admin123` | - | 管理员 |
+- 教师演示账号密码来自 `.env` 的 `DEMO_TEACHER_PASSWORD`
+- 学生演示账号密码来自 `.env` 的 `DEMO_STUDENT_PASSWORD`
+- 管理员账号密码来自 `.env` 的 `INIT_ADMIN_PASSWORD`
+- 若未配置上述密码，系统会为“新建账号”生成随机强密码并输出到后端日志
+
+| 角色  | 用户名/学号 | 班级 | 备注 |
+| ----  | ----------- | ---- | ---- |
+| 教师  | `t_zhang` | 软件工程(四)班（SE-2026-4） | 张老师 |
+| 教师  | `t_liu` | 数据科学(一)班（DS-2026-1） | 刘老师 |
+| 教师  | `t_chen` | 德语强化(二)班（FA-2025-2） | 陈老师 |
+| 学生  | `2452001` | 软件工程(四)班（SE-2026-4） | 李娜（含完整演示数据） |
+| 学生  | `2452002` | 软件工程(四)班（SE-2026-4） | 王强 |
+| 学生  | `2452003` | 数据科学(一)班（DS-2026-1） | 赵敏 |
+| 学生  | `2452004` | 数据科学(一)班（DS-2026-1） | 孙浩 |
+| 学生  | `2452005` | 德语强化(二)班（FA-2025-2） | 钱雨 |
+| 学生  | `2452006` | 德语强化(二)班（FA-2025-2） | 何宁 |
+| 管理员  | `admin`（或 `INIT_ADMIN_USERNAME`） | - | 管理员 |
 
 > ⚠️ 教师端和学生端均已启用密码校验与权限隔离，学生账号无法访问教师端功能，反之亦然。
 
@@ -359,6 +510,7 @@ LMSTUDIO_API_KEY=
 - 前端传输：登录与改密请求对密码执行 `SHA-256` 后再传输。
 - 后端存储：统一存储为 `bcrypt(sha256(password))`，并兼容历史旧数据自动迁移。
 - 管理员能力：管理员可在管理端重置教师/学生账号密码。
+- 鉴权令牌：后端已改为 HMAC 签名令牌；更新后原有登录态会失效，需重新登录。
 
 ---
 
