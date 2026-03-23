@@ -6,15 +6,15 @@ BEGIN;
 -- 用户
 INSERT INTO users (username, password_hash, role, display_name)
 VALUES
-    ('t_zhang', 'demo_hash_teacher', 'teacher', '张老师'),
-    ('t_liu',   'demo_hash_teacher', 'teacher', '刘老师'),
-    ('t_chen',  'demo_hash_teacher', 'teacher', '陈老师'),
-    ('s_li',    'demo_hash_student', 'student', '李娜'),
-    ('s_wang',  'demo_hash_student', 'student', '王强'),
-    ('s_zhao',  'demo_hash_student', 'student', '赵敏'),
-    ('s_sun',   'demo_hash_student', 'student', '孙浩'),
-    ('s_qian',  'demo_hash_student', 'student', '钱雨'),
-    ('s_he',    'demo_hash_student', 'student', '何宁')
+    ('t_zhang', md5(random()::text || clock_timestamp()::text || 't_zhang'), 'teacher', '张老师'),
+    ('t_liu',   md5(random()::text || clock_timestamp()::text || 't_liu'),   'teacher', '刘老师'),
+    ('t_chen',  md5(random()::text || clock_timestamp()::text || 't_chen'),  'teacher', '陈老师'),
+    ('s_li',    md5(random()::text || clock_timestamp()::text || 's_li'),    'student', '李娜'),
+    ('s_wang',  md5(random()::text || clock_timestamp()::text || 's_wang'),  'student', '王强'),
+    ('s_zhao',  md5(random()::text || clock_timestamp()::text || 's_zhao'),  'student', '赵敏'),
+    ('s_sun',   md5(random()::text || clock_timestamp()::text || 's_sun'),   'student', '孙浩'),
+    ('s_qian',  md5(random()::text || clock_timestamp()::text || 's_qian'),  'student', '钱雨'),
+    ('s_he',    md5(random()::text || clock_timestamp()::text || 's_he'),    'student', '何宁')
 ON CONFLICT (username) DO NOTHING;
 
 -- 班级

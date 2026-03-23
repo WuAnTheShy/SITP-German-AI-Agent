@@ -95,7 +95,6 @@ from schemas.entities import (
 )
 from core.responses import ok, fail, to_float
 from core.deps import require_teacher, require_student, current_student
-from core.seed import _ensure_demo_data
 from services.llm import ai_text, ai_json, MODEL_ID, LLM_PROVIDER
 from routers.auth import router as auth_router
 from routers.admin import router as admin_router
@@ -116,6 +115,25 @@ if LLM_PROVIDER == "qwen" and not os.getenv("QWEN_API_KEY"):
 print(f"[AI] Provider={LLM_PROVIDER}, Model={MODEL_ID}")
 
 app = FastAPI()
+
+
+def _is_production() -> bool:
+    env = (os.getenv("APP_ENV", "") or "").strip().lower()
+    return env in {"prod", "production"}
+
+
+def _cors_allow_origins() -> list[str]:
+    raw = (os.getenv("CORS_ALLOW_ORIGINS", "") or "").strip()
+    if not raw:
+        if _is_production():
+            return []
+        return [
+            "http://localhost",
+            "http://localhost:5173",
+            "http://127.0.0.1",
+            "http://127.0.0.1:5173",
+        ]
+    return [x.strip() for x in raw.split(",") if x.strip()]
 
 @app.on_event("startup")
 def startup_event():
@@ -262,7 +280,7 @@ def startup_event():
     except Exception as e:
         print(f"[Server] Database migration failed (might be handled by alembic): {e}")
 
-    # 确保默认管理员账号存在（username=admin, password=admin123）
+    # 确保管理员账号存在（由环境变量 INIT_ADMIN_USERNAME / INIT_ADMIN_PASSWORD 控制）
     try:
         from db.session import SessionLocal
         from core.seed import _ensure_admin
@@ -278,8 +296,8 @@ def startup_event():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_allow_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
