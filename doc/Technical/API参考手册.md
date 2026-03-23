@@ -1,108 +1,199 @@
-# SITP German AI Agent API 接口参考手册
+# SITP German AI Agent API 参考手册
 
-> **基础路径 (Base URL)**: `http://localhost:8000/api`
-> **认证方式**: Bearer Token (在请求头中加入 `Authorization: Bearer <token>`)
-
----
-
-## 1. 认证接口 (Authentication)
-
-| 方法 | 路径 | 描述 |
-|---|---|---|
-| `POST` | `/auth/login` | 教师登录（自动创建账号） |
-| `POST` | `/auth/student-login` | 学生登录（自动创建账号） |
+> 建议先在运行环境中打开 Swagger 文档核对字段细节：  
+> http://localhost:9000/docs（Docker）或 http://localhost:8000/docs（本地后端）
 
 ---
 
-## 2. 教师端接口 (Teacher Side)
+## 1. 通用说明
 
-### 2.1 仪表盘与学生管理
-- `GET /teacher/dashboard`: 获取班级全局统计指标与学生列表。
-- `GET /student/detail?id={uid}`: 获取特定学生的全画像（含能力模型、诊断、作业、考试记录）。
-
-### 2.2 情景任务与试卷
-- `POST /scenario/publish`: 发布 AI 情景对话任务至全班。
-- `POST /exam/generate`: 调用 AI 生成（统一或个性化）试卷并分发。
-  - **Payload 示例**:
-    ```json
-    {
-      "grammarItems": 15,
-      "writingItems": 2,
-      "strategy": "personalized",
-      "focusAreas": ["Passiv", "Konjunktiv"]
-    }
-    ```
-- `GET /teacher/exam/list`: 获取已发布的试卷历史。
-- `GET /teacher/exam/{id}`: 获取试卷题目详情。
-
-### 2.3 作业与批改
-- `GET /homework/detail?id={id}`: 获取某份作业的具体内容（文件 URL 或 JSON 答案）。
-- `GET /homework/download/{id}`: 下载格式化的答卷文本（针对 Exam 类型）。
-- `POST /homework/save`: 教师保存评分与反馈意见。
-- `POST /student/push-scheme`: 为学生推送 AI 生成的个性化强化方案。
+- 大部分接口前缀为 /api。
+- 认证方式：Authorization: Bearer token。
+- 返回结构通常为 code/message/data。
+- 账号相关接口区分管理员、教师、学生角色权限。
 
 ---
 
-## 3. 学生端接口 (Student Side)
+## 2. 认证与账号
 
-### 3.1 任务系统
-- `GET /student/tasks`: 获取待办与已完成的任务列表。
-- `GET /student/exam/assignment/{id}`: 获取考试题目。
-- `POST /student/exam/submit`: 提交试卷答案并自动评分。
-  - **Payload 示例**:
-    ```json
-    {
-      "assignment_id": 12,
-      "answers": {
-        "0": "A. werden / gebacken",
-        "1": "B. habe",
-        "writing_15": "Heute bin ich sehr glücklich..."
-      }
-    }
-    ```
-  - **Response 示例**:
-    ```json
-    {
-      "code": 200,
-      "message": "提交成功",
-      "data": {
-        "score": 85.5,
-        "ai_comment": "整体表达流畅，注意虚拟式的变位..."
-      }
-    }
-    ```
-- `GET /student/exam/result/{id}`: 查看试卷结果与解析。
-
-### 3.2 学习工具
-- `GET /student/vocab/list`: 获取词汇列表（支持级别/主题过滤）。
-- `POST /student/vocab/collect`: 收藏/取消收藏单词。
-- `POST /student/vocab/generate`: 调用 AI 批量生成单词例句。
-- `GET /student/grammar/categories`: 获取语法分类。
-- `GET /student/grammar/exercises`: 获取某分类下的练习题。
-- `POST /student/grammar/submit`: 提交语法练习答案。
-- `GET /student/listening/materials`: 获取听力素材列表。
-- `POST /student/speaking/evaluate`: 提交口语录音进行 AI 评估。
-- `POST /student/writing/check`: AI 实时语病检查。
-- `POST /student/writing/generate-sample`: AI 生成命题范文。
-
-### 3.3 个性化数据
-- `GET /student/error-book/list`: 查看错题记录。
-- `POST /student/error-book/mark-mastered`: 将错题标记为已掌握。
-- `GET /student/learning/progress`: 获取学习时长统计与掌握度矩阵。
-- `GET /student/favorites/list`: 查看收藏夹。
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | /api/auth/login | 教师/管理员登录 |
+| POST | /api/auth/student-login | 学生登录 |
+| POST | /api/auth/student-register | 学生注册 |
+| POST | /api/auth/teacher-register | 教师注册 |
+| PUT | /api/user/password | 当前登录用户修改密码 |
 
 ---
 
-## 4. 公共/AI 接口
-- `POST /chat`: 教师端 AI 教研对话入口。
-- `POST /student/chat`: 学生端 AI 自由导师对话入口。
-- `POST /student/scene-chat`: 学生端情景任务对话入口（带上下文）。
+## 3. 管理员接口（前缀 /api/admin）
+
+### 3.1 教师管理
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/admin/teachers | 查询教师列表 |
+| PUT | /api/admin/teachers/{user_id} | 更新教师信息/状态 |
+| DELETE | /api/admin/teachers/{user_id} | 删除教师 |
+
+### 3.2 学生管理
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/admin/students | 查询学生列表 |
+| PUT | /api/admin/students/{student_id} | 更新学生信息 |
+| DELETE | /api/admin/students/{student_id} | 删除学生 |
+
+### 3.3 班级管理
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/admin/classes | 查询班级列表 |
+| POST | /api/admin/classes | 创建班级 |
+| PUT | /api/admin/classes/{class_id} | 修改班级 |
+| DELETE | /api/admin/classes/{class_id} | 删除班级 |
+
+### 3.4 系统设置与审核
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/admin/system/settings | 查询系统设置 |
+| PUT | /api/admin/system/settings | 更新系统设置 |
+| GET | /api/admin/users/pending-teachers | 待审核教师列表 |
+| PUT | /api/admin/users/teachers/{user_id}/approve | 通过教师审核 |
+| PUT | /api/admin/users/teachers/{user_id}/reject | 拒绝教师审核 |
+| PUT | /api/admin/users/{user_id}/password | 管理员重置用户密码 |
 
 ---
 
-## 5. 错误代码说明
-- `200`: 成功。
-- `401`: 未授权或 Token 过期。
-- `403`: 权限不足（如学生尝试访问教师接口）。
-- `404`: 资源不存在。
-- `500`: 服务器内部错误（通常伴随 `message` 字段描述具体异常）。
+## 4. 教师业务接口
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/teacher/dashboard | 教师仪表盘数据 |
+| POST | /api/scenario/publish | 发布情景任务 |
+| POST | /api/exam/generate | 生成并发布试卷 |
+| GET | /api/teacher/scenario/list | 情景发布历史 |
+| GET | /api/teacher/exam/list | 试卷列表 |
+| GET | /api/teacher/exam/{exam_id} | 试卷详情 |
+| GET | /api/teacher/pending-students | 待审核学生列表 |
+| GET | /api/teacher/students | 班级学生列表 |
+| PUT | /api/teacher/students/{student_id} | 更新学生信息 |
+| DELETE | /api/teacher/students/{student_id} | 删除学生 |
+| PUT | /api/teacher/students/{student_id}/approve | 通过学生审核 |
+| PUT | /api/teacher/students/{student_id}/reject | 拒绝学生审核 |
+
+---
+
+## 5. 教师端作业与学生详情
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/student/detail | 学生详情画像 |
+| GET | /api/homework/detail | 作业详情 |
+| GET | /api/homework/download/{id} | 下载作业/答卷 |
+| POST | /api/homework/save | 保存批改结果 |
+| POST | /api/student/push-scheme | 推送个性化学习方案 |
+
+---
+
+## 6. 学生任务与考试
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/student/classes | 可加入班级列表 |
+| POST | /api/student/join-class | 学生加入班级 |
+| GET | /api/student/tasks | 任务列表 |
+| GET | /api/student/exam/assignment/{assignment_id} | 试卷作答页数据 |
+| POST | /api/student/exam/submit | 提交试卷 |
+| GET | /api/student/exam/result/{assignment_id} | 试卷结果 |
+| POST | /api/student/task/complete | 手动完成任务打点 |
+
+---
+
+## 7. 学生学习工具
+
+### 7.1 词汇
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/student/vocab/list | 词汇列表 |
+| POST | /api/student/vocab/collect | 收藏词汇 |
+| POST | /api/student/vocab/generate | AI 词汇生成 |
+
+### 7.2 语法
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/student/grammar/categories | 语法分类 |
+| GET | /api/student/grammar/exercises | 语法练习题 |
+| POST | /api/student/grammar/submit | 提交语法练习 |
+
+### 7.3 听说写
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/student/listening/materials | 听力素材列表 |
+| GET | /api/student/listening/material/detail | 听力素材详情 |
+| POST | /api/student/speaking/evaluate | 口语评估 |
+| POST | /api/student/writing/check | 写作纠错 |
+| POST | /api/student/writing/generate-sample | AI 范文生成 |
+
+### 7.4 错题本与收藏夹
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/student/error-book/categories | 错题分类 |
+| GET | /api/student/error-book/list | 错题列表 |
+| POST | /api/student/error-book/start-review | 开始错题复习 |
+| POST | /api/student/error-book/mark-mastered | 标记已掌握 |
+| DELETE | /api/student/error-book/delete/{error_id} | 删除错题 |
+| GET | /api/student/favorites/categories | 收藏分类 |
+| GET | /api/student/favorites/list | 收藏列表 |
+| DELETE | /api/student/favorites/{fav_id} | 删除收藏 |
+| POST | /api/student/favorites/ai-extend | 收藏扩展学习建议 |
+| GET | /api/student/learning/progress | 学习进度总览 |
+
+---
+
+## 8. AI 对话与会话管理
+
+### 8.1 教师 AI 教研
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | /api/chat | 教师 AI 对话 |
+| POST | /api/teacher/chat/new-session | 新建会话 |
+| GET | /api/teacher/chat/sessions | 会话列表 |
+| GET | /api/teacher/chat/messages | 会话消息 |
+| DELETE | /api/teacher/chat/session/{session_id} | 删除会话 |
+
+### 8.2 学生 AI 对话
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | /api/student/chat | 学生自由对话 |
+| POST | /api/student/chat/new-session | 新建会话 |
+| GET | /api/student/chat/sessions | 会话列表 |
+| GET | /api/student/chat/messages | 会话消息 |
+| DELETE | /api/student/chat/session/{session_id} | 删除会话 |
+
+### 8.3 学生情景对话
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/student/scene-chat/state | 获取情景会话状态 |
+| DELETE | /api/student/scene-chat/clear | 清空情景会话 |
+| POST | /api/student/scene-chat | 发送情景对话消息 |
+
+---
+
+## 9. 常见状态码
+
+| 状态码 | 含义 |
+| --- | --- |
+| 200 | 请求成功 |
+| 401 | 未登录或鉴权失败 |
+| 403 | 权限不足 |
+| 404 | 资源不存在 |
+| 500 | 服务器内部错误 |

@@ -425,7 +425,7 @@ const Login = () => {
 
             <div className="mt-8 text-center animate-fade-in delay-500">
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                    SITP 项目编号: 20251213 | © 2026 Tongji University
+                    Tongji University
                 </p>
             </div>
         </div>

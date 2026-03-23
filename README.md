@@ -320,97 +320,95 @@ Get-Item .env -Force  # 应显示文件
 ls -la .env           # 应显示文件
 ```
 
-#### 第 2 步：首次启动系统（无历史数据）
+#### 场景 A：首次部署（无历史数据卷）
+
+适用条件：
+
+- 第一次在这台机器部署
+- 或执行过 `docker compose down -v`（数据库卷已清空）
+
+执行步骤：
 
 ```bash
-# 构建镜像 + 启动容器（-d 后台模式）
+# 1) 构建镜像并后台启动
 docker compose up -d --build
 
-# 查看容器状态
+# 2) 检查容器状态（应看到 frontend/backend/db 均为 Up）
 docker compose ps
 
-# 实时查看启动日志
+# 3) 查看后端启动日志
 docker compose logs -f backend
 ```
 
-**预期输出：** 后端日志应显示：
+成功判定：
 
-```
-INFO:     Application startup complete
-```
+- 后端日志出现 `Application startup complete`
+- 打开 `http://localhost`（或 `http://服务器IP`）能看到登录页
 
-**进度检查：**打开浏览器访问 `http://localhost`（本地）或 `http://服务器IP`（服务器），应进入登录页。
-
-#### 第 3 步：验证系统可用性
-
-完整验证清单（**建议每次启动后都执行**）：
+首次部署后建议立即执行健康检查：
 
 ```bash
-# 1. 容器状态检查：应见三个容器都是 "Up"
-docker compose ps
-
-# 2. 后端健康检查：应返回 200 状态码
+# 后端健康检查（预期 200）
 curl -i http://localhost:9000/
 
-# 3. 前端反向代理链路：应返回 JSON 错误结果（非 502 Bad Gateway）
+# 反向代理链路检查（预期 401，不应是 502）
 curl -X POST http://localhost/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"wrong_password"}'
 
-# 预期响应（证明链路正常）：
-# HTTP/1.1 401 Unauthorized
-# {"code":401,"message":"密码错误，请重新输入"}
-
-# 4. 实际登录测试：用 admin 账号登录
+# 使用当前 .env 示例管理员口令验证登录（预期 code=0）
 curl -X POST http://localhost/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"AdminPass_2026_Change_Me!"}'
-
-# 预期响应【示例】：
-# {"code":0,"message":"登录成功","data":{"access_token":"...","role":"admin"}}
+  -d '{"username":"admin","password":"admin123"}'
 ```
 
-#### 第 4 步：常见启动问题速查
+#### 场景 B：升级部署（已有历史数据卷）
 
-| 错误现象 | 根本原因 | 解决方案 |
-|--------|--------|--------|
-| `required variable POSTGRES_PASSWORD is missing` | `.env` 缺少 `POSTGRES_PASSWORD` | 补齐该变量后重新 `docker compose up -d --build` |
-| 后端日志：`password authentication failed for user "postgres"` | `.env` 中数据库密码与容器初始密码不一致 | 见下方"第 5 步：数据库密码同步" |
-| 前端返回 `502 Bad Gateway` | Nginx 无法连接后端容器或后端未就绪 | 查看 backend 日志：`docker compose logs backend` |
-| 系统正常启动但 AI 对话无回复 | LLM 配置错误或 API Key 无效 | 检查 LLM_PROVIDER、QWEN_API_KEY、LMSTUDIO 连接 |
+适用条件：
 
-#### 第 5 步：数据库密码同步（升级部署场景）
+- 机器上已存在历史数据库卷（如 `pg_data`）
+- 你修改了 `.env`、镜像版本或业务代码并重新部署
 
-**场景描述：** 初次启动后系统已运行稳定，现在要改 PostgreSQL 密码（出于安全考虑）。
-
-**问题根因：** PostgreSQL 数据库容器首次启动时会以 `.env` 的 `POSTGRES_PASSWORD` 创建 `postgres` 用户。容器停止重启后不会再读 `.env`，而是使用数据库内已存储的密码。仅改 `.env` 而不改库内密码会导致连接认证失败。
-
-**解决方法（推荐）：** 进入数据库容器执行 SQL 更新。
+执行步骤：
 
 ```bash
-# 替换下面的 YourNewPassword 为实际新密码
-docker exec -u postgres german-db psql -d sitp_german_ai_agent -c \
-  "ALTER USER postgres WITH PASSWORD 'YourNewPassword';"
+# 1) 拉起新版本容器
+docker compose up -d --build
 
-# 重启后端容器使其重新连接数据库
-docker compose restart backend
-
-# 查看后端日志，确认连接成功
+# 2) 查看状态与日志
+docker compose ps
 docker compose logs -f backend
 ```
 
-**验证步骤：**
+升级部署最容易踩坑的是数据库密码不同步。
+
+原因说明：PostgreSQL 仅在首次初始化时读取 `.env` 中的 `POSTGRES_PASSWORD` 创建用户。后续即使你改了 `.env`，数据库内部密码不会自动更新。
+
+如果日志出现 `password authentication failed for user "postgres"`，按下面处理：
 
 ```bash
-# 登录测试应该返回 401（密码错误）或 200（登录成功）
-# 如果返回 502 或后端日志仍显示 password authentication failed，说明同步失败
+# 把库内 postgres 用户密码同步为新值（替换 YourNewPassword）
+docker exec -u postgres german-db psql -d sitp_german_ai_agent -c \
+  "ALTER USER postgres WITH PASSWORD 'YourNewPassword';"
 
+# 重启后端以重新建立连接
+docker compose restart backend
+docker compose logs -f backend
+```
+
+升级后建议执行验证：
+
+```bash
+# 服务状态
+docker compose ps
+
+# 链路探活（返回 401 或 200 都表示链路打通；502 表示后端未就绪）
 curl -X POST http://localhost/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"TestPassword"}'
 ```
 
-**完整改密脚本（Shell + Python 一体）：**
+#### 升级部署可选：一键改密脚本（Shell + Python）
 
 ```bash
 #!/bin/bash
@@ -479,6 +477,15 @@ curl -X POST http://localhost/api/auth/login \
 
 echo "✅ Password update complete!"
 ```
+
+#### 常见启动问题速查
+
+| 错误现象 | 根本原因 | 解决方案 |
+|--------|--------|--------|
+| `required variable POSTGRES_PASSWORD is missing` | `.env` 缺少 `POSTGRES_PASSWORD` | 补齐该变量后重新 `docker compose up -d --build` |
+| 后端日志：`password authentication failed for user "postgres"` | `.env` 与数据库内部密码不一致 | 按上文"场景 B"执行 `ALTER USER` 同步密码 |
+| 前端返回 `502 Bad Gateway` | Nginx 无法连接后端容器或后端未就绪 | 查看 backend 日志：`docker compose logs backend` |
+| 系统正常启动但 AI 对话无回复 | LLM 配置错误或 API Key 无效 | 检查 LLM_PROVIDER、QWEN_API_KEY、LMSTUDIO 连接 |
 
 #### 第 6 步：日志查看与故障诊断
 

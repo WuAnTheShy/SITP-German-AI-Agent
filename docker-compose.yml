@@ -26,7 +26,6 @@ services:
       - "9000:8000"
     environment:
       - APP_ENV=${APP_ENV:-production}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - LLM_PROVIDER=${LLM_PROVIDER:-qwen}
       - LLM_MODEL=${LLM_MODEL:-}
       - QWEN_API_KEY=${QWEN_API_KEY:-}
