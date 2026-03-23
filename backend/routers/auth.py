@@ -178,12 +178,11 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
             return fail("密码错误，请重新输入", 401)
 
         token = issue_token("student", str(student.uid))
-        class_id = getattr(student, "class_id", None)
-        class_name = None
-        if class_id:
-            classroom = ClassroomCRUD.get_by_id(db, class_id)
-            if classroom:
-                class_name = classroom.class_name
+        class_ids = StudentCRUD.list_class_ids(db, student.id)
+        class_objs = [ClassroomCRUD.get_by_id(db, class_id) for class_id in class_ids]
+        class_objs = [c for c in class_objs if c]
+        class_id = class_ids[0] if class_ids else None
+        class_name = class_objs[0].class_name if class_objs else None
         info = {
             "id": student.uid,
             "name": student.name,
@@ -191,6 +190,8 @@ def student_login(req: StudentLoginReq, db: Session = Depends(get_db)):
             "studentId": student.id,
             "classId": class_id,
             "className": class_name,
+            "classIds": class_ids,
+            "classNames": [c.class_name for c in class_objs],
         }
         return {
             "code": 200,

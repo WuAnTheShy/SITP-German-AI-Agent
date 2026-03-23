@@ -25,7 +25,7 @@ from schemas.entities import (
     ExamAssignmentCreate,
 )
 from core.responses import ok, fail, to_float
-from core.deps import require_teacher, get_current_teacher_and_classroom
+from core.deps import require_teacher, get_current_teacher_and_classrooms
 from services.llm import generate_response
 from services.metrics import compute_student_interaction_minutes, refresh_student_metrics
 
@@ -75,8 +75,12 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
                 "students": [],
             })
 
-        classroom = classrooms[0]
-        students = StudentCRUD.list_by_class(db, classroom.id)
+        students_map: dict[int, any] = {}
+        for classroom in classrooms:
+            for s in StudentCRUD.list_by_class(db, classroom.id):
+                students_map[s.id] = s
+        students = list(students_map.values())
+        class_name_by_id = {c.id: c.class_name for c in classrooms}
 
         metric_map: dict[int, dict] = {}
         interaction_hours = []
@@ -96,8 +100,9 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
 
         payload = {
             "teacherName": teacher.display_name,
-            "className": classroom.class_name,
-            "classCode": classroom.class_code,
+            "className": " / ".join([c.class_name for c in classrooms]),
+            "classCode": " / ".join([c.class_code for c in classrooms]),
+            "classCount": len(classrooms),
             "pendingTasks": pending_count,
             "stats": {
                 "totalStudents": len(students),
@@ -113,7 +118,7 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
                 {
                     "name": s.name,
                     "uid": s.uid,
-                    "class": classroom.class_name,
+                    "class": " / ".join([class_name_by_id.get(cid, "") for cid in StudentCRUD.list_class_ids(db, s.id) if class_name_by_id.get(cid)]),
                     "active": metric_map.get(s.id, {}).get("active_score", s.active_score),
                     "score": metric_map.get(s.id, {}).get("overall_score", to_float(s.overall_score)),
                     "weak": metric_map.get(s.id, {}).get("weak_point", s.weak_point or "暂无"),
@@ -131,7 +136,7 @@ def teacher_dashboard(request: Request, db: Session = Depends(get_db)):
 @router.post("/api/scenario/publish")
 def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        teacher, classroom = get_current_teacher_and_classroom(req, db)
+        teacher, classrooms = get_current_teacher_and_classrooms(req, db)
         cfg = request.config or {}
         goals = cfg.get("goals", {})
 
@@ -149,7 +154,12 @@ def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: S
             ),
         )
 
-        for s in StudentCRUD.list_by_class(db, classroom.id):
+        students_map: dict[int, any] = {}
+        for classroom in classrooms:
+            for s in StudentCRUD.list_by_class(db, classroom.id):
+                students_map[s.id] = s
+
+        for s in students_map.values():
             ScenarioPushCRUD.create_or_get(
                 db,
                 ScenarioPushCreate(scenario_id=scenario.id, student_id=s.id, push_status="pushed"),
@@ -165,7 +175,7 @@ def publish_scenario(request: ScenarioPublishRequest, req: Request = None, db: S
 @router.post("/api/exam/generate")
 def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        teacher, classroom = get_current_teacher_and_classroom(req, db)
+        teacher, classrooms = get_current_teacher_and_classrooms(req, db)
         cfg = request.config or {}
 
         exam_code = f"EXM-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4]}"
@@ -280,7 +290,11 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
                 out.append(item)
             return out
 
-        students = StudentCRUD.list_by_class(db, classroom.id)
+        students_map: dict[int, any] = {}
+        for classroom in classrooms:
+            for s in StudentCRUD.list_by_class(db, classroom.id):
+                students_map[s.id] = s
+        students = list(students_map.values())
 
         if strategy != "personalized":
             ai_questions = _generate_questions_for_student()
@@ -410,6 +424,7 @@ def list_pending_students(request: Request = None, db: Session = Depends(get_db)
                 "uid": s.uid,
                 "name": s.name,
                 "class_id": s.class_id,
+                "class_ids": StudentCRUD.list_class_ids(db, s.id),
                 "status": s.status,
                 "created_at": s.created_at.isoformat(),
             }
@@ -423,11 +438,18 @@ def list_pending_students(request: Request = None, db: Session = Depends(get_db)
 @router.get("/api/teacher/students")
 def list_class_students(request: Request = None, db: Session = Depends(get_db)):
     try:
-        _, classroom = get_current_teacher_and_classroom(request, db)
-        students = StudentCRUD.list_by_class(db, classroom.id)
+        _, classrooms = get_current_teacher_and_classrooms(request, db)
+        students_map: dict[int, any] = {}
+        class_name_by_id = {c.id: c.class_name for c in classrooms}
+        for classroom in classrooms:
+            for s in StudentCRUD.list_by_class(db, classroom.id):
+                students_map[s.id] = s
+
         result = []
-        for s in students:
+        for s in students_map.values():
             latest_metrics = refresh_student_metrics(db, s.id)
+            class_names = [class_name_by_id.get(cid) for cid in StudentCRUD.list_class_ids(db, s.id)]
+            class_names = [x for x in class_names if x]
             result.append(
                 {
                     "id": s.id,
@@ -435,7 +457,9 @@ def list_class_students(request: Request = None, db: Session = Depends(get_db)):
                     "name": s.name,
                     "status": s.status,
                     "class_id": s.class_id,
-                    "class_name": classroom.class_name,
+                    "class_ids": StudentCRUD.list_class_ids(db, s.id),
+                    "class_name": class_names[0] if class_names else None,
+                    "class_names": class_names,
                     "active_score": latest_metrics["active_score"],
                     "overall_score": latest_metrics["overall_score"],
                     "weak_point": latest_metrics["weak_point"],
@@ -455,12 +479,14 @@ def update_class_student(
     db: Session = Depends(get_db),
 ):
     try:
-        teacher, classroom = get_current_teacher_and_classroom(request, db)
+        teacher, classrooms = get_current_teacher_and_classrooms(request, db)
+        teacher_class_ids = {c.id for c in classrooms}
         student = StudentCRUD.get_by_id(db, student_id)
         if not student:
             return fail("学生不存在", 404)
 
-        if student.class_id != classroom.id:
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id))
+        if not (student_class_ids & teacher_class_ids):
             return fail("无权操作该学生", 403)
 
         updates = body.model_dump(exclude_unset=True)
@@ -470,8 +496,17 @@ def update_class_student(
             return fail("学生状态非法", 400)
         if "class_id" in updates:
             new_class_id = updates["class_id"]
-            if new_class_id not in {None, classroom.id}:
-                return fail("仅可保留在当前班级或移出班级", 400)
+            if new_class_id is not None and new_class_id not in teacher_class_ids:
+                return fail("仅可调整到您管理的班级", 400)
+
+            new_class_ids = set(student_class_ids)
+            if new_class_id is None:
+                new_class_ids = new_class_ids - teacher_class_ids
+            else:
+                new_class_ids.add(new_class_id)
+            StudentCRUD.set_classes(db, student, sorted(new_class_ids))
+
+            updates.pop("class_id", None)
 
         StudentCRUD.update(db, student, **updates)
 
@@ -505,14 +540,17 @@ def update_class_student(
 @router.delete("/api/teacher/students/{student_id}")
 def remove_student_from_class(student_id: int, request: Request = None, db: Session = Depends(get_db)):
     try:
-        _, classroom = get_current_teacher_and_classroom(request, db)
+        teacher, classrooms = get_current_teacher_and_classrooms(request, db)
+        teacher_class_ids = {c.id for c in classrooms}
         student = StudentCRUD.get_by_id(db, student_id)
         if not student:
             return fail("学生不存在", 404)
-        if student.class_id != classroom.id:
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id))
+        if not (student_class_ids & teacher_class_ids):
             return fail("无权操作该学生", 403)
 
-        StudentCRUD.update(db, student, class_id=None)
+        remain_ids = sorted(student_class_ids - teacher_class_ids)
+        StudentCRUD.set_classes(db, student, remain_ids)
         return ok(message="学生已移出当前班级")
     except Exception as e:
         return fail(f"移出学生失败: {e}")
@@ -525,9 +563,10 @@ def approve_student(student_id: int, request: Request = None, db: Session = Depe
         student = StudentCRUD.get_by_id(db, student_id)
         if not student:
             return fail("学生不存在", 404)
-        
-        classroom = ClassroomCRUD.get_by_id(db, student.class_id)
-        if not classroom or classroom.teacher_user_id != teacher.id:
+
+        teacher_class_ids = {c.id for c in ClassroomCRUD.list_by_teacher(db, teacher.id)}
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id))
+        if not (student_class_ids & teacher_class_ids):
             return fail("无权操作该学生", 403)
         
         StudentCRUD.update_status(db, student_id, "approved")
@@ -544,15 +583,16 @@ def reject_student(student_id: int, request: Request = None, db: Session = Depen
         student = StudentCRUD.get_by_id(db, student_id)
         if not student:
             return fail("学生不存在", 404)
-        
-        classroom = ClassroomCRUD.get_by_id(db, student.class_id)
-        if not classroom or classroom.teacher_user_id != teacher.id:
+
+        teacher_class_ids = {c.id for c in ClassroomCRUD.list_by_teacher(db, teacher.id)}
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id))
+        if not (student_class_ids & teacher_class_ids):
             return fail("无权操作该学生", 403)
         
         StudentCRUD.update_status(db, student_id, "rejected")
         UserCRUD.update_status(db, student.user_id, "rejected")
-        # Optional: remove class_id
-        StudentCRUD.update(db, student, class_id=None)
+        remain_ids = sorted(student_class_ids - teacher_class_ids)
+        StudentCRUD.set_classes(db, student, remain_ids)
         return ok(message="已拒绝该生加入班级")
     except Exception as e:
         return fail(f"拒绝学生失败: {e}")

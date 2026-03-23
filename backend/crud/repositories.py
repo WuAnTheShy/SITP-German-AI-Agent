@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from models.entities import (
+    ClassStudentRelation,
+    ClassTeacherRelation,
     Classroom,
     Exam,
     ExamAssignment,
@@ -144,11 +146,79 @@ class ClassroomCRUD:
         db.add(obj)
         db.commit()
         db.refresh(obj)
+        if obj.teacher_user_id:
+            ClassroomCRUD.set_teachers(db, obj.id, [obj.teacher_user_id])
         return obj
 
     @staticmethod
     def list_by_teacher(db: Session, teacher_user_id: int) -> list[Classroom]:
-        return list(db.scalars(select(Classroom).where(Classroom.teacher_user_id == teacher_user_id)))
+        rows = db.scalars(
+            select(Classroom)
+            .outerjoin(ClassTeacherRelation, ClassTeacherRelation.class_id == Classroom.id)
+            .where(
+                or_(
+                    ClassTeacherRelation.teacher_user_id == teacher_user_id,
+                    Classroom.teacher_user_id == teacher_user_id,
+                )
+            )
+            .order_by(Classroom.id)
+        ).all()
+        seen: set[int] = set()
+        out: list[Classroom] = []
+        for row in rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            out.append(row)
+        return out
+
+    @staticmethod
+    def list_by_student(db: Session, student_id: int) -> list[Classroom]:
+        rows = db.scalars(
+            select(Classroom)
+            .join(ClassStudentRelation, ClassStudentRelation.class_id == Classroom.id)
+            .where(ClassStudentRelation.student_id == student_id)
+            .order_by(Classroom.id)
+        ).all()
+        if not rows:
+            student = StudentCRUD.get_by_id(db, student_id)
+            if student and student.class_id is not None:
+                legacy_class = ClassroomCRUD.get_by_id(db, student.class_id)
+                return [legacy_class] if legacy_class else []
+        seen: set[int] = set()
+        out: list[Classroom] = []
+        for row in rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            out.append(row)
+        return out
+
+    @staticmethod
+    def get_teacher_ids(db: Session, class_id: int) -> list[int]:
+        rows = list(
+            db.scalars(
+                select(ClassTeacherRelation.teacher_user_id)
+                .where(ClassTeacherRelation.class_id == class_id)
+                .order_by(ClassTeacherRelation.teacher_user_id)
+            )
+        )
+        if rows:
+            return rows
+        classroom = ClassroomCRUD.get_by_id(db, class_id)
+        return [classroom.teacher_user_id] if classroom and classroom.teacher_user_id else []
+
+    @staticmethod
+    def set_teachers(db: Session, class_id: int, teacher_user_ids: list[int]) -> None:
+        dedup_ids = sorted(set(int(x) for x in teacher_user_ids if x is not None))
+        db.execute(delete(ClassTeacherRelation).where(ClassTeacherRelation.class_id == class_id))
+        for teacher_id in dedup_ids:
+            db.add(ClassTeacherRelation(class_id=class_id, teacher_user_id=teacher_id))
+
+        classroom = ClassroomCRUD.get_by_id(db, class_id)
+        if classroom:
+            classroom.teacher_user_id = dedup_ids[0] if dedup_ids else None
+        db.commit()
 
     @staticmethod
     def get_by_code(db: Session, class_code: str) -> Classroom | None:
@@ -179,6 +249,8 @@ class StudentCRUD:
         db.add(obj)
         db.commit()
         db.refresh(obj)
+        if obj.class_id is not None:
+            StudentCRUD.set_classes(db, obj, [obj.class_id])
         return obj
 
     @staticmethod
@@ -187,7 +259,49 @@ class StudentCRUD:
 
     @staticmethod
     def list_by_class(db: Session, class_id: int) -> list[Student]:
-        return list(db.scalars(select(Student).where(Student.class_id == class_id)))
+        rows = db.scalars(
+            select(Student)
+            .outerjoin(ClassStudentRelation, ClassStudentRelation.student_id == Student.id)
+            .where(
+                or_(
+                    ClassStudentRelation.class_id == class_id,
+                    Student.class_id == class_id,
+                )
+            )
+            .order_by(Student.id)
+        ).all()
+        seen: set[int] = set()
+        out: list[Student] = []
+        for row in rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            out.append(row)
+        return out
+
+    @staticmethod
+    def list_class_ids(db: Session, student_id: int) -> list[int]:
+        rows = list(
+            db.scalars(
+                select(ClassStudentRelation.class_id)
+                .where(ClassStudentRelation.student_id == student_id)
+                .order_by(ClassStudentRelation.class_id)
+            )
+        )
+        if rows:
+            return rows
+        student = StudentCRUD.get_by_id(db, student_id)
+        return [student.class_id] if student and student.class_id is not None else []
+
+    @staticmethod
+    def set_classes(db: Session, student: Student, class_ids: list[int]) -> None:
+        dedup_ids = sorted(set(int(x) for x in class_ids if x is not None))
+        db.execute(delete(ClassStudentRelation).where(ClassStudentRelation.student_id == student.id))
+        for class_id in dedup_ids:
+            db.add(ClassStudentRelation(class_id=class_id, student_id=student.id))
+        student.class_id = dedup_ids[0] if dedup_ids else None
+        db.commit()
+        db.refresh(student)
 
     @staticmethod
     def get_by_id(db: Session, student_id: int) -> Student | None:
@@ -213,12 +327,31 @@ class StudentCRUD:
 
     @staticmethod
     def list_pending_by_teacher(db: Session, teacher_user_id: int) -> list[Student]:
-        return list(db.scalars(
+        rows = db.scalars(
             select(Student)
-            .join(Classroom, Student.class_id == Classroom.id)
-            .where(Classroom.teacher_user_id == teacher_user_id, Student.status == "pending")
+            .join(ClassStudentRelation, ClassStudentRelation.student_id == Student.id)
+            .join(ClassTeacherRelation, ClassTeacherRelation.class_id == ClassStudentRelation.class_id)
+            .where(ClassTeacherRelation.teacher_user_id == teacher_user_id, Student.status == "pending")
             .order_by(Student.created_at.desc())
-        ))
+        ).all()
+        if rows:
+            seen: set[int] = set()
+            out: list[Student] = []
+            for row in rows:
+                if row.id in seen:
+                    continue
+                seen.add(row.id)
+                out.append(row)
+            return out
+
+        return list(
+            db.scalars(
+                select(Student)
+                .join(Classroom, Student.class_id == Classroom.id)
+                .where(Classroom.teacher_user_id == teacher_user_id, Student.status == "pending")
+                .order_by(Student.created_at.desc())
+            )
+        )
 
     @staticmethod
     def update_status(db: Session, student_id: int, status: str) -> None:

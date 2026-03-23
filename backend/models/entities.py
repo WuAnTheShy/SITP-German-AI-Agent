@@ -43,9 +43,35 @@ class Classroom(Base):
     class_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     class_name: Mapped[str] = mapped_column(String(128), nullable=False)
     grade: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    teacher_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    teacher_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class ClassTeacherRelation(Base):
+    __tablename__ = "class_teacher_relations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id", ondelete="CASCADE"), nullable=False)
+    teacher_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("class_id", "teacher_user_id", name="uq_class_teacher_relations"),
+    )
+
+
+class ClassStudentRelation(Base):
+    __tablename__ = "class_student_relations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id", ondelete="CASCADE"), nullable=False)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("class_id", "student_id", name="uq_class_student_relations"),
+    )
 
 
 class Student(Base):

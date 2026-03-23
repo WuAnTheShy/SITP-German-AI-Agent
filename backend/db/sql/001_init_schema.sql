@@ -22,9 +22,17 @@ CREATE TABLE IF NOT EXISTS classes (
     class_code      VARCHAR(32) NOT NULL UNIQUE,
     class_name      VARCHAR(128) NOT NULL,
     grade           VARCHAR(32),
-    teacher_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    teacher_user_id BIGINT REFERENCES users(id) ON DELETE RESTRICT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS class_teacher_relations (
+    id              BIGSERIAL PRIMARY KEY,
+    class_id        BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    teacher_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (class_id, teacher_user_id)
 );
 
 -- 3) 学生档案
@@ -32,13 +40,21 @@ CREATE TABLE IF NOT EXISTS students (
     id              BIGSERIAL PRIMARY KEY,
     uid             VARCHAR(32) NOT NULL UNIQUE,
     user_id         BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    class_id        BIGINT NOT NULL REFERENCES classes(id) ON DELETE RESTRICT,
+    class_id        BIGINT REFERENCES classes(id) ON DELETE RESTRICT,
     name            VARCHAR(64) NOT NULL,
     active_score    INTEGER NOT NULL DEFAULT 0 CHECK (active_score BETWEEN 0 AND 100),
     overall_score   NUMERIC(5,2) NOT NULL DEFAULT 0 CHECK (overall_score BETWEEN 0 AND 100),
     weak_point      VARCHAR(128),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS class_student_relations (
+    id              BIGSERIAL PRIMARY KEY,
+    class_id        BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    student_id      BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (class_id, student_id)
 );
 
 -- 4) 学生能力画像（1:1）

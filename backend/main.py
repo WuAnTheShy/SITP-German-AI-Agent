@@ -276,6 +276,45 @@ def startup_event():
             except Exception as e:
                 print(f"[Server] Note: students class_id nullable: {e}")
 
+            # 班级可暂不设置主教师（多教师关系以关系表为准）
+            try:
+                conn.execute(text("ALTER TABLE classes ALTER COLUMN teacher_user_id DROP NOT NULL"))
+                print("[Server] classes.teacher_user_id allowed NULL.")
+            except Exception as e:
+                print(f"[Server] Note: classes teacher_user_id nullable: {e}")
+
+            # 班级-教师多对多关系表
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS class_teacher_relations ("
+                "id BIGSERIAL PRIMARY KEY, "
+                "class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE, "
+                "teacher_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
+                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+                "UNIQUE (class_id, teacher_user_id))"
+            ))
+
+            # 班级-学生多对多关系表
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS class_student_relations ("
+                "id BIGSERIAL PRIMARY KEY, "
+                "class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE, "
+                "student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE, "
+                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+                "UNIQUE (class_id, student_id))"
+            ))
+
+            # 从旧单字段回填关系表
+            conn.execute(text(
+                "INSERT INTO class_teacher_relations (class_id, teacher_user_id) "
+                "SELECT id, teacher_user_id FROM classes WHERE teacher_user_id IS NOT NULL "
+                "ON CONFLICT (class_id, teacher_user_id) DO NOTHING"
+            ))
+            conn.execute(text(
+                "INSERT INTO class_student_relations (class_id, student_id) "
+                "SELECT class_id, id FROM students WHERE class_id IS NOT NULL "
+                "ON CONFLICT (class_id, student_id) DO NOTHING"
+            ))
+
             print("[Server] Database schema checks completed.")
     except Exception as e:
         print(f"[Server] Database migration failed (might be handled by alembic): {e}")

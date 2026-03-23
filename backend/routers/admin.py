@@ -6,7 +6,7 @@ from db.session import get_db
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from crud.repositories import UserCRUD, ClassroomCRUD, SystemSettingCRUD
+from crud.repositories import UserCRUD, ClassroomCRUD, SystemSettingCRUD, StudentCRUD
 from models.entities import Student
 from schemas.entities import ClassroomCreate
 from core.deps import require_admin
@@ -20,7 +20,8 @@ class ClassCreateBody(BaseModel):
     class_code: str
     class_name: str
     grade: str | None = None
-    teacher_user_id: int
+    teacher_user_id: int | None = None
+    teacher_user_ids: list[int] | None = None
 
 
 class ClassUpdateBody(BaseModel):
@@ -28,17 +29,20 @@ class ClassUpdateBody(BaseModel):
     class_name: str | None = None
     grade: str | None = None
     teacher_user_id: int | None = None
+    teacher_user_ids: list[int] | None = None
 
 
 class TeacherUpdateBody(BaseModel):
     display_name: str | None = None
     status: str | None = None
     is_active: bool | None = None
+    class_ids: list[int] | None = None
 
 
 class StudentUpdateBody(BaseModel):
     name: str | None = None
     class_id: int | None = None
+    class_ids: list[int] | None = None
     status: str | None = None
     is_active: bool | None = None
     active_score: int | None = None
@@ -85,11 +89,36 @@ def update_teacher(
     if "status" in updates and updates["status"] not in {"pending", "approved", "rejected"}:
         raise HTTPException(status_code=400, detail="教师状态非法")
 
+    # 提取 class_ids 单独处理
+    class_ids = updates.pop("class_ids", None)
+
+    # 更新教师基本信息
     for key, value in updates.items():
         if hasattr(teacher, key):
             setattr(teacher, key, value)
     db.commit()
     db.refresh(teacher)
+
+    # 处理班级关联
+    if class_ids is not None:
+        # 获取所有班级
+        all_classes = ClassroomCRUD.list_all(db)
+        
+        # 对于每个班级，检查是否需要添加或删除该教师
+        for classroom in all_classes:
+            current_teachers = ClassroomCRUD.get_teacher_ids(db, classroom.id)
+            should_have = classroom.id in class_ids
+            has_teacher = user_id in current_teachers
+            
+            if should_have and not has_teacher:
+                # 添加教师到班级
+                current_teachers.append(user_id)
+                ClassroomCRUD.set_teachers(db, classroom.id, current_teachers)
+            elif not should_have and has_teacher:
+                # 从班级中删除教师
+                current_teachers.remove(user_id)
+                ClassroomCRUD.set_teachers(db, classroom.id, current_teachers)
+
     return {
         "id": teacher.id,
         "username": teacher.username,
@@ -120,15 +149,21 @@ def list_classes(db: Session = Depends(get_db), _admin=Depends(require_admin)):
     classes = ClassroomCRUD.list_all(db)
     result = []
     for c in classes:
-        teacher = UserCRUD.get_by_id(db, c.teacher_user_id) if c.teacher_user_id else None
+        teacher_ids = ClassroomCRUD.get_teacher_ids(db, c.id)
+        teachers = [UserCRUD.get_by_id(db, t_id) for t_id in teacher_ids]
+        teachers = [t for t in teachers if t and t.role == "teacher"]
+        teacher = teachers[0] if teachers else None
         result.append({
             "id": c.id,
             "class_code": c.class_code,
             "class_name": c.class_name,
             "grade": c.grade,
-            "teacher_user_id": c.teacher_user_id,
+            "teacher_user_id": teacher.id if teacher else None,
+            "teacher_user_ids": [t.id for t in teachers],
             "teacher_username": teacher.username if teacher else None,
             "teacher_display_name": teacher.display_name if teacher else None,
+            "teacher_usernames": [t.username for t in teachers],
+            "teacher_display_names": [t.display_name for t in teachers],
         })
     return result
 
@@ -140,7 +175,10 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
     for s in students:
         latest_metrics = refresh_student_metrics(db, s.id)
         user = UserCRUD.get_by_id(db, s.user_id)
-        classroom = ClassroomCRUD.get_by_id(db, s.class_id) if s.class_id else None
+        class_ids = StudentCRUD.list_class_ids(db, s.id)
+        class_objs = [ClassroomCRUD.get_by_id(db, c_id) for c_id in class_ids]
+        class_objs = [c for c in class_objs if c]
+        classroom = class_objs[0] if class_objs else None
         result.append(
             {
                 "id": s.id,
@@ -150,8 +188,11 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
                 "status": s.status,
                 "is_active": bool(user.is_active) if user else True,
                 "class_id": s.class_id,
+                "class_ids": class_ids,
                 "class_name": classroom.class_name if classroom else None,
                 "class_code": classroom.class_code if classroom else None,
+                "class_names": [c.class_name for c in class_objs],
+                "class_codes": [c.class_code for c in class_objs],
                 "active_score": latest_metrics["active_score"],
                 "overall_score": latest_metrics["overall_score"],
                 "weak_point": latest_metrics["weak_point"],
@@ -176,16 +217,23 @@ def update_student(
     updates = body.model_dump(exclude_unset=True)
     updates.pop("active_score", None)
     updates.pop("overall_score", None)
+    class_ids = updates.pop("class_ids", None)
+    if class_ids is None and "class_id" in updates:
+        class_ids = [] if updates["class_id"] is None else [updates["class_id"]]
     if "status" in updates and updates["status"] not in {"pending", "approved", "rejected"}:
         raise HTTPException(status_code=400, detail="学生状态非法")
-    if "class_id" in updates and updates["class_id"] is not None:
-        classroom = ClassroomCRUD.get_by_id(db, updates["class_id"])
-        if not classroom:
-            raise HTTPException(status_code=400, detail="班级不存在")
+    if class_ids is not None:
+        for class_id in class_ids:
+            classroom = ClassroomCRUD.get_by_id(db, class_id)
+            if not classroom:
+                raise HTTPException(status_code=400, detail=f"班级不存在: {class_id}")
 
     for key, value in updates.items():
         if hasattr(student, key):
             setattr(student, key, value)
+
+    if class_ids is not None:
+        StudentCRUD.set_classes(db, student, class_ids)
 
     user = UserCRUD.get_by_id(db, student.user_id)
     if user:
@@ -199,7 +247,10 @@ def update_student(
     db.commit()
     db.refresh(student)
     latest_metrics = refresh_student_metrics(db, student.id)
-    classroom = ClassroomCRUD.get_by_id(db, student.class_id) if student.class_id else None
+    final_class_ids = StudentCRUD.list_class_ids(db, student.id)
+    class_objs = [ClassroomCRUD.get_by_id(db, c_id) for c_id in final_class_ids]
+    class_objs = [c for c in class_objs if c]
+    classroom = class_objs[0] if class_objs else None
     return {
         "id": student.id,
         "uid": student.uid,
@@ -207,7 +258,9 @@ def update_student(
         "status": student.status,
         "is_active": bool(user.is_active) if user else True,
         "class_id": student.class_id,
+        "class_ids": final_class_ids,
         "class_name": classroom.class_name if classroom else None,
+        "class_names": [c.class_name for c in class_objs],
         "active_score": latest_metrics["active_score"],
         "overall_score": latest_metrics["overall_score"],
         "weak_point": latest_metrics["weak_point"],
@@ -236,21 +289,33 @@ def create_class(
     _admin=Depends(require_admin),
 ):
     """创建班级并指定负责教师。"""
-    teacher = UserCRUD.get_by_id(db, body.teacher_user_id)
-    if not teacher or teacher.role != "teacher":
-        raise HTTPException(status_code=400, detail="指定的教师不存在或不是教师账号")
+    teacher_ids = body.teacher_user_ids
+    if teacher_ids is None:
+        teacher_ids = [body.teacher_user_id] if body.teacher_user_id is not None else []
+    teacher_ids = sorted(set(int(x) for x in teacher_ids if x is not None))
+    for teacher_id in teacher_ids:
+        teacher = UserCRUD.get_by_id(db, teacher_id)
+        if not teacher or teacher.role != "teacher":
+            raise HTTPException(status_code=400, detail=f"指定的教师不存在或不是教师账号: {teacher_id}")
+
     existing = ClassroomCRUD.get_by_code(db, body.class_code)
     if existing:
         raise HTTPException(status_code=400, detail="班级代码已存在")
+
+    primary_teacher_id = teacher_ids[0] if teacher_ids else None
     classroom = ClassroomCRUD.create(
         db,
         ClassroomCreate(
             class_code=body.class_code,
             class_name=body.class_name,
             grade=body.grade,
-            teacher_user_id=body.teacher_user_id,
+            teacher_user_id=primary_teacher_id,
         ),
     )
+
+    if teacher_ids:
+        ClassroomCRUD.set_teachers(db, classroom.id, teacher_ids)
+
     return {"id": classroom.id, "class_code": classroom.class_code, "class_name": classroom.class_name}
 
 
@@ -266,15 +331,25 @@ def update_class(
     if not classroom:
         raise HTTPException(status_code=404, detail="班级不存在")
     updates = body.model_dump(exclude_unset=True)
-    if "teacher_user_id" in updates:
-        teacher = UserCRUD.get_by_id(db, updates["teacher_user_id"])
-        if not teacher or teacher.role != "teacher":
-            raise HTTPException(status_code=400, detail="指定的教师不存在或不是教师账号")
+    teacher_ids = updates.pop("teacher_user_ids", None)
+    if teacher_ids is None and "teacher_user_id" in updates:
+        teacher_ids = [] if updates["teacher_user_id"] is None else [updates["teacher_user_id"]]
+    if teacher_ids is not None:
+        teacher_ids = sorted(set(int(x) for x in teacher_ids if x is not None))
+        for teacher_id in teacher_ids:
+            teacher = UserCRUD.get_by_id(db, teacher_id)
+            if not teacher or teacher.role != "teacher":
+                raise HTTPException(status_code=400, detail=f"指定的教师不存在或不是教师账号: {teacher_id}")
+        updates["teacher_user_id"] = teacher_ids[0] if teacher_ids else None
     if "class_code" in updates:
         other = ClassroomCRUD.get_by_code(db, updates["class_code"])
         if other and other.id != class_id:
             raise HTTPException(status_code=400, detail="班级代码已被其他班级使用")
     ClassroomCRUD.update(db, classroom, **updates)
+
+    if teacher_ids is not None:
+        ClassroomCRUD.set_teachers(db, classroom.id, teacher_ids)
+
     return {"id": classroom.id, "class_code": classroom.class_code, "class_name": classroom.class_name}
 
 

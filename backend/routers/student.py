@@ -20,6 +20,7 @@ from crud.repositories import (
     ExamAssignmentCRUD,
     ScenarioCRUD,
     ScenarioPushCRUD,
+    ClassroomCRUD,
 )
 from models.entities import ExamAssignment, Exam
 from schemas.entities import (
@@ -28,7 +29,7 @@ from schemas.entities import (
     HomeworkReviewCreate,
 )
 from core.responses import ok, fail, to_float
-from core.deps import require_teacher, get_current_teacher_and_classroom
+from core.deps import require_teacher
 from services.metrics import refresh_student_metrics
 
 router = APIRouter()
@@ -51,11 +52,13 @@ class PushSchemeRequest(BaseModel):
 @router.get("/api/student/detail")
 def get_student_detail(id: str, request: Request = None, db: Session = Depends(get_db)):
     try:
-        _, classroom = get_current_teacher_and_classroom(request, db)
+        teacher = require_teacher(request, db)
+        teacher_class_ids = {c.id for c in ClassroomCRUD.list_by_teacher(db, teacher.id)}
         student = StudentCRUD.get_by_uid(db, id)
         if not student:
             return fail("学生不存在", 404)
-        if student.class_id != classroom.id:
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id))
+        if not (student_class_ids & teacher_class_ids):
             return fail("无权查看该学生", 403)
         refreshed = refresh_student_metrics(db, student.id)
         ability = StudentAbilityCRUD.get_by_student_id(db, student.id)
@@ -111,12 +114,14 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
 @router.get("/api/homework/detail")
 def get_homework_detail(id: int, request: Request = None, db: Session = Depends(get_db)):
     try:
-        _, classroom = get_current_teacher_and_classroom(request, db)
+        teacher = require_teacher(request, db)
+        teacher_class_ids = {c.id for c in ClassroomCRUD.list_by_teacher(db, teacher.id)}
         hw = HomeworkCRUD.get_by_id(db, id)
         if not hw:
             return fail("作业不存在", 404)
         student = StudentCRUD.get_by_id(db, hw.student_id)
-        if not student or student.class_id != classroom.id:
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id)) if student else set()
+        if not student or not (student_class_ids & teacher_class_ids):
             return fail("无权查看该作业", 403)
         file_url = hw.file_url
         if hw.file_type == "json_exam":
@@ -139,12 +144,14 @@ def get_homework_detail(id: int, request: Request = None, db: Session = Depends(
 @router.get("/api/homework/download/{id}")
 def download_homework_as_text(id: int, request: Request = None, db: Session = Depends(get_db)):
     try:
-        _, classroom = get_current_teacher_and_classroom(request, db)
+        teacher = require_teacher(request, db)
+        teacher_class_ids = {c.id for c in ClassroomCRUD.list_by_teacher(db, teacher.id)}
         hw = HomeworkCRUD.get_by_id(db, id)
         if not hw:
             raise HTTPException(status_code=404, detail="作业不存在")
         student = StudentCRUD.get_by_id(db, hw.student_id)
-        if not student or student.class_id != classroom.id:
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id)) if student else set()
+        if not student or not (student_class_ids & teacher_class_ids):
             raise HTTPException(status_code=403, detail="无权下载该作业")
         if hw.file_type != "json_exam":
             if hw.file_url and hw.file_url.startswith("http"):
@@ -219,12 +226,14 @@ def download_homework_as_text(id: int, request: Request = None, db: Session = De
 @router.post("/api/homework/save")
 def save_homework_review(request: HomeworkSaveRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        teacher, classroom = get_current_teacher_and_classroom(req, db)
+        teacher = require_teacher(req, db)
+        teacher_class_ids = {c.id for c in ClassroomCRUD.list_by_teacher(db, teacher.id)}
         hw = HomeworkCRUD.get_by_id(db, request.homeworkId)
         if not hw:
             return fail("作业不存在", 404)
         student = StudentCRUD.get_by_id(db, hw.student_id)
-        if not student or student.class_id != classroom.id:
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id)) if student else set()
+        if not student or not (student_class_ids & teacher_class_ids):
             return fail("无权操作该作业", 403)
         HomeworkReviewCRUD.create(
             db,
@@ -245,11 +254,13 @@ def save_homework_review(request: HomeworkSaveRequest, req: Request = None, db: 
 @router.post("/api/student/push-scheme")
 def push_student_scheme(request: PushSchemeRequest, req: Request = None, db: Session = Depends(get_db)):
     try:
-        teacher, classroom = get_current_teacher_and_classroom(req, db)
+        teacher = require_teacher(req, db)
+        teacher_class_ids = {c.id for c in ClassroomCRUD.list_by_teacher(db, teacher.id)}
         student = StudentCRUD.get_by_uid(db, request.studentId)
         if not student:
             return fail("学生不存在", 404)
-        if student.class_id != classroom.id:
+        student_class_ids = set(StudentCRUD.list_class_ids(db, student.id))
+        if not (student_class_ids & teacher_class_ids):
             return fail("无权向该学生推送", 403)
         scenario_code = f"SCH-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4]}"
         scenario = ScenarioCRUD.create(
