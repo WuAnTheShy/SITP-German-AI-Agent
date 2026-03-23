@@ -28,6 +28,13 @@ const TeacherDashboard = () => {
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const teacherName = userInfo.name || data?.teacherName || '老师';
 
+    const normalizeArrayPayload = useCallback((res) => {
+        const payload = res?.data;
+        if (Array.isArray(payload?.data)) return payload.data;
+        if (Array.isArray(payload)) return payload;
+        return [];
+    }, []);
+
     // 🟢 获取仪表盘数据（可复用）
     const fetchDashboardData = useCallback(async (showRefreshToast = false) => {
         if (showRefreshToast) setRefreshing(true);
@@ -43,8 +50,8 @@ const TeacherDashboard = () => {
 
             if (dashboardRes.data.code === 200) {
                 setData(dashboardRes.data.data);
-                setPendingStudents(pendingRes.data?.data || pendingRes.data || []);
-                setClassStudents(studentsRes.data?.data || studentsRes.data || []);
+                setPendingStudents(normalizeArrayPayload(pendingRes));
+                setClassStudents(normalizeArrayPayload(studentsRes));
                 setError('');
                 if (showRefreshToast) toast.success('数据刷新成功');
             } else {
@@ -61,7 +68,7 @@ const TeacherDashboard = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [toast]);
+    }, [normalizeArrayPayload, toast]);
 
     // 初始化
     useEffect(() => {

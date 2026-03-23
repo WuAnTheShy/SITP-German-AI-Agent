@@ -343,7 +343,7 @@ const Login = () => {
                                 type="text"
                                 required
                                 className="block w-full pl-11 pr-3 py-3 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none sm:text-sm transition-all input-glow-blue"
-                                placeholder="请输入学号、工号或 admin"
+                                placeholder="请输入学号或工号"
                                 value={formData.username}
                                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                             />
