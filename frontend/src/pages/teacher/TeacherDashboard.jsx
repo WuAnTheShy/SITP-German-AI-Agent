@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
 import { LayoutDashboard, LogOut, Users, FileText, Activity, ArrowRight, TrendingUp, Clock, Search, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key, UserPlus, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
@@ -157,11 +157,41 @@ const TeacherDashboard = () => {
     };
 
     // 过滤学生列表（增加判空容错和大小写不敏感搜索）
-    const filteredStudents = classStudents.filter(s => {
-        const nameMatch = s?.name ? s.name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
-        const uidMatch = s?.uid ? String(s.uid).toLowerCase().includes(searchTerm.toLowerCase()) : false;
-        return nameMatch || uidMatch;
-    });
+    const filteredStudents = useMemo(() => {
+        const keyword = searchTerm.trim().toLowerCase();
+        return classStudents.filter((s) => {
+            if (!keyword) return true;
+            const nameMatch = s?.name ? s.name.toLowerCase().includes(keyword) : false;
+            const uidMatch = s?.uid ? String(s.uid).toLowerCase().includes(keyword) : false;
+            const classMatch = Array.isArray(s?.class_names)
+                ? s.class_names.some((name) => String(name || '').toLowerCase().includes(keyword))
+                : String(s?.class_name || '').toLowerCase().includes(keyword);
+            return nameMatch || uidMatch || classMatch;
+        });
+    }, [classStudents, searchTerm]);
+
+    // 一个教师管理多个班级时，学生按班级分组显示
+    const groupedStudents = useMemo(() => {
+        const groups = new Map();
+        filteredStudents.forEach((student) => {
+            const classNames = Array.isArray(student?.class_names) && student.class_names.length > 0
+                ? student.class_names
+                : [student?.class_name || '未分班'];
+
+            classNames.forEach((classNameRaw) => {
+                const className = String(classNameRaw || '未分班');
+                const list = groups.get(className) || [];
+                if (!list.some((x) => x.id === student.id)) {
+                    list.push(student);
+                }
+                groups.set(className, list);
+            });
+        });
+
+        return Array.from(groups.entries())
+            .map(([className, students]) => ({ className, students }))
+            .sort((a, b) => a.className.localeCompare(b.className, 'zh-CN'));
+    }, [filteredStudents]);
 
     // 渲染加载状态
     if (loading) {
@@ -359,149 +389,166 @@ const TeacherDashboard = () => {
                         </div>
                     </div>
 
-                    {/* 表格（桌面端） */}
-                    <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full min-w-[920px]">
-                            <thead className="bg-slate-50/90 dark:bg-slate-900/70 border-b border-slate-200/80 dark:border-slate-700">
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">学生信息</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">活跃度</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">综合评分</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">薄弱环节</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                {filteredStudents.map((student) => (
-                                    <tr
-                                        key={student.id || student.uid}
-                                        onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
-                                        className="hover:bg-teal-50/70 dark:hover:bg-teal-900/20 transition-colors cursor-pointer group"
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-10 w-10 bg-teal-100 dark:bg-teal-900/40 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold">
-                                                    {(student.name || '匿')[0]}
+                    {/* 表格（桌面端）按班级分组 */}
+                    <div className="hidden md:block space-y-4 px-4 pb-4">
+                        {groupedStudents.map((group) => (
+                            <section key={group.className} className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
+                                <div className="px-4 py-3 bg-slate-50/90 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
+                                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">{group.className}</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">{group.students.length} 人</div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[920px]">
+                                        <thead className="bg-slate-50/60 dark:bg-slate-900/50 border-b border-slate-200/80 dark:border-slate-700">
+                                            <tr>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">学生信息</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">活跃度</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">综合评分</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">薄弱环节</th>
+                                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {group.students.map((student) => (
+                                                <tr
+                                                    key={`${group.className}-${student.id || student.uid}`}
+                                                    onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
+                                                    className="hover:bg-teal-50/70 dark:hover:bg-teal-900/20 transition-colors cursor-pointer group"
+                                                >
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <div className="flex-shrink-0 h-10 w-10 bg-teal-100 dark:bg-teal-900/40 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold">
+                                                                {(student.name || '匿')[0]}
+                                                            </div>
+                                                            <div className="ml-4">
+                                                                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{student.name || '匿名用户'}</div>
+                                                                <div className="text-xs text-gray-500 dark:text-gray-400">{student.uid || '无学号'}</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-16 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-green-500" style={{ width: `${Math.max(0, Math.min(100, Number(student.active_score ?? 0)))}%` }}></div>
+                                                            </div>
+                                                            <span className="text-sm text-gray-600 dark:text-gray-400">{Number(student.active_score ?? 0)}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${Number(student.overall_score ?? 0) >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' : Number(student.overall_score ?? 0) >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'}`}>
+                                                            {Number(student.overall_score ?? 0).toFixed(1)} 分
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                        <span className="flex items-center gap-1 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
+                                                            <Activity size={12} /> {student.weak_point || '暂无'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <div className="flex justify-end items-center gap-1">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openEditStudentModal(student);
+                                                                }}
+                                                                className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/50 rounded-lg transition-colors"
+                                                            >
+                                                                <Pencil size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleRemoveStudent(student.id);
+                                                                }}
+                                                                className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                            <button className="text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/50 rounded-lg transition-colors">
+                                                                <ArrowRight size={18} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+                        ))}
+                    </div>
+
+                    {/* 卡片（移动端）按班级分组 */}
+                    <div className="md:hidden space-y-3 p-3">
+                        {groupedStudents.map((group) => (
+                            <section key={`mobile-${group.className}`} className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
+                                <div className="px-3 py-2.5 bg-slate-50/90 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
+                                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{group.className}</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">{group.students.length} 人</div>
+                                </div>
+                                <div className="divide-y divide-slate-200/80 dark:divide-slate-700/70">
+                                    {group.students.map((student) => (
+                                        <div
+                                            key={`mobile-${group.className}-${student.id || student.uid}`}
+                                            onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
+                                            className="p-4 active:bg-slate-50 dark:active:bg-slate-800/50"
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="h-9 w-9 bg-teal-100 dark:bg-teal-900/40 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold shrink-0">
+                                                        {(student.name || '匿')[0]}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{student.name || '匿名用户'}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{student.uid || '无学号'}</p>
+                                                    </div>
                                                 </div>
-                                                <div className="ml-4">
-                                                    <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{student.name || '匿名用户'}</div>
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400">{student.uid || '无学号'}</div>
+                                                <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded-full ${Number(student.overall_score ?? 0) >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' : Number(student.overall_score ?? 0) >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'}`}>
+                                                    {Number(student.overall_score ?? 0).toFixed(1)} 分
+                                                </span>
+                                            </div>
+                                            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                                <div className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-2">
+                                                    <p className="text-slate-500 dark:text-slate-400">活跃度</p>
+                                                    <p className="text-slate-700 dark:text-slate-200 font-semibold">{Number(student.active_score ?? 0)}%</p>
+                                                </div>
+                                                <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-2.5 py-2">
+                                                    <p className="text-slate-500 dark:text-slate-400">薄弱点</p>
+                                                    <p className="text-red-600 dark:text-red-400 font-semibold truncate">{student.weak_point || '暂无'}</p>
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-16 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-green-500" style={{ width: `${Math.max(0, Math.min(100, Number(student.active_score ?? 0)))}%` }}></div>
-                                                </div>
-                                                <span className="text-sm text-gray-600 dark:text-gray-400">{Number(student.active_score ?? 0)}%</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${Number(student.overall_score ?? 0) >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' :
-                                                Number(student.overall_score ?? 0) >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' :
-                                                    'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'
-                                                }`}>
-                                                {Number(student.overall_score ?? 0).toFixed(1)} 分
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            <span className="flex items-center gap-1 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded w-fit">
-                                                <Activity size={12} /> {student.weak_point || '暂无'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex justify-end items-center gap-1">
+                                            <div className="mt-3 flex items-center justify-end gap-1">
                                                 <button
+                                                    type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         openEditStudentModal(student);
                                                     }}
-                                                    className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/50 rounded-lg transition-colors"
+                                                    className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/50"
                                                 >
                                                     <Pencil size={16} />
                                                 </button>
                                                 <button
+                                                    type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleRemoveStudent(student.id);
                                                     }}
-                                                    className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+                                                    className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/50"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
-                                                <button className="text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/50 rounded-lg transition-colors">
+                                                <button type="button" className="text-teal-700 dark:text-teal-300 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/50">
                                                     <ArrowRight size={18} />
                                                 </button>
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* 卡片（移动端） */}
-                    <div className="md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/70">
-                        {filteredStudents.map((student) => (
-                            <div
-                                key={student.id || student.uid}
-                                onClick={() => navigate(`/teacher/${userInfo.id}/student/${student.uid}`, { state: { student } })}
-                                className="p-4 active:bg-slate-50 dark:active:bg-slate-800/50"
-                            >
-                                <div className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="h-9 w-9 bg-teal-100 dark:bg-teal-900/40 rounded-full flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold shrink-0">
-                                            {(student.name || '匿')[0]}
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{student.name || '匿名用户'}</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{student.uid || '无学号'}</p>
-                                        </div>
-                                    </div>
-                                    <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded-full ${Number(student.overall_score ?? 0) >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' : Number(student.overall_score ?? 0) >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400'}`}>
-                                        {Number(student.overall_score ?? 0).toFixed(1)} 分
-                                    </span>
+                                    ))}
                                 </div>
-                                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                    <div className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-2">
-                                        <p className="text-slate-500 dark:text-slate-400">活跃度</p>
-                                        <p className="text-slate-700 dark:text-slate-200 font-semibold">{Number(student.active_score ?? 0)}%</p>
-                                    </div>
-                                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-2.5 py-2">
-                                        <p className="text-slate-500 dark:text-slate-400">薄弱点</p>
-                                        <p className="text-red-600 dark:text-red-400 font-semibold truncate">{student.weak_point || '暂无'}</p>
-                                    </div>
-                                </div>
-                                <div className="mt-3 flex items-center justify-end gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openEditStudentModal(student);
-                                        }}
-                                        className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/50"
-                                    >
-                                        <Pencil size={16} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveStudent(student.id);
-                                        }}
-                                        className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/50"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                    <button type="button" className="text-teal-700 dark:text-teal-300 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/50">
-                                        <ArrowRight size={18} />
-                                    </button>
-                                </div>
-                            </div>
+                            </section>
                         ))}
                     </div>
-                    {filteredStudents.length === 0 && (
+                    {groupedStudents.length === 0 && (
                         <div className="p-8 sm:p-12 text-center text-gray-500 dark:text-gray-400 text-sm sm:text-base">
                             {!(classStudents.length) && (data?.className === '未关联')
                                 ? '暂无学生。请联系管理员在「管理员工作台」为您分配班级后，即可使用任务发布、学情查看等功能。'

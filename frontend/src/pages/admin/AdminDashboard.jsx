@@ -34,6 +34,8 @@ const AdminDashboard = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
     const [editingStudent, setEditingStudent] = useState(null);
+    const [showEditTeacherModal, setShowEditTeacherModal] = useState(false);
+    const [editingTeacher, setEditingTeacher] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [formError, setFormError] = useState('');
     const [refreshing, setRefreshing] = useState(false);
@@ -43,11 +45,23 @@ const AdminDashboard = () => {
     const [teacherKeyword, setTeacherKeyword] = useState('');
     const [studentKeyword, setStudentKeyword] = useState('');
     const [isPendingPanelOpen, setIsPendingPanelOpen] = useState(false);
+    const [createTeacherKeyword, setCreateTeacherKeyword] = useState('');
+    const [editClassTeacherKeyword, setEditClassTeacherKeyword] = useState('');
+    const [createClassTeacherIds, setCreateClassTeacherIds] = useState([]);
+    const [editClassTeacherIds, setEditClassTeacherIds] = useState([]);
+    const [editTeacherClassKeyword, setEditTeacherClassKeyword] = useState('');
+    const [editTeacherClassIds, setEditTeacherClassIds] = useState([]);
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const adminName = userInfo.name || '管理员';
     const activeTeacherCount = teachers.filter((t) => t.is_active).length;
-    const unassignedStudentCount = students.filter((s) => !s.class_id).length;
+    const unassignedStudentCount = students.filter((s) => {
+        const classIds = Array.isArray(s.class_ids)
+            ? s.class_ids.filter((id) => Number.isInteger(parseInt(id, 10)))
+            : [];
+        return classIds.length === 0 && (s.class_id == null);
+    }).length;
+    const unassignedTeacherCount = teachers.filter((t) => t.class_count === 0).length;
 
     const statusLabel = (status) => {
         if (status === 'approved') return '审核通过';
@@ -56,39 +70,89 @@ const AdminDashboard = () => {
         return status || '未知';
     };
 
+    const normalizeTeacherIds = useCallback((classroom) => {
+        if (!classroom) return [];
+        if (Array.isArray(classroom.teacher_user_ids)) {
+            return classroom.teacher_user_ids
+                .map((id) => parseInt(id, 10))
+                .filter((id) => Number.isInteger(id));
+        }
+        if (classroom.teacher_user_id != null) {
+            const id = parseInt(classroom.teacher_user_id, 10);
+            return Number.isInteger(id) ? [id] : [];
+        }
+        return [];
+    }, []);
+
+    const filteredCreateTeachers = useMemo(() => {
+        const keyword = createTeacherKeyword.trim().toLowerCase();
+        if (!keyword) return teachers;
+        return teachers.filter((t) =>
+            String(t.display_name || '').toLowerCase().includes(keyword) ||
+            String(t.username || '').toLowerCase().includes(keyword)
+        );
+    }, [teachers, createTeacherKeyword]);
+
+    const filteredEditClassTeachers = useMemo(() => {
+        const keyword = editClassTeacherKeyword.trim().toLowerCase();
+        if (!keyword) return teachers;
+        return teachers.filter((t) =>
+            String(t.display_name || '').toLowerCase().includes(keyword) ||
+            String(t.username || '').toLowerCase().includes(keyword)
+        );
+    }, [teachers, editClassTeacherKeyword]);
+
+    const filteredEditTeacherClasses = useMemo(() => {
+        const keyword = editTeacherClassKeyword.trim().toLowerCase();
+        if (!keyword) return classes;
+        return classes.filter((c) =>
+            String(c.class_name || '').toLowerCase().includes(keyword) ||
+            String(c.class_code || '').toLowerCase().includes(keyword)
+        );
+    }, [classes, editTeacherClassKeyword]);
+
+    const getStudentClassIds = useCallback((student) => {
+        if (Array.isArray(student?.class_ids) && student.class_ids.length > 0) {
+            return student.class_ids
+                .map((id) => parseInt(id, 10))
+                .filter((id) => Number.isInteger(id));
+        }
+        if (student?.class_id != null) {
+            const id = parseInt(student.class_id, 10);
+            return Number.isInteger(id) ? [id] : [];
+        }
+        return [];
+    }, []);
+
     const classUnits = useMemo(() => {
         const teacherMap = new Map(teachers.map((t) => [t.id, t]));
         const studentMap = new Map();
 
         students.forEach((s) => {
-            const key = s.class_id == null ? 'none' : String(s.class_id);
-            const arr = studentMap.get(key) || [];
-            arr.push(s);
-            studentMap.set(key, arr);
+            const classIds = getStudentClassIds(s);
+            classIds.forEach((classId) => {
+                const key = String(classId);
+                const arr = studentMap.get(key) || [];
+                arr.push(s);
+                studentMap.set(key, arr);
+            });
         });
 
-        const byClass = classes.map((c) => ({
-            classId: c.id,
-            classCode: c.class_code,
-            className: c.class_name,
-            grade: c.grade,
-            teacher: c.teacher_user_id ? teacherMap.get(c.teacher_user_id) || null : null,
-            students: studentMap.get(String(c.id)) || [],
-            classInfo: c,
-        }));
-
-        const unassigned = studentMap.get('none') || [];
-        if (unassigned.length > 0) {
-            byClass.push({
-                classId: 'none',
-                classCode: 'UNASSIGNED',
-                className: '未分班学生池',
-                grade: null,
-                teacher: null,
-                students: unassigned,
-                classInfo: null,
-            });
-        }
+        const byClass = classes.map((c) => {
+            const teacherIds = normalizeTeacherIds(c);
+            const classTeachers = teacherIds
+                .map((id) => teacherMap.get(id))
+                .filter(Boolean);
+            return {
+                classId: c.id,
+                classCode: c.class_code,
+                className: c.class_name,
+                grade: c.grade,
+                teachers: classTeachers,
+                students: studentMap.get(String(c.id)) || [],
+                classInfo: c,
+            };
+        });
 
         const classKeyword = teacherKeyword.trim().toLowerCase();
         const stuKeyword = studentKeyword.trim().toLowerCase();
@@ -97,8 +161,10 @@ const AdminDashboard = () => {
             const hitClass = !classKeyword ||
                 String(unit.className || '').toLowerCase().includes(classKeyword) ||
                 String(unit.classCode || '').toLowerCase().includes(classKeyword) ||
-                String(unit.teacher?.display_name || '').toLowerCase().includes(classKeyword) ||
-                String(unit.teacher?.username || '').toLowerCase().includes(classKeyword);
+                unit.teachers.some((teacher) =>
+                    String(teacher.display_name || '').toLowerCase().includes(classKeyword) ||
+                    String(teacher.username || '').toLowerCase().includes(classKeyword)
+                );
 
             const hitStudents = !stuKeyword || unit.students.some((s) =>
                 String(s.name || '').toLowerCase().includes(stuKeyword) ||
@@ -107,7 +173,30 @@ const AdminDashboard = () => {
 
             return hitClass && hitStudents;
         });
-    }, [classes, teachers, students, teacherKeyword, studentKeyword]);
+    }, [classes, teachers, students, teacherKeyword, studentKeyword, normalizeTeacherIds, getStudentClassIds]);
+
+    const filteredUnassignedStudents = useMemo(() => {
+        const classKeyword = teacherKeyword.trim().toLowerCase();
+        const stuKeyword = studentKeyword.trim().toLowerCase();
+        return students
+            .filter((s) => getStudentClassIds(s).length === 0)
+            .filter((s) => {
+                const target = `${s.name || ''} ${s.uid || ''}`.toLowerCase();
+                const hitClass = !classKeyword || '未分班学生'.includes(classKeyword) || target.includes(classKeyword);
+                const hitStudent = !stuKeyword || target.includes(stuKeyword);
+                return hitClass && hitStudent;
+            });
+    }, [students, teacherKeyword, studentKeyword, getStudentClassIds]);
+
+    const filteredUnassignedTeachers = useMemo(() => {
+        const classKeyword = teacherKeyword.trim().toLowerCase();
+        return teachers
+            .filter((t) => t.class_count === 0)
+            .filter((t) => {
+                const target = `${t.display_name || ''} ${t.username || ''}`.toLowerCase();
+                return !classKeyword || '未分班教师'.includes(classKeyword) || target.includes(classKeyword);
+            });
+    }, [teachers, teacherKeyword]);
 
     const fetchData = useCallback(async (showToast = false) => {
         setError('');
@@ -157,17 +246,21 @@ const AdminDashboard = () => {
         const class_code = (form.class_code?.value || '').trim();
         const class_name = (form.class_name?.value || '').trim();
         const grade = (form.grade?.value || '').trim() || null;
-        const teacher_user_id = parseInt(form.teacher_id?.value, 10);
+        const teacher_user_ids = [...new Set(createClassTeacherIds)]
+            .map((id) => parseInt(id, 10))
+            .filter((v) => Number.isInteger(v));
         setFormError('');
-        if (!class_code || !class_name || !teacher_user_id) {
-            setFormError('请填写班级代码、班级名称并选择负责教师');
+        if (!class_code || !class_name || teacher_user_ids.length === 0) {
+            setFormError('请填写班级代码、班级名称并选择至少一名负责教师');
             return;
         }
         setSubmitLoading(true);
         try {
-            await request.post(API_ADMIN_CLASSES, { class_code, class_name, grade, teacher_user_id });
+            await request.post(API_ADMIN_CLASSES, { class_code, class_name, grade, teacher_user_ids });
             setShowCreateModal(false);
             form.reset();
+            setCreateClassTeacherIds([]);
+            setCreateTeacherKeyword('');
             fetchData();
             toast.success('班级创建成功');
         } catch (err) {
@@ -179,6 +272,8 @@ const AdminDashboard = () => {
 
     const openEditModal = (c) => {
         setEditingClass(c);
+        setEditClassTeacherIds(normalizeTeacherIds(c));
+        setEditClassTeacherKeyword('');
         setFormError('');
         setShowEditModal(true);
     };
@@ -189,10 +284,16 @@ const AdminDashboard = () => {
         const form = e.target;
         const class_name = (form.class_name?.value || '').trim();
         const grade = (form.grade?.value || '').trim() || null;
-        const teacher_user_id = parseInt(form.teacher_id?.value, 10);
+        const teacher_user_ids = [...new Set(editClassTeacherIds)]
+            .map((id) => parseInt(id, 10))
+            .filter((v) => Number.isInteger(v));
         setFormError('');
         if (!class_name) {
             setFormError('请填写班级名称');
+            return;
+        }
+        if (teacher_user_ids.length === 0) {
+            setFormError('请至少选择一名负责教师');
             return;
         }
         setSubmitLoading(true);
@@ -200,10 +301,12 @@ const AdminDashboard = () => {
             await request.put(`${API_ADMIN_CLASSES}/${editingClass.id}`, {
                 class_name,
                 grade: grade || undefined,
-                teacher_user_id,
+                teacher_user_ids,
             });
             setShowEditModal(false);
             setEditingClass(null);
+            setEditClassTeacherIds([]);
+            setEditClassTeacherKeyword('');
             fetchData();
             toast.success('班级信息已更新');
         } catch (err) {
@@ -279,6 +382,47 @@ const AdminDashboard = () => {
         } catch (err) {
             setError(err.response?.data?.detail || err.message || '教师删除失败');
             toast.error(err.response?.data?.detail || err.message || '教师删除失败');
+        }
+    };
+
+    const openEditTeacherModal = (teacher) => {
+        setEditingTeacher(teacher);
+        const initialClassIds = classes
+            .filter((c) => normalizeTeacherIds(c).includes(teacher.id))
+            .map((c) => c.id);
+        setEditTeacherClassIds(initialClassIds);
+        setEditTeacherClassKeyword('');
+        setFormError('');
+        setShowEditTeacherModal(true);
+    };
+
+    const handleEditTeacher = async (e) => {
+        e.preventDefault();
+        if (!editingTeacher) return;
+        const form = e.target;
+        const display_name = (form.display_name?.value || '').trim();
+        const class_ids = [...new Set(editTeacherClassIds)]
+            .map((id) => parseInt(id, 10))
+            .filter((v) => Number.isInteger(v));
+        setFormError('');
+        if (!display_name) {
+            setFormError('教师姓名不能为空');
+            return;
+        }
+        setSubmitLoading(true);
+        try {
+            const payload = { display_name, class_ids };
+            await request.put(API_ADMIN_UPDATE_TEACHER(editingTeacher.id), payload);
+            setShowEditTeacherModal(false);
+            setEditingTeacher(null);
+            setEditTeacherClassIds([]);
+            setEditTeacherClassKeyword('');
+            fetchData();
+            toast.success('教师信息已更新');
+        } catch (err) {
+            setFormError(err.response?.data?.detail || err.message || '保存失败');
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
@@ -440,7 +584,12 @@ const AdminDashboard = () => {
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => { setShowCreateModal(true); setFormError(''); }}
+                                    onClick={() => {
+                                        setCreateClassTeacherIds([]);
+                                        setCreateTeacherKeyword('');
+                                        setShowCreateModal(true);
+                                        setFormError('');
+                                    }}
                                     className="teacher-action-primary h-10 px-3 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5"
                                 >
                                     <Plus size={16} /> 新建班级
@@ -517,6 +666,10 @@ const AdminDashboard = () => {
                         <p className="text-xs text-gray-500 dark:text-gray-400">未分班学生</p>
                         <p className="text-xl font-semibold text-amber-600 dark:text-amber-400">{unassignedStudentCount}</p>
                     </div>
+                    <div className="teacher-panel rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">未分班教师</p>
+                        <p className="text-xl font-semibold text-violet-600 dark:text-violet-400">{unassignedTeacherCount}</p>
+                    </div>
                 </section>
 
                 {/* 统一按班级管理 */}
@@ -573,39 +726,48 @@ const AdminDashboard = () => {
                                         )}
                                     </div>
 
-                                    <div className="rounded-xl border border-sky-200/70 dark:border-sky-800/50 bg-sky-50/60 dark:bg-sky-900/10 p-3">
-                                        <p className="text-xs font-semibold text-sky-700 dark:text-sky-300 mb-2">教师模块</p>
-                                        {unit.teacher ? (
-                                            <div className="flex flex-wrap items-center gap-2 text-sm">
-                                                <span className="font-medium text-slate-800 dark:text-slate-100">{unit.teacher.display_name}</span>
-                                                <span className="text-slate-500 dark:text-slate-400">({unit.teacher.username})</span>
-                                                <select
-                                                    value={unit.teacher.status || 'approved'}
-                                                    onChange={(e) => handleUpdateTeacher(unit.teacher.id, { status: e.target.value })}
-                                                    className="px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
-                                                >
-                                                    <option value="approved">审核通过</option>
-                                                    <option value="pending">待审核</option>
-                                                    <option value="rejected">已拒绝</option>
-                                                </select>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleUpdateTeacher(unit.teacher.id, { is_active: !unit.teacher.is_active })}
-                                                    className={`px-2 py-1 rounded text-xs font-medium ${unit.teacher.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
-                                                >
-                                                    {unit.teacher.is_active ? '可登录' : '已停用登录'}
-                                                </button>
-                                                <button type="button" onClick={() => openResetPasswordModal({ id: unit.teacher.id, name: unit.teacher.display_name || unit.teacher.username, role: 'teacher' })} className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 text-xs">
-                                                    <KeyRound size={12} /> 重置密码
-                                                </button>
-                                                <button type="button" onClick={() => handleDeleteTeacher(unit.teacher.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 text-xs">
-                                                    <Trash2 size={12} /> 删除教师
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">该班级暂未分配教师。</p>
-                                        )}
-                                    </div>
+                                    {unit.classInfo && (
+                                        <div className="rounded-xl border border-sky-200/70 dark:border-sky-800/50 bg-sky-50/60 dark:bg-sky-900/10 p-3">
+                                            <p className="text-xs font-semibold text-sky-700 dark:text-sky-300 mb-2">教师模块</p>
+                                            {unit.teachers.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {unit.teachers.map((teacher) => (
+                                                        <div key={teacher.id} className="flex flex-wrap items-center gap-2 text-sm rounded-lg border border-sky-200/70 dark:border-sky-800/60 bg-white/70 dark:bg-slate-900/30 px-2.5 py-2">
+                                                            <span className="font-medium text-slate-800 dark:text-slate-100">{teacher.display_name}</span>
+                                                            <span className="text-slate-500 dark:text-slate-400">({teacher.username})</span>
+                                                            <select
+                                                                value={teacher.status || 'approved'}
+                                                                onChange={(e) => handleUpdateTeacher(teacher.id, { status: e.target.value })}
+                                                                className="px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
+                                                            >
+                                                                <option value="approved">审核通过</option>
+                                                                <option value="pending">待审核</option>
+                                                                <option value="rejected">已拒绝</option>
+                                                            </select>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUpdateTeacher(teacher.id, { is_active: !teacher.is_active })}
+                                                                className={`px-2 py-1 rounded text-xs font-medium ${teacher.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
+                                                            >
+                                                                {teacher.is_active ? '可登录' : '已停用登录'}
+                                                            </button>
+                                                            <button type="button" onClick={() => openEditTeacherModal(teacher)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 text-xs">
+                                                                <Pencil size={12} /> 编辑
+                                                            </button>
+                                                            <button type="button" onClick={() => openResetPasswordModal({ id: teacher.id, name: teacher.display_name || teacher.username, role: 'teacher' })} className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 text-xs">
+                                                                <KeyRound size={12} /> 重置密码
+                                                            </button>
+                                                            <button type="button" onClick={() => handleDeleteTeacher(teacher.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 text-xs">
+                                                                <Trash2 size={12} /> 删除教师
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-slate-500 dark:text-slate-400">该班级暂未分配教师。</p>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <div className="rounded-xl border border-teal-200/70 dark:border-teal-800/50 bg-teal-50/60 dark:bg-teal-900/10 p-3">
                                         <p className="text-xs font-semibold text-teal-700 dark:text-teal-300 mb-2">学生模块</p>
@@ -650,6 +812,104 @@ const AdminDashboard = () => {
                                 </article>
                             ))
                         )}
+                        
+                    </div>
+                </section>
+
+                {/* 未分班管理 */}
+                <section className="teacher-panel rounded-2xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
+                        <Users className="text-violet-500 dark:text-violet-400" size={20} />
+                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">未分班管理</h2>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <article className="rounded-2xl border border-amber-200/80 dark:border-amber-700/70 bg-amber-50/60 dark:bg-amber-900/12 p-3 sm:p-4 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-semibold text-amber-700 dark:text-amber-300">未分班学生</h3>
+                                <span className="text-xs text-amber-700/90 dark:text-amber-300/90">{filteredUnassignedStudents.length} 人</span>
+                            </div>
+                            {filteredUnassignedStudents.length === 0 ? (
+                                <p className="text-sm text-slate-500 dark:text-slate-400">没有匹配的未分班学生。</p>
+                            ) : (
+                                <ul className="space-y-2">
+                                    {filteredUnassignedStudents.map((s) => (
+                                        <li key={s.id} className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-white/70 dark:bg-slate-900/45 text-sm">
+                                            <span className="font-mono text-slate-500 dark:text-slate-400">{s.uid}</span>
+                                            <span className="font-medium text-slate-800 dark:text-slate-100">{s.name}</span>
+                                            <select
+                                                value={s.status || 'approved'}
+                                                onChange={(e) => handleUpdateStudentQuick(s.id, { status: e.target.value })}
+                                                className="px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
+                                            >
+                                                <option value="approved">审核通过</option>
+                                                <option value="pending">待审核</option>
+                                                <option value="rejected">已拒绝</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleUpdateStudentQuick(s.id, { is_active: !s.is_active })}
+                                                className={`px-2 py-1 rounded text-xs font-medium ${s.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
+                                            >
+                                                {s.is_active ? '可登录' : '已停用登录'}
+                                            </button>
+                                            <button type="button" onClick={() => openEditStudentModal(s)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 text-xs">
+                                                <Pencil size={12} /> 编辑
+                                            </button>
+                                            <button type="button" disabled={!s.user_id} onClick={() => s.user_id && openResetPasswordModal({ id: s.user_id, name: s.name || s.uid, role: 'student' })} className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 text-xs disabled:opacity-50 disabled:cursor-not-allowed">
+                                                <KeyRound size={12} /> 重置密码
+                                            </button>
+                                            <button type="button" onClick={() => handleDeleteStudent(s.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 text-xs">
+                                                <Trash2 size={12} /> 删除
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </article>
+
+                        <article className="rounded-2xl border border-violet-200/80 dark:border-violet-700/70 bg-violet-50/60 dark:bg-violet-900/20 p-3 sm:p-4 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-semibold text-violet-700 dark:text-violet-300">未分班教师</h3>
+                                <span className="text-xs text-violet-700/90 dark:text-violet-300/90">{filteredUnassignedTeachers.length} 人</span>
+                            </div>
+                            {filteredUnassignedTeachers.length === 0 ? (
+                                <p className="text-sm text-slate-500 dark:text-slate-400">没有匹配的未分班教师。</p>
+                            ) : (
+                                <ul className="space-y-2">
+                                    {filteredUnassignedTeachers.map((t) => (
+                                        <li key={t.id} className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-lg bg-white/70 dark:bg-slate-900/45 text-sm">
+                                            <span className="font-medium text-slate-800 dark:text-slate-100">{t.display_name}</span>
+                                            <span className="text-slate-500 dark:text-slate-400">({t.username})</span>
+                                            <select
+                                                value={t.status || 'approved'}
+                                                onChange={(e) => handleUpdateTeacher(t.id, { status: e.target.value })}
+                                                className="px-2 py-1 rounded border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 text-xs"
+                                            >
+                                                <option value="approved">审核通过</option>
+                                                <option value="pending">待审核</option>
+                                                <option value="rejected">已拒绝</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleUpdateTeacher(t.id, { is_active: !t.is_active })}
+                                                className={`px-2 py-1 rounded text-xs font-medium ${t.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}
+                                            >
+                                                {t.is_active ? '可登录' : '已停用登录'}
+                                            </button>
+                                            <button type="button" onClick={() => openEditTeacherModal(t)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 text-xs">
+                                                <Pencil size={12} /> 编辑
+                                            </button>
+                                            <button type="button" onClick={() => openResetPasswordModal({ id: t.id, name: t.display_name || t.username, role: 'teacher' })} className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 text-xs">
+                                                <KeyRound size={12} /> 重置密码
+                                            </button>
+                                            <button type="button" onClick={() => handleDeleteTeacher(t.id)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 text-xs">
+                                                <Trash2 size={12} /> 删除教师
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </article>
                     </div>
                 </section>
 
@@ -774,11 +1034,53 @@ const AdminDashboard = () => {
                                     <input name="grade" type="text" placeholder="如 2026" className="input-glow w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">负责教师</label>
-                                    <select name="teacher_id" required className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm">
-                                        <option value="">请选择</option>
-                                        {teachers.map(t => <option key={t.id} value={t.id}>{t.display_name} ({t.username})</option>)}
-                                    </select>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">负责教师（支持多选）</label>
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/70 dark:bg-slate-900/40 p-3 space-y-2">
+                                        <input
+                                            type="text"
+                                            value={createTeacherKeyword}
+                                            onChange={(e) => setCreateTeacherKeyword(e.target.value)}
+                                            placeholder="搜索教师姓名或工号"
+                                            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white/95 dark:bg-slate-800/80 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                                        />
+                                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                            <span>已选 {createClassTeacherIds.length} 位教师</span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="hover:text-indigo-600 dark:hover:text-indigo-300"
+                                                    onClick={() => setCreateClassTeacherIds(filteredCreateTeachers.map((t) => t.id))}
+                                                >
+                                                    全选当前结果
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="hover:text-rose-600 dark:hover:text-rose-300"
+                                                    onClick={() => setCreateClassTeacherIds([])}
+                                                >
+                                                    清空
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                                            {filteredCreateTeachers.map((t) => (
+                                                <label key={t.id} className="flex items-center gap-2 rounded-lg border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700/60 hover:bg-indigo-50/70 dark:hover:bg-indigo-900/25 px-2 py-1.5 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={createClassTeacherIds.includes(t.id)}
+                                                        onChange={(e) => {
+                                                            setCreateClassTeacherIds((prev) => (
+                                                                e.target.checked ? [...new Set([...prev, t.id])] : prev.filter((id) => id !== t.id)
+                                                            ));
+                                                        }}
+                                                        className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-slate-800 dark:text-slate-100">{t.display_name}</span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">({t.username})</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex gap-2 mt-6">
@@ -807,10 +1109,56 @@ const AdminDashboard = () => {
                                     <input name="grade" type="text" defaultValue={editingClass.grade ?? ''} placeholder="如 2026" className="input-glow w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">负责教师</label>
-                                    <select name="teacher_id" required defaultValue={editingClass.teacher_user_id} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-gray-100 text-sm">
-                                        {teachers.map(t => <option key={t.id} value={t.id}>{t.display_name} ({t.username})</option>)}
-                                    </select>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">负责教师（支持多选）</label>
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/70 dark:bg-slate-900/40 p-3 space-y-2">
+                                        <input
+                                            type="text"
+                                            value={editClassTeacherKeyword}
+                                            onChange={(e) => setEditClassTeacherKeyword(e.target.value)}
+                                            placeholder="搜索教师姓名或工号"
+                                            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white/95 dark:bg-slate-800/80 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                                        />
+                                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                            <span>已选 {editClassTeacherIds.length} 位教师</span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="hover:text-indigo-600 dark:hover:text-indigo-300"
+                                                    onClick={() => {
+                                                        const filteredIds = filteredEditClassTeachers.map((t) => t.id);
+                                                        setEditClassTeacherIds((prev) => [...new Set([...prev, ...filteredIds])]);
+                                                    }}
+                                                >
+                                                    全选当前结果
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="hover:text-rose-600 dark:hover:text-rose-300"
+                                                    onClick={() => setEditClassTeacherIds([])}
+                                                >
+                                                    清空
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                                            {filteredEditClassTeachers.map((t) => (
+                                                <label key={t.id} className="flex items-center gap-2 rounded-lg border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700/60 hover:bg-indigo-50/70 dark:hover:bg-indigo-900/25 px-2 py-1.5 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={editClassTeacherIds.includes(t.id)}
+                                                        onChange={(e) => {
+                                                            setEditClassTeacherIds((prev) => (
+                                                                e.target.checked ? [...new Set([...prev, t.id])] : prev.filter((id) => id !== t.id)
+                                                            ));
+                                                        }}
+                                                        className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-slate-800 dark:text-slate-100">{t.display_name}</span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">({t.username})</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex gap-2 mt-6">
@@ -822,28 +1170,120 @@ const AdminDashboard = () => {
                 </div>
             )}
 
+            {/* 编辑教师弹窗 */}
+            {showEditTeacherModal && editingTeacher && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => {
+                    if (!submitLoading) {
+                        setShowEditTeacherModal(false);
+                        setEditTeacherClassIds([]);
+                        setEditTeacherClassKeyword('');
+                    }
+                }}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">编辑教师 · {editingTeacher.username}</h3>
+                        <form onSubmit={handleEditTeacher}>
+                            {formError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{formError}</p>}
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">教师姓名</label>
+                                    <input name="display_name" type="text" required defaultValue={editingTeacher.display_name} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">所属班级（支持多选）</label>
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/70 dark:bg-slate-900/40 p-3 space-y-2">
+                                        <input
+                                            type="text"
+                                            value={editTeacherClassKeyword}
+                                            onChange={(e) => setEditTeacherClassKeyword(e.target.value)}
+                                            placeholder="搜索班级名称或代码"
+                                            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white/95 dark:bg-slate-800/80 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                                        />
+                                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                            <span>已选 {editTeacherClassIds.length} 个班级</span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="hover:text-indigo-600 dark:hover:text-indigo-300"
+                                                    onClick={() => {
+                                                        const filteredIds = filteredEditTeacherClasses.map((c) => c.id);
+                                                        setEditTeacherClassIds((prev) => [...new Set([...prev, ...filteredIds])]);
+                                                    }}
+                                                >
+                                                    全选当前结果
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="hover:text-rose-600 dark:hover:text-rose-300"
+                                                    onClick={() => setEditTeacherClassIds([])}
+                                                >
+                                                    清空
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                                            {filteredEditTeacherClasses.map((c) => (
+                                                <label key={c.id} className="flex items-center gap-2 rounded-lg border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700/60 hover:bg-indigo-50/70 dark:hover:bg-indigo-900/25 px-2 py-1.5 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={editTeacherClassIds.includes(c.id)}
+                                                        onChange={(e) => {
+                                                            setEditTeacherClassIds((prev) => (
+                                                                e.target.checked ? [...new Set([...prev, c.id])] : prev.filter((id) => id !== c.id)
+                                                            ));
+                                                        }}
+                                                        className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-slate-800 dark:text-slate-100">{c.class_name}</span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">({c.class_code})</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!submitLoading) {
+                                            setShowEditTeacherModal(false);
+                                            setEditTeacherClassIds([]);
+                                            setEditTeacherClassKeyword('');
+                                        }
+                                    }}
+                                    className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium"
+                                >
+                                    取消
+                                </button>
+                                <button type="submit" disabled={submitLoading} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50">{submitLoading ? '保存中…' : '保存'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* 编辑学生弹窗 */}
             {editingStudent && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !submitLoading && setEditingStudent(null)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">编辑学生 · {editingStudent.uid}</h3>
+                    <div className="teacher-panel rounded-2xl shadow-xl w-full max-w-md p-4 sm:p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">编辑学生信息 · {editingStudent.uid}</h3>
                         <form onSubmit={handleEditStudent}>
                             {formError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{formError}</p>}
                             <div className="space-y-3">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">姓名</label>
-                                    <input name="name" type="text" required defaultValue={editingStudent.name} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    <input name="name" type="text" required defaultValue={editingStudent.name} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">班级</label>
-                                    <select name="class_id" defaultValue={editingStudent.class_id ?? ''} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm">
+                                    <select name="class_id" defaultValue={editingStudent.class_id ?? ''} className="teacher-input w-full px-3 py-2 rounded-lg text-sm">
                                         <option value="">未分班</option>
                                         {classes.map(c => <option key={c.id} value={c.id}>{c.class_name} ({c.class_code})</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">状态</label>
-                                    <select name="status" defaultValue={editingStudent.status || 'approved'} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm">
+                                    <select name="status" defaultValue={editingStudent.status || 'approved'} className="teacher-input w-full px-3 py-2 rounded-lg text-sm">
                                         <option value="approved">审核通过</option>
                                         <option value="pending">待审核</option>
                                         <option value="rejected">已拒绝</option>
@@ -852,21 +1292,21 @@ const AdminDashboard = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">活跃度（系统测量）</label>
-                                        <input type="text" readOnly value={`${editingStudent.active_score ?? 0}%`} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/10 text-sm text-gray-500 dark:text-gray-400" />
+                                        <input type="text" readOnly value={`${editingStudent.active_score ?? 0}%`} className="teacher-input w-full px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">综合分（系统测量）</label>
-                                        <input type="text" readOnly value={`${editingStudent.overall_score ?? 0} 分`} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/10 text-sm text-gray-500 dark:text-gray-400" />
+                                        <input type="text" readOnly value={`${editingStudent.overall_score ?? 0} 分`} className="teacher-input w-full px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">薄弱点（选填）</label>
-                                    <input name="weak_point" type="text" defaultValue={editingStudent.weak_point ?? ''} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm" />
+                                    <input name="weak_point" type="text" defaultValue={editingStudent.weak_point ?? ''} className="teacher-input w-full px-3 py-2 rounded-lg text-sm" />
                                 </div>
                             </div>
                             <div className="flex gap-2 mt-6">
-                                <button type="button" onClick={() => !submitLoading && setEditingStudent(null)} className="flex-1 py-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium">取消</button>
-                                <button type="submit" disabled={submitLoading} className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50">{submitLoading ? '保存中…' : '保存'}</button>
+                                <button type="button" onClick={() => !submitLoading && setEditingStudent(null)} className="teacher-action-secondary flex-1 py-2 rounded-lg text-sm font-medium">取消</button>
+                                <button type="submit" disabled={submitLoading} className="teacher-action-primary flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50">{submitLoading ? '保存中…' : '保存'}</button>
                             </div>
                         </form>
                     </div>

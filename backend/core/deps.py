@@ -51,7 +51,7 @@ def get_current_teacher_and_classroom(req: Request, db: Session = Depends(get_db
     统一获取「当前登录教师 + 其管理的班级」。
     教师端需要按班级做数据隔离的接口应使用本依赖，不再用 _ensure_demo_data 取演示数据。
     若该教师尚未关联任何班级，返回 403。
-    返回: (teacher, classroom)，其中 classroom 为该教师名下的第一个班级（一师一班场景）。
+    返回: (teacher, classroom)，其中 classroom 为该教师名下的第一个班级（兼容旧逻辑）。
     """
     teacher = require_teacher(req, db)
     classrooms = ClassroomCRUD.list_by_teacher(db, teacher.id)
@@ -61,6 +61,18 @@ def get_current_teacher_and_classroom(req: Request, db: Session = Depends(get_db
             detail="您尚未关联班级，请联系管理员分配班级后再使用教师端功能。",
         )
     return teacher, classrooms[0]
+
+
+def get_current_teacher_and_classrooms(req: Request, db: Session = Depends(get_db)):
+    """获取当前教师与其所有关联班级。未关联班级时抛 403。"""
+    teacher = require_teacher(req, db)
+    classrooms = ClassroomCRUD.list_by_teacher(db, teacher.id)
+    if not classrooms:
+        raise HTTPException(
+            status_code=403,
+            detail="您尚未关联班级，请联系管理员分配班级后再使用教师端功能。",
+        )
+    return teacher, classrooms
 
 
 def require_student(req: Request, db: Session = Depends(get_db)):

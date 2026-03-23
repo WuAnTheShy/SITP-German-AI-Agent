@@ -29,7 +29,7 @@ class ClassroomCreate(BaseModel):
     class_code: str
     class_name: str
     grade: str | None = None
-    teacher_user_id: int
+    teacher_user_id: int | None = None
 
 
 class ClassroomRead(ORMBase):
@@ -37,7 +37,7 @@ class ClassroomRead(ORMBase):
     class_code: str
     class_name: str
     grade: str | None = None
-    teacher_user_id: int
+    teacher_user_id: int | None = None
 
 
 class SystemSettingCreate(BaseModel):

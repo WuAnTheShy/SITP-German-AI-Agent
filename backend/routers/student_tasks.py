@@ -49,8 +49,11 @@ def student_join_class(body: JoinClassBody, request: Request, db: Session = Depe
     classroom = ClassroomCRUD.get_by_id(db, body.class_id)
     if not classroom:
         return fail("班级不存在", 404)
-    StudentCRUD.update(db, student, class_id=body.class_id)
-    return ok({"class_id": body.class_id, "class_name": classroom.class_name}, "已加入班级")
+    class_ids = StudentCRUD.list_class_ids(db, student.id)
+    if body.class_id not in class_ids:
+        class_ids.append(body.class_id)
+        StudentCRUD.set_classes(db, student, class_ids)
+    return ok({"class_id": body.class_id, "class_name": classroom.class_name, "class_ids": StudentCRUD.list_class_ids(db, student.id)}, "已加入班级")
 
 
 @router.get("/api/student/tasks")

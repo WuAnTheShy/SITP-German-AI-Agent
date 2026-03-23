@@ -165,4 +165,16 @@ VALUES
     '发音较自然，但时态使用有明显问题。'
 );
 
+INSERT INTO class_teacher_relations (class_id, teacher_user_id)
+SELECT id, teacher_user_id
+FROM classes
+WHERE teacher_user_id IS NOT NULL
+ON CONFLICT (class_id, teacher_user_id) DO NOTHING;
+
+INSERT INTO class_student_relations (class_id, student_id)
+SELECT class_id, id
+FROM students
+WHERE class_id IS NOT NULL
+ON CONFLICT (class_id, student_id) DO NOTHING;
+
 COMMIT;
