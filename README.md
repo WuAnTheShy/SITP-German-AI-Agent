@@ -164,208 +164,374 @@ SITP-German-AI-Agent/
 
 ---
 
-## 🚀 快速开始
+## 🚀 部署与运维
 
-### 前置准备：LLM 模式与环境变量
+### 📋 前置准备：环境变量配置
 
-本项目后端支持两种 LLM provider：
+系统核心配置均通过 `.env` 文件驱动，**需手动在项目根目录创建或编辑**（`.env.example` 仅供参考）。
 
-- `qwen`：调用阿里云 DashScope（在线）
-- `lmstudio`：调用本机 LM Studio OpenAI 兼容服务（本地）
+#### 核心配置项速查
 
-在项目根目录准备 `.env` 文件（已存在则直接编辑），并按需二选一配置。
+| 变量名 | 类型 | 必填 | 生产建议值 | 说明 |
+|--------|------|------|---------|------|
+| `APP_ENV` | 字符串 | ✅ | `production` | 运行环境标志 |
+| `POSTGRES_USER` | 字符串 | ✅ | `postgres` | 数据库用户名（通常不变） |
+| `POSTGRES_PASSWORD` | 字符串 | ✅ | 高强度密码 | 数据库密码，Docker Compose 必填 |
+| `POSTGRES_DB` | 字符串 | ✅ | `sitp_german_ai_agent` | 数据库名 |
+| `INIT_ADMIN_USERNAME` | 字符串 | ✅ | `admin` | 首次启动创建的管理员用户名 |
+| `INIT_ADMIN_PASSWORD` | 字符串 | ✅ | 高强度密码 | 首次启动创建的管理员密码 |
+| `AUTH_TOKEN_SECRET` | 字符串 | ✅ | 32+ 随机字符 | 令牌签名密钥，**绝不能硬编码在代码中** |
+| `RESET_ADMIN_PASSWORD_ON_STARTUP` | 布尔 | ⭕ | `false` | 每次启动是否重置管理员密码（生产 false） |
+| `RESET_DEMO_PASSWORDS_ON_STARTUP` | 布尔 | ⭕ | `false` | 每次启动是否重置演示账号密码（生产 false） |
+| `ENABLE_DEMO_SEED` | 布尔 | ⭕ | `false` | 是否初始化演示数据（生产 false） |
+| `DEMO_TEACHER_PASSWORD` | 字符串 | ⭕ | 高强度密码 | 演示教师账号密码（可留空让系统随机生成） |
+| `DEMO_STUDENT_PASSWORD` | 字符串 | ⭕ | 高强度密码 | 演示学生账号密码（可留空让系统随机生成） |
+| `CORS_ALLOW_ORIGINS` | 字符串 | ⭕ | 生产域名 | 前端域名（同域留空，跨域用逗号分隔） |
+| `LLM_PROVIDER` | 字符串 | ✅ | `qwen` 或 `lmstudio` | 大语言模型提供商 |
+| `QWEN_API_KEY` | 字符串 | 有条件 | 阿里云密钥 | 使用 Qwen 时必填 |
+| `LMSTUDIO_BASE_URL` | 字符串 | 有条件 | Docker: `http://host.docker.internal:1234` | 使用 LM Studio 时必填 |
+| `LMSTUDIO_MODEL` | 字符串 | 有条件 | `qwen2.5-7b-instruct` | LM Studio 模型 ID（需与实际加载模型一致） |
+| `DEBUG_LLM_LOGS` | 布尔 | ⭕ | `false` | 是否打印 LLM 调试日志（生产 false） |
 
-建议同时配置以下安全变量（避免默认口令）：
+#### 完整配置示例（生产推荐）
 
 ```dotenv
-# 数据库（Docker Compose 必填）
-POSTGRES_PASSWORD=请设置高强度数据库密码
-POSTGRES_USER=postgres
-POSTGRES_DB=sitp_german_ai_agent
-
-# 初始化管理员（建议首启即设置）
-INIT_ADMIN_USERNAME=admin
-INIT_ADMIN_PASSWORD=请设置高强度管理员密码
-
-# 示例账号（可选；不配置则新建示例用户会生成随机密码）
-DEMO_TEACHER_PASSWORD=
-DEMO_STUDENT_PASSWORD=
-
-# 是否每次启动都重置账号口令（生产环境建议 false）
-RESET_ADMIN_PASSWORD_ON_STARTUP=false
-RESET_DEMO_PASSWORDS_ON_STARTUP=false
-
-# 生产环境开关
+# ===== 运行环境 =====
 APP_ENV=production
 
-# 演示数据注入（生产环境建议 false）
-ENABLE_DEMO_SEED=false
-
-# 鉴权令牌签名密钥（生产必填，建议 32+ 随机字符）
-AUTH_TOKEN_SECRET=请设置高强度随机密钥
-AUTH_TOKEN_TTL_HOURS=12
-
-# 是否兼容旧版明文 token（生产建议 false）
-ALLOW_LEGACY_TOKENS=false
-
-# CORS 白名单（逗号分隔；前后端同域可留空）
-CORS_ALLOW_ORIGINS=
-
-# 是否打印 LLM 调试日志（生产建议 false）
-DEBUG_LLM_LOGS=false
-```
-
-**方案 A：Qwen（在线）**
-
-```dotenv
-LLM_PROVIDER=qwen
-QWEN_API_KEY=你的_通义千问_API_密钥
-# 可选，不填则使用后端默认值
-# QWEN_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
-# 可选，不填则使用默认模型 qwen3.5-plus
-# LLM_MODEL=qwen3.5-plus
-```
-
-> 💡 Qwen API Key 获取方式：访问 [阿里云 DashScope](https://dashscope.aliyun.com/) 申请 API 密钥。
-
-**方案 B：LM Studio（本地）**
-
-```dotenv
-LLM_PROVIDER=lmstudio
-
-# 使用 docker compose 启动后端容器时
-LMSTUDIO_BASE_URL=http://host.docker.internal:1234
-
-# 本地运行后端时使用，请改为
-# LMSTUDIO_BASE_URL=http://127.0.0.1:1234
-
-# 模型名需与 LM Studio 当前加载模型一致
-LMSTUDIO_MODEL=qwen2.5-7b-instruct
-
-# LM Studio 默认可留空；如你在 LM Studio 开启了鉴权再填写
-LMSTUDIO_API_KEY=
-```
-
----
-
-### 方式一：Docker Compose 一键部署（推荐）
-
-> 无需本地安装 Node.js 或 Python，只需 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
-
-```bash
-docker compose up -d --build
-```
-
-若出现以下错误：
-
-```text
-required variable POSTGRES_PASSWORD is missing a value
-```
-
-说明 `.env` 中缺少 `POSTGRES_PASSWORD`。请补齐后重试：
-
-```dotenv
-POSTGRES_PASSWORD=请设置高强度数据库密码
-AUTH_TOKEN_SECRET=请设置32位以上随机密钥
-INIT_ADMIN_PASSWORD=请设置高强度管理员密码
-```
-
-> 💡 Docker 模式下，前端 Nginx 会自动将 `/api` 请求反向代理到后端容器，无需任何额外配置。无论是本地 Docker 还是服务器 Docker，前端代码完全一致。
-
-### 服务器部署详细步骤（推荐按此执行）
-
-以下流程适用于 Linux 服务器（Windows Server 同理）。
-
-#### 1. 先准备 `.env`（生产建议示例）
-
-```dotenv
-APP_ENV=production
-
-# ===== Database =====
+# ===== 数据库配置（Docker Compose 必填）=====
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=YourStrongDbPassword_ReplaceMe
+POSTGRES_PASSWORD=ChangeThisDbPass_2026_SITP!
 POSTGRES_DB=sitp_german_ai_agent
 
-# ===== Auth & Bootstrap =====
+# ===== 初始管理员账号 =====
 INIT_ADMIN_USERNAME=admin
 INIT_ADMIN_PASSWORD=admin123
-AUTH_TOKEN_SECRET=YourVeryLongRandomSecret_AtLeast32Chars
+
+# ===== 令牌与鉴权 =====
+AUTH_TOKEN_SECRET=SITP_German_Agent_Token_Secret_2026_Replace_Me_32Plus
 AUTH_TOKEN_TTL_HOURS=12
 ALLOW_LEGACY_TOKENS=false
 
-# ===== Seed policy =====
+# ===== 账号初始化策略 =====
 ENABLE_DEMO_SEED=false
 RESET_ADMIN_PASSWORD_ON_STARTUP=false
 RESET_DEMO_PASSWORDS_ON_STARTUP=false
-DEMO_TEACHER_PASSWORD=
-DEMO_STUDENT_PASSWORD=
+DEMO_TEACHER_PASSWORD=TeacherDemo@2026!
+DEMO_STUDENT_PASSWORD=StudentDemo@2026!
 
-# ===== CORS / Logs =====
-# 改为你的前端正式域名；同域部署可留空
+# ===== CORS 与调试 =====
 CORS_ALLOW_ORIGINS=https://your-domain.com
 DEBUG_LLM_LOGS=false
 
-# ===== LLM =====
+# ===== 大语言模型（二选一）=====
 LLM_PROVIDER=qwen
-QWEN_API_KEY=YourQwenApiKey
+QWEN_API_KEY=sk-your-actual-qwen-api-key
+# QWEN_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+# LLM_MODEL=qwen3.5-plus
+
+# 如使用 LM Studio 则改为：
+# LLM_PROVIDER=lmstudio
+# LMSTUDIO_BASE_URL=http://host.docker.internal:1234
+# LMSTUDIO_MODEL=qwen2.5-7b-instruct
 ```
 
-#### 2. 首次部署（无历史数据卷）
+#### LLM 配置选择
 
-```bash
-docker compose up -d --build
-docker compose ps
-docker compose logs -f backend
+**方案A：Qwen 在线模式（推荐生产环境）**
+
+- 无需本地部署模型，依赖阿里云服务
+- 申请 API Key：https://dashscope.aliyun.com/
+- 配置 `.env`：
+
+```dotenv
+LLM_PROVIDER=qwen
+QWEN_API_KEY=sk-your-dashscope-api-key
+# 可选参数，不填则使用后端默认值
+# QWEN_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+# LLM_MODEL=qwen3.5-plus
 ```
 
-看到 `Application startup complete` 且无数据库认证错误，即表示启动成功。
+**方案B：LM Studio 本地模式（推荐开发/离线场景）**
 
-#### 3. 升级部署（已有历史数据卷）
+- 模型本地部署，完全离线可用
+- 模型选择：推荐 Qwen 2.5 7B 模板开始测试
+- 启动 LM Studio API 服务（默认 `http://127.0.0.1:1234`）
+- 配置 `.env`（需分情况）：
 
-如果你修改过 `.env` 中的 `POSTGRES_PASSWORD`，但数据库卷 `pg_data` 已存在，最常见问题是：
-
-- 后端日志反复出现 `password authentication failed for user "postgres"`
-- 前端登录接口偶发 `502 Bad Gateway`
-
-原因：PostgreSQL 首次初始化后会把密码写入数据库；后续仅改 `.env` 不会自动改库内密码。
-
-处理方式（二选一）：
-
-1. 保持旧密码：把 `.env` 的 `POSTGRES_PASSWORD` 改回数据库当前密码。
-2. 同步新密码：进入数据库容器执行 `ALTER USER`。
-
-示例命令：
-
-```bash
-docker exec -u postgres german-db psql -d sitp_german_ai_agent -c "ALTER USER postgres WITH PASSWORD 'YourStrongDbPassword_ReplaceMe';"
-docker compose restart backend
-docker compose logs -f backend
-```
-
-#### 4. 启动后验证（建议执行）
-
-```bash
-# 服务状态
-docker compose ps
-
-# 后端健康检查
-curl http://localhost:9000/
-
-# 反向代理链路检查（应返回业务 JSON，不应是 502）
-curl -X POST http://localhost/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"wrong"}'
-```
-
-#### 5. 高风险项提醒
-
-- `QWEN_API_KEY`、`POSTGRES_PASSWORD`、`AUTH_TOKEN_SECRET` 仅可用于服务器，不要提交到 Git。
-- 若密钥已在仓库或聊天中暴露，务必立即在对应平台轮换。
-- `INIT_ADMIN_PASSWORD=admin123` 仅建议首启演示使用；生产建议登录后立即改密。
+| 运行场景 | 配置值 |
+|---------|--------|
+| 后端在宿主机运行（本地开发） | `LMSTUDIO_BASE_URL=http://127.0.0.1:1234` |
+| 后端在 Docker 容器运行 | `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` |
 
 ---
 
-### 方式二：本地开发环境
+### 🐳 Docker Compose 完整部署流程（推荐）
+
+本部分详细讲解 Docker Compose 一键部署的完整流程、工作原理、常见问题和解决方案。
+
+#### 架构概览
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Docker Compose 网络 (bridge)              │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────────────┐      ┌──────────────────────┐    │
+│  │    Nginx 容器        │      │   Backend 容器       │    │
+│  │    (前端静态+反代)   │◄────►│   (FastAPI Uvicorn)  │    │
+│  │    :80               │      │    :8000             │    │
+│  └──────────────────────┘      └──────────▲───────────┘    │
+│           ▲                                 │                 │
+│           │                                 │                 │
+│     (用户浏览器)                       ┌─────▼──────────┐   │
+│           │                           │ PostgreSQL 容器 │   │
+│           │                           │    :5432       │   │
+│           │                           │    (数据库)    │   │
+│           │                           └────────────────┘   │
+│           │                                                  │
+│  (外界无法直接访问 Backend/DB，必须通过 Nginx)             │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键点：**
+
+1. **Nginx 角色**：前端静态资源托管 + API 请求反向代理到后端
+2. **容器隔离**：后端和数据库不直接暴露给外界，通过 Nginx 转发业务请求
+3. **网络通信**：容器间通过容器名作为主机名进行通信（如 `backend:8000`）
+4. **宿主机访问**：`http://localhost/` 或 `http://服务器IP/` 访问 Nginx，后者再代理到内部容器
+
+#### 第 1 步：准备 `.env` 文件
+
+在项目根目录创建或编辑 `.env`，并使用上节"完整配置示例"的内容。**关键约束：**
+
+- `POSTGRES_PASSWORD` 不能为空或纯数字（PostgreSQL 的严格要求）
+- `AUTH_TOKEN_SECRET` 建议 32+ 随机字符
+- 敏感信息（密钥、密码）不要提交到 Git
+
+**验证方式：**确保根目录可见 `.env` 文件：
+
+```bash
+# Windows PowerShell
+Get-Item .env -Force  # 应显示文件
+
+# Linux/macOS
+ls -la .env           # 应显示文件
+```
+
+#### 第 2 步：首次启动系统（无历史数据）
+
+```bash
+# 构建镜像 + 启动容器（-d 后台模式）
+docker compose up -d --build
+
+# 查看容器状态
+docker compose ps
+
+# 实时查看启动日志
+docker compose logs -f backend
+```
+
+**预期输出：** 后端日志应显示：
+
+```
+INFO:     Application startup complete
+```
+
+**进度检查：**打开浏览器访问 `http://localhost`（本地）或 `http://服务器IP`（服务器），应进入登录页。
+
+#### 第 3 步：验证系统可用性
+
+完整验证清单（**建议每次启动后都执行**）：
+
+```bash
+# 1. 容器状态检查：应见三个容器都是 "Up"
+docker compose ps
+
+# 2. 后端健康检查：应返回 200 状态码
+curl -i http://localhost:9000/
+
+# 3. 前端反向代理链路：应返回 JSON 错误结果（非 502 Bad Gateway）
+curl -X POST http://localhost/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"wrong_password"}'
+
+# 预期响应（证明链路正常）：
+# HTTP/1.1 401 Unauthorized
+# {"code":401,"message":"密码错误，请重新输入"}
+
+# 4. 实际登录测试：用 admin 账号登录
+curl -X POST http://localhost/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"AdminPass_2026_Change_Me!"}'
+
+# 预期响应【示例】：
+# {"code":0,"message":"登录成功","data":{"access_token":"...","role":"admin"}}
+```
+
+#### 第 4 步：常见启动问题速查
+
+| 错误现象 | 根本原因 | 解决方案 |
+|--------|--------|--------|
+| `required variable POSTGRES_PASSWORD is missing` | `.env` 缺少 `POSTGRES_PASSWORD` | 补齐该变量后重新 `docker compose up -d --build` |
+| 后端日志：`password authentication failed for user "postgres"` | `.env` 中数据库密码与容器初始密码不一致 | 见下方"第 5 步：数据库密码同步" |
+| 前端返回 `502 Bad Gateway` | Nginx 无法连接后端容器或后端未就绪 | 查看 backend 日志：`docker compose logs backend` |
+| 系统正常启动但 AI 对话无回复 | LLM 配置错误或 API Key 无效 | 检查 LLM_PROVIDER、QWEN_API_KEY、LMSTUDIO 连接 |
+
+#### 第 5 步：数据库密码同步（升级部署场景）
+
+**场景描述：** 初次启动后系统已运行稳定，现在要改 PostgreSQL 密码（出于安全考虑）。
+
+**问题根因：** PostgreSQL 数据库容器首次启动时会以 `.env` 的 `POSTGRES_PASSWORD` 创建 `postgres` 用户。容器停止重启后不会再读 `.env`，而是使用数据库内已存储的密码。仅改 `.env` 而不改库内密码会导致连接认证失败。
+
+**解决方法（推荐）：** 进入数据库容器执行 SQL 更新。
+
+```bash
+# 替换下面的 YourNewPassword 为实际新密码
+docker exec -u postgres german-db psql -d sitp_german_ai_agent -c \
+  "ALTER USER postgres WITH PASSWORD 'YourNewPassword';"
+
+# 重启后端容器使其重新连接数据库
+docker compose restart backend
+
+# 查看后端日志，确认连接成功
+docker compose logs -f backend
+```
+
+**验证步骤：**
+
+```bash
+# 登录测试应该返回 401（密码错误）或 200（登录成功）
+# 如果返回 502 或后端日志仍显示 password authentication failed，说明同步失败
+
+curl -X POST http://localhost/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"TestPassword"}'
+```
+
+**完整改密脚本（Shell + Python 一体）：**
+
+```bash
+#!/bin/bash
+# 此脚本完成：改 .env、同步 DB、更新业务账号、验证
+
+set -e
+
+# 1. 更新 .env
+NEW_DB_PASS="NewDbPassword_2026!"
+NEW_ADMIN_PASS="NewAdminPassword_2026!"
+
+# 备份原 .env
+cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+
+# 修改密码行（Linux/Mac）
+sed -i.bak "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$NEW_DB_PASS/" .env
+sed -i.bak "s/^INIT_ADMIN_PASSWORD=.*/INIT_ADMIN_PASSWORD=$NEW_ADMIN_PASS/" .env
+
+# Windows PowerShell
+# (Get-Content .env) -replace 'POSTGRES_PASSWORD=.*', "POSTGRES_PASSWORD=$NEW_DB_PASS" | Set-Content .env
+# (Get-Content .env) -replace 'INIT_ADMIN_PASSWORD=.*', "INIT_ADMIN_PASSWORD=$NEW_ADMIN_PASS" | Set-Content .env
+
+# 2. 同步数据库 postgres 用户密码
+docker exec -u postgres german-db psql -d sitp_german_ai_agent -c \
+  "ALTER USER postgres WITH PASSWORD '$NEW_DB_PASS';"
+
+# 3. 重启后端以应用新密码
+docker compose restart backend
+
+# 等待后端就绪
+sleep 5
+
+# 4. 创建 Python 脚本以更新业务账号
+cat > /tmp/update_passwords.py << 'EOF'
+import os
+import sys
+os.environ['SQLALCHEMY_DATABASE_URL'] = f"postgresql://postgres:{os.environ['POSTGRES_PASSWORD']}@localhost:5432/{os.environ['POSTGRES_DB']}"
+sys.path.insert(0, '/app')
+from backend.crud.repositories import UserCRUD
+from backend.core.password import hash_password
+from backend.db.session import SessionLocal
+
+session = SessionLocal()
+new_admin_pass = os.environ.get('INIT_ADMIN_PASSWORD')
+
+try:
+    admin_user = UserCRUD.get_by_username(session, 'admin')
+    if admin_user:
+        admin_user.hashed_password = hash_password(new_admin_pass)
+        session.commit()
+        print("✅ Admin password updated")
+except Exception as e:
+    print(f"❌ Error: {e}")
+finally:
+    session.close()
+EOF
+
+# 5. 在后端容器内执行密码更新
+docker compose exec -T backend python /tmp/update_passwords.py
+
+# 6. 验证登录
+echo "Testing login..."
+curl -X POST http://localhost/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"username\":\"admin\",\"password\":\"$NEW_ADMIN_PASS\"}"
+
+echo "✅ Password update complete!"
+```
+
+#### 第 6 步：日志查看与故障诊断
+
+```bash
+# 查看所有容器实时日志
+docker compose logs -f
+
+# 仅查看后端日志（排查 DB 连接、API 错误）
+docker compose logs -f backend
+
+# 仅查看前端日志（排查 Nginx 反代错误）
+docker compose logs -f frontend
+
+# 仅查看数据库日志
+docker compose logs -f db
+
+# 查看最近 N 行日志
+docker compose logs --tail 100 backend
+
+# 查看指定时间段日志（近 1 小时）
+docker compose logs --since 1h backend
+```
+
+**常见日志特征：**
+
+| 关键字 | 含义 | 处理 |
+|--------|------|------|
+| `password authentication failed` | PostgreSQL 用户认证失败 | 检查 POSTGRES_PASSWORD 与容器内密码一致性 |
+| `Connection to localhost:5432 failed` | 后端连接数据库超时或被拒绝 | 检查 DB 容器是否运行、POSTGRES_PASSWORD 是否正确 |
+| `502 Bad Gateway` (Nginx 日志) | 反向代理无法连接后端 | 检查后端容器是否运行、端口是否正确 |
+| `Application startup complete` | 后端启动成功 | 系统就绪 |
+
+#### 第 7 步：停止、重启、清理
+
+```bash
+# 重启所有容器（保留数据卷）
+docker compose restart
+
+# 停止所有容器（不删除）
+docker compose down
+
+# 停止并删除容器、卷（谨慎！会删除数据库数据）
+docker compose down -v
+
+# 强制删除容器并重建（完全重新部署）
+docker system prune -a --volumes -f && docker compose up -d --build
+```
+
+---
+
+### 💻 本地开发环境快速启动
+
+
 
 适用于需要修改代码并实时预览的开发场景。
 
