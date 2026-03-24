@@ -12,6 +12,7 @@ import ExamGenerator from './pages/teacher/ExamGenerator';
 import StudentDetail from './pages/teacher/StudentDetail';
 import TeacherHistory from './pages/teacher/TeacherHistory';
 import TeacherAI from './pages/teacher/TeacherAI';
+import TeacherKnowledgeBase from './pages/teacher/TeacherKnowledgeBase';
 import StudentLogin from './pages/student/StudentLogin';
 import StudentRegister from './pages/student/StudentRegister';
 import TeacherRegister from './pages/teacher/TeacherRegister';
@@ -23,6 +24,7 @@ import LearningProgress from './pages/student/LearningProgress';
 import ListeningSpeaking from './pages/student/ListeningSpeaking';
 import VocabLearning from './pages/student/VocabLearning';
 import WritingAssistant from './pages/student/WritingAssistant';
+import MyKnowledgeBase from './pages/student/MyKnowledgeBase';
 import TaskCenter from './pages/student/TaskCenter';
 import TakeExam from './pages/student/TakeExam';
 import ExamResult from './pages/student/ExamResult';
@@ -57,6 +59,7 @@ function App() {
                     <Route path="/student/:userId/listening-speaking" element={<ProtectedRoute requiredRole="student"><ListeningSpeaking /></ProtectedRoute>} />
                     <Route path="/student/:userId/vocab-learning" element={<ProtectedRoute requiredRole="student"><VocabLearning /></ProtectedRoute>} />
                     <Route path="/student/:userId/writing-assistant" element={<ProtectedRoute requiredRole="student"><WritingAssistant /></ProtectedRoute>} />
+                    <Route path="/student/:userId/my-kb" element={<ProtectedRoute requiredRole="student"><MyKnowledgeBase /></ProtectedRoute>} />
 
                     {/* ── 管理员路由（统一登录后按 role 跳转） ── */}
                     <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
@@ -72,6 +75,7 @@ function App() {
                     <Route path="/teacher/:teacherId/exam" element={<ProtectedRoute requiredRole="teacher"><ExamGenerator /></ProtectedRoute>} />
                     <Route path="/teacher/:teacherId/history" element={<ProtectedRoute requiredRole="teacher"><TeacherHistory /></ProtectedRoute>} />
                     <Route path="/teacher/:teacherId/ai" element={<ProtectedRoute requiredRole="teacher"><TeacherAI /></ProtectedRoute>} />
+                    <Route path="/teacher/:teacherId/my-kb" element={<ProtectedRoute requiredRole="teacher"><TeacherKnowledgeBase /></ProtectedRoute>} />
                     <Route path="/teacher/:teacherId/student/:id" element={<ProtectedRoute requiredRole="teacher"><StudentDetail /></ProtectedRoute>} />
                 </Routes>
             </HashRouter>

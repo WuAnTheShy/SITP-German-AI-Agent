@@ -1,7 +1,7 @@
 services:
   # 新增：数据库服务
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: german-db
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}

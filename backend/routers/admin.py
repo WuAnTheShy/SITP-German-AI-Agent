@@ -1,19 +1,24 @@
 """管理员接口：教师、班级、学生与系统设置管理。"""
-from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 
 from db.session import get_db
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from crud.repositories import UserCRUD, ClassroomCRUD, SystemSettingCRUD, StudentCRUD
+from crud.repositories import UserCRUD, ClassroomCRUD, SystemSettingCRUD, StudentCRUD, KnowledgeBaseCRUD
 from models.entities import Student
 from schemas.entities import ClassroomCreate
 from core.deps import require_admin
 from core.password import ensure_transport_hash, hash_password
 from services.metrics import refresh_student_metrics
+from services.kb_ingest import extract_text, chunk_text, enrich_chunks_with_embeddings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+KB_STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage" / "kb"
 
 
 class ClassCreateBody(BaseModel):
@@ -52,6 +57,24 @@ class StudentUpdateBody(BaseModel):
 
 class AdminResetPasswordBody(BaseModel):
     new_password: str
+
+
+def _ingest_document_sync(db: Session, doc_id: int) -> None:
+    doc = KnowledgeBaseCRUD.get_document(db, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    try:
+        source_path = Path(doc["source_path"])
+        text = extract_text(source_path, doc.get("mime_type"))
+        chunks = chunk_text(text)
+        if not chunks:
+            KnowledgeBaseCRUD.set_document_status(db, doc_id, "failed", "文档内容为空或解析失败")
+            return
+        enriched = enrich_chunks_with_embeddings(chunks)
+        KnowledgeBaseCRUD.replace_chunks(db, doc_id, enriched)
+        KnowledgeBaseCRUD.set_document_status(db, doc_id, "ready", None, chunk_count=len(enriched))
+    except Exception as e:
+        KnowledgeBaseCRUD.set_document_status(db, doc_id, "failed", str(e)[:500])
 
 
 @router.get("/teachers")
@@ -432,3 +455,46 @@ def reset_user_password_by_admin(
     user.password_hash = hash_password(new_pwd)
     db.commit()
     return {"message": "密码重置成功"}
+
+@router.get("/kb/docs")
+def kb_list_docs(db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    return KnowledgeBaseCRUD.list_documents(db, scope="public")
+
+
+@router.post("/kb/upload")
+async def kb_upload_doc(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".pdf", ".txt", ".md"}:
+        raise HTTPException(status_code=400, detail="暂仅支持 pdf/txt/md")
+    KB_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    saved_name = f"{uuid4().hex}{suffix}"
+    save_path = KB_STORAGE_DIR / saved_name
+    data = await file.read()
+    save_path.write_bytes(data)
+
+    doc = KnowledgeBaseCRUD.create_document(
+        db=db,
+        title=Path(file.filename or "未命名文档").stem,
+        source_name=file.filename or saved_name,
+        source_path=str(save_path),
+        mime_type=file.content_type,
+        uploaded_by=admin.id,
+        scope="public",
+        owner_user_id=None,
+    )
+    _ingest_document_sync(db, int(doc["id"]))
+    return {"id": doc["id"], "status": "processing"}
+
+
+@router.post("/kb/reindex/{doc_id}")
+def kb_reindex_doc(doc_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    doc = KnowledgeBaseCRUD.get_document(db, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    KnowledgeBaseCRUD.set_document_status(db, doc_id, "processing", None)
+    _ingest_document_sync(db, doc_id)
+    return {"id": doc_id, "status": "processing"}

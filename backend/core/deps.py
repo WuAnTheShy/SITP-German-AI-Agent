@@ -110,3 +110,54 @@ def current_student(req: Request, db: Session):
                 if user and getattr(s, "status", "approved") == "approved" and getattr(user, "is_active", True):
                     return s
     return None
+
+
+def require_login_user(req: Request, db: Session = Depends(get_db)):
+    """
+    统一解析已登录用户（teacher/student/admin）。
+    返回 dict: {role, user_id, username, display_name, student_id?}
+    """
+    auth = req.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
+    token = auth.replace("Bearer ", "")
+    parts = token.split("-")
+    if len(parts) < 4:
+        raise HTTPException(status_code=401, detail="无效令牌")
+
+    if token.startswith("teacher-token-") or token.startswith("admin-token-"):
+        try:
+            uid = int(parts[2])
+        except ValueError:
+            raise HTTPException(status_code=401, detail="无效令牌")
+        user = UserCRUD.get_by_id(db, uid)
+        if not user:
+            raise HTTPException(status_code=401, detail="用户不存在")
+        if token.startswith("teacher-token-") and user.role != "teacher":
+            raise HTTPException(status_code=403, detail="需要教师权限")
+        if token.startswith("admin-token-") and user.role != "admin":
+            raise HTTPException(status_code=403, detail="需要管理员权限")
+        return {
+            "role": user.role,
+            "user_id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+        }
+
+    if token.startswith("student-token-"):
+        stu_uid = parts[2]
+        s = StudentCRUD.get_by_uid(db, stu_uid)
+        if not s:
+            raise HTTPException(status_code=401, detail="学生不存在")
+        user = UserCRUD.get_by_id(db, s.user_id)
+        if not user:
+            raise HTTPException(status_code=401, detail="用户不存在")
+        return {
+            "role": "student",
+            "user_id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+            "student_id": s.id,
+        }
+
+    raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")

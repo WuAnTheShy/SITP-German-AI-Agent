@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
+from typing import Any
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, or_, select, update, text
 from sqlalchemy.orm import Session
 
 from models.entities import (
@@ -1171,3 +1172,141 @@ class StudentKnowledgeMasteryCRUD:
         return list(db.scalars(
             select(StudentKnowledgeMastery).where(StudentKnowledgeMastery.student_id == student_id).order_by(StudentKnowledgeMastery.id)
         ))
+
+
+class KnowledgeBaseCRUD:
+    @staticmethod
+    def create_document(
+        db: Session,
+        title: str,
+        source_name: str,
+        source_path: str,
+        mime_type: str | None,
+        uploaded_by: int | None,
+        scope: str = "public",
+        owner_user_id: int | None = None,
+    ) -> dict[str, Any]:
+        row = db.execute(
+            text(
+                "INSERT INTO kb_documents(title, source_name, source_path, mime_type, uploaded_by, status, scope, owner_user_id) "
+                "VALUES (:title, :source_name, :source_path, :mime_type, :uploaded_by, 'processing', :scope, :owner_user_id) "
+                "RETURNING id, title, source_name, source_path, mime_type, status, scope, owner_user_id, is_active, chunk_count, error_message, created_at, updated_at"
+            ),
+            {
+                "title": title,
+                "source_name": source_name,
+                "source_path": source_path,
+                "mime_type": mime_type,
+                "uploaded_by": uploaded_by,
+                "scope": scope,
+                "owner_user_id": owner_user_id,
+            },
+        ).mappings().first()
+        db.commit()
+        return dict(row) if row else {}
+
+    @staticmethod
+    def list_documents(db: Session, scope: str | None = None, owner_user_id: int | None = None) -> list[dict[str, Any]]:
+        where_sql = []
+        params: dict[str, Any] = {}
+        if scope:
+            where_sql.append("scope=:scope")
+            params["scope"] = scope
+        if owner_user_id is not None:
+            where_sql.append("owner_user_id=:owner_user_id")
+            params["owner_user_id"] = owner_user_id
+        where_clause = (" WHERE " + " AND ".join(where_sql)) if where_sql else ""
+        rows = db.execute(
+            text(
+                "SELECT id, title, source_name, mime_type, status, scope, owner_user_id, is_active, chunk_count, error_message, created_at, updated_at "
+                "FROM kb_documents" + where_clause + " ORDER BY created_at DESC"
+            ),
+            params,
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def get_document(db: Session, doc_id: int) -> dict[str, Any] | None:
+        row = db.execute(
+            text(
+                "SELECT id, title, source_name, source_path, mime_type, status, scope, owner_user_id, is_active, chunk_count, error_message, created_at, updated_at "
+                "FROM kb_documents WHERE id=:id"
+            ),
+            {"id": doc_id},
+        ).mappings().first()
+        return dict(row) if row else None
+
+    @staticmethod
+    def set_document_status(
+        db: Session, doc_id: int, status: str, error_message: str | None = None, chunk_count: int | None = None
+    ) -> None:
+        db.execute(
+            text(
+                "UPDATE kb_documents SET status=:status, error_message=:error_message, "
+                "chunk_count=COALESCE(:chunk_count, chunk_count), updated_at=NOW() WHERE id=:id"
+            ),
+            {"id": doc_id, "status": status, "error_message": error_message, "chunk_count": chunk_count},
+        )
+        db.commit()
+
+    @staticmethod
+    def replace_chunks(
+        db: Session,
+        doc_id: int,
+        chunks: list[dict[str, Any]],
+    ) -> None:
+        db.execute(text("DELETE FROM kb_chunks WHERE document_id=:doc_id"), {"doc_id": doc_id})
+        for c in chunks:
+            db.execute(
+                text(
+                    "INSERT INTO kb_chunks(document_id, chunk_index, content, token_count, metadata, embedding) "
+                    "VALUES (:document_id, :chunk_index, :content, :token_count, CAST(:metadata AS JSONB), CAST(:embedding AS vector))"
+                ),
+                {
+                    "document_id": doc_id,
+                    "chunk_index": c["chunk_index"],
+                    "content": c["content"],
+                    "token_count": c.get("token_count", 0),
+                    "metadata": c.get("metadata_json", "{}"),
+                    "embedding": c["embedding_vector"],
+                },
+            )
+        db.commit()
+
+    @staticmethod
+    def search_chunks_by_embedding(
+        db: Session,
+        query_embedding_vector: str,
+        top_k: int = 5,
+        score_threshold: float = 0.25,
+        viewer_user_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = db.execute(
+            text(
+                "SELECT c.id, c.document_id, c.chunk_index, c.content, c.metadata, d.title, d.source_name, d.owner_user_id, "
+                "(1 - (c.embedding <=> CAST(:query_embedding AS vector))) AS score "
+                "FROM kb_chunks c "
+                "JOIN kb_documents d ON d.id = c.document_id "
+                "WHERE d.status='ready' AND d.is_active=TRUE "
+                "AND (d.scope='public' OR (d.scope='private' AND d.owner_user_id=:viewer_user_id)) "
+                "AND (1 - (c.embedding <=> CAST(:query_embedding AS vector))) >= :score_threshold "
+                "ORDER BY c.embedding <=> CAST(:query_embedding AS vector) "
+                "LIMIT :top_k"
+            ),
+            {
+                "query_embedding": query_embedding_vector,
+                "top_k": top_k,
+                "score_threshold": score_threshold,
+                "viewer_user_id": viewer_user_id,
+            },
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def delete_document(db: Session, doc_id: int) -> bool:
+        obj = db.execute(text("SELECT id FROM kb_documents WHERE id=:id"), {"id": doc_id}).first()
+        if not obj:
+            return False
+        db.execute(text("DELETE FROM kb_documents WHERE id=:id"), {"id": doc_id})
+        db.commit()
+        return True

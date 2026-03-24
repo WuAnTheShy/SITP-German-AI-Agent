@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../../api/request';
-import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle, Search, RefreshCw, KeyRound } from 'lucide-react';
+import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle, Search, RefreshCw, KeyRound, Database, Upload } from 'lucide-react';
 import { useToast } from '../../components/Toast';
 import { sha256Hex } from '../../utils/security';
 import {
@@ -18,6 +18,9 @@ import {
     API_ADMIN_UPDATE_STUDENT,
     API_ADMIN_DELETE_STUDENT,
     API_ADMIN_RESET_USER_PASSWORD,
+    API_ADMIN_KB_DOCS,
+    API_ADMIN_KB_UPLOAD,
+    API_ADMIN_KB_REINDEX,
 } from '../../api/config';
 
 const AdminDashboard = () => {
@@ -51,6 +54,9 @@ const AdminDashboard = () => {
     const [editClassTeacherIds, setEditClassTeacherIds] = useState([]);
     const [editTeacherClassKeyword, setEditTeacherClassKeyword] = useState('');
     const [editTeacherClassIds, setEditTeacherClassIds] = useState([]);
+    const [kbDocs, setKbDocs] = useState([]);
+    const [kbUploading, setKbUploading] = useState(false);
+    const [kbError, setKbError] = useState('');
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const adminName = userInfo.name || '管理员';
@@ -202,18 +208,20 @@ const AdminDashboard = () => {
         setError('');
         if (showToast) setRefreshing(true);
         try {
-            const [teachersRes, classesRes, settingsRes, pendingRes, studentsRes] = await Promise.all([
+            const [teachersRes, classesRes, settingsRes, pendingRes, studentsRes, kbRes] = await Promise.all([
                 request.get(API_ADMIN_TEACHERS),
                 request.get(API_ADMIN_CLASSES),
                 request.get(API_ADMIN_SETTINGS),
                 request.get(API_ADMIN_PENDING_TEACHERS),
                 request.get(API_ADMIN_STUDENTS),
+                request.get(API_ADMIN_KB_DOCS),
             ]);
             setTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
             setClasses(Array.isArray(classesRes.data) ? classesRes.data : []);
             setSettings(settingsRes.data || { REQUIRE_TEACHER_APPROVAL: false, REQUIRE_STUDENT_APPROVAL: false });
             setPendingTeachers(Array.isArray(pendingRes.data) ? pendingRes.data : []);
             setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+            setKbDocs(Array.isArray(kbRes.data) ? kbRes.data : []);
             if (showToast) toast.success('数据已刷新');
         } catch (err) {
             console.error('管理员数据加载失败:', err);
@@ -222,6 +230,7 @@ const AdminDashboard = () => {
             setClasses([]);
             setPendingTeachers([]);
             setStudents([]);
+            setKbDocs([]);
             if (showToast) toast.error('刷新失败，请稍后重试');
         } finally {
             setLoading(false);
@@ -522,6 +531,36 @@ const AdminDashboard = () => {
             setFormError(err.response?.data?.detail || err.message || '重置密码失败');
         } finally {
             setSubmitLoading(false);
+        }
+    };
+
+    const handleKbUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append('file', file);
+        setKbError('');
+        setKbUploading(true);
+        try {
+            await request.post(API_ADMIN_KB_UPLOAD, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            await fetchData();
+        } catch (err) {
+            setKbError(err.response?.data?.detail || err.message || '上传失败');
+        } finally {
+            setKbUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleKbReindex = async (docId) => {
+        setKbError('');
+        try {
+            await request.post(`${API_ADMIN_KB_REINDEX}/${docId}`);
+            await fetchData();
+        } catch (err) {
+            setKbError(err.response?.data?.detail || err.message || '重建失败');
         }
     };
 

@@ -103,6 +103,7 @@ from routers.chat import router as chat_router
 from routers.student import router as student_router
 from routers.student_tasks import router as student_tasks_router
 from routers.student_learning import router as student_learning_router
+from routers.user_kb import router as user_kb_router
 
 # ════════════════════ 1. 环境与 AI 配置 ════════════════════
 _proxy = os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
@@ -315,6 +316,64 @@ def startup_event():
                 "ON CONFLICT (class_id, student_id) DO NOTHING"
             ))
 
+            # RAG 知识库：pgvector + 文档/切片表
+            try:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                print("[Server] pgvector extension ensured.")
+            except Exception as e:
+                print(f"[Server] Note: pgvector extension unavailable: {e}")
+
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS kb_documents ("
+                "id BIGSERIAL PRIMARY KEY, "
+                "title VARCHAR(255) NOT NULL, "
+                "source_name VARCHAR(255) NOT NULL, "
+                "source_path TEXT NOT NULL, "
+                "mime_type VARCHAR(128) NULL, "
+                "status VARCHAR(32) NOT NULL DEFAULT 'processing', "
+                "scope VARCHAR(16) NOT NULL DEFAULT 'public', "
+                "owner_user_id BIGINT NULL REFERENCES users(id) ON DELETE CASCADE, "
+                "is_active BOOLEAN NOT NULL DEFAULT TRUE, "
+                "chunk_count INTEGER NOT NULL DEFAULT 0, "
+                "error_message TEXT NULL, "
+                "uploaded_by BIGINT NULL REFERENCES users(id) ON DELETE SET NULL, "
+                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+                "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+                ")"
+            ))
+            try:
+                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS scope VARCHAR(16) NOT NULL DEFAULT 'public'"))
+                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS owner_user_id BIGINT NULL REFERENCES users(id) ON DELETE CASCADE"))
+                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"))
+            except Exception as e:
+                print(f"[Server] Note: kb_documents scope/owner migration: {e}")
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS kb_chunks ("
+                "id BIGSERIAL PRIMARY KEY, "
+                "document_id BIGINT NOT NULL REFERENCES kb_documents(id) ON DELETE CASCADE, "
+                "chunk_index INTEGER NOT NULL, "
+                "content TEXT NOT NULL, "
+                "token_count INTEGER NOT NULL DEFAULT 0, "
+                "metadata JSONB NOT NULL DEFAULT '{}'::jsonb, "
+                "embedding vector, "
+                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+                "UNIQUE(document_id, chunk_index)"
+                ")"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_kb_documents_status ON kb_documents(status)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_kb_chunks_doc ON kb_chunks(document_id)"
+            ))
+            try:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS idx_kb_chunks_embedding_ivfflat "
+                    "ON kb_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
+                ))
+            except Exception as e:
+                print(f"[Server] Note: ivfflat index skipped: {e}")
+
             print("[Server] Database schema checks completed.")
     except Exception as e:
         print(f"[Server] Database migration failed (might be handled by alembic): {e}")
@@ -347,6 +406,7 @@ app.include_router(chat_router)
 app.include_router(student_router)
 app.include_router(student_tasks_router)
 app.include_router(student_learning_router)
+app.include_router(user_kb_router)
 
 # ════════════════════ 3. 公共数据模型与工具函数 ════════════════════
 # (student_learning routes moved to routers/student_learning.py)

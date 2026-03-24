@@ -7,3 +7,5 @@ psycopg[binary]
 alembic
 psycopg
 bcrypt
+pypdf
+python-multipart

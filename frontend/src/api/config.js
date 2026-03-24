@@ -29,6 +29,9 @@ export const API_ADMIN_STUDENTS = `${API_BASE}/api/admin/students`;
 export const API_ADMIN_UPDATE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
 export const API_ADMIN_DELETE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
 export const API_ADMIN_RESET_USER_PASSWORD = (id) => `${API_BASE}/api/admin/users/${id}/password`;
+export const API_ADMIN_KB_DOCS = `${API_BASE}/api/admin/kb/docs`;
+export const API_ADMIN_KB_UPLOAD = `${API_BASE}/api/admin/kb/upload`;
+export const API_ADMIN_KB_REINDEX = `${API_BASE}/api/admin/kb/reindex`;
 
 // ---- 注册 ----
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
@@ -37,6 +40,10 @@ export const API_TEACHER_REGISTER = `${API_BASE}/api/auth/teacher-register`;
 // ---- 学生：加入班级 ----
 export const API_STUDENT_CLASSES = `${API_BASE}/api/student/classes`;
 export const API_STUDENT_JOIN_CLASS = `${API_BASE}/api/student/join-class`;
+export const API_USER_KB_DOCS = `${API_BASE}/api/user/kb/docs`;
+export const API_USER_KB_UPLOAD = `${API_BASE}/api/user/kb/upload`;
+export const API_USER_KB_REINDEX = `${API_BASE}/api/user/kb/reindex`;
+export const API_USER_KB_DELETE = `${API_BASE}/api/user/kb/docs`;
 
 // ---- 教师仪表盘 & 学生审批 ----
 export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;

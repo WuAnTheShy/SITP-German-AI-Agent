@@ -33,6 +33,7 @@ from services.llm import (
     MEMORY_REFRESH_EVERY,
 )
 from services.metrics import track_learning_activity, refresh_student_metrics
+from services.rag import build_rag_context
 
 router = APIRouter()
 
@@ -100,10 +101,15 @@ def chat_endpoint(
         messages = []
         if getattr(user, "long_memory_summary", None):
             messages.append({"role": "user", "content": "[Teaching context]\n" + user.long_memory_summary})
+        rag_context, rag_sources = build_rag_context(db, request.message, viewer_user_id=user.id)
+        if rag_context:
+            messages.append({"role": "user", "content": "[Knowledge Base]\n" + rag_context})
         messages.extend(history_to_messages(history, max_turns=14))
         reply_text = generate_response(messages, system_instruction=TEACHER_SYSTEM)
         if not (reply_text or "").strip():
             reply_text = "AI 服务暂不可用，请检查后端 LLM 环境变量配置后重试。"
+        if rag_sources:
+            reply_text = reply_text + "\n\n参考资料: " + "; ".join(rag_sources[:5])
         TeacherChatMessageCRUD.create(
             db, TeacherChatMessageCreate(session_id=session.id, role="assistant", content=reply_text)
         )
@@ -163,10 +169,15 @@ def student_chat_endpoint(
         messages = []
         if getattr(student, "long_memory_summary", None):
             messages.append({"role": "user", "content": "[Learner profile]\n" + student.long_memory_summary})
+        rag_context, rag_sources = build_rag_context(db, request.message, viewer_user_id=student.user_id)
+        if rag_context:
+            messages.append({"role": "user", "content": "[Knowledge Base]\n" + rag_context})
         messages.extend(history_to_messages(history, max_turns=14))
         reply_text = generate_response(messages, system_instruction=STUDENT_SYSTEM)
         if not (reply_text or "").strip():
             reply_text = "Entschuldigung, der KI-Dienst ist derzeit nicht verfugbar. (抱歉，AI 服务暂不可用。)"
+        if rag_sources:
+            reply_text = reply_text + "\n\n参考资料: " + "; ".join(rag_sources[:5])
         ChatMessageCRUD.create(
             db,
             ChatMessageCreate(session_id=session.id, role="assistant", content=reply_text, correction=None),

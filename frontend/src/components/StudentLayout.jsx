@@ -10,6 +10,7 @@ import {
   BarChart3,
   BookX,
   Star,
+  Database,
   LogOut,
   ClipboardList,
   Menu,
@@ -85,6 +86,7 @@ const StudentLayout = ({ children }) => {
     { label: "学习进度", icon: BarChart3, path: `/student/${userId}/learning-progress` },
     { label: "错题本复习", icon: BookX, path: `/student/${userId}/error-book` },
     { label: "我的收藏", icon: Star, path: `/student/${userId}/favorites` },
+    { label: "我的资料库", icon: Database, path: `/student/${userId}/my-kb` },
   ];
 
   const handleNavClick = (path) => {

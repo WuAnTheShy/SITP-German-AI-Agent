@@ -252,6 +252,7 @@ const TeacherDashboard = () => {
                         </div>
                     </div>
                 </div>
+                </div>
 
                 {/* 2. 班级信息区 */}
                 <div className="teacher-panel rounded-2xl p-3 sm:p-4 md:p-5 flex flex-wrap items-center gap-2">
@@ -334,7 +335,6 @@ const TeacherDashboard = () => {
                                     <FileText size={16} /> 作业记录
                                 </button>
                             </div>
-                        </div>
                     </div>
                 </div>
 
