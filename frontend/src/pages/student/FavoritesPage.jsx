@@ -7,7 +7,7 @@ const FavoritesPage = () => {
   const [favList, setFavList] = useState([]);
   const [listLoading, setListLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [newFav, setNewFav] = useState({
@@ -16,6 +16,7 @@ const FavoritesPage = () => {
     rule: '',
     note: ''
   });
+  const [aiExtensions, setAiExtensions] = useState({});
 
   useEffect(() => {
     const getFavList = async () => {
@@ -58,20 +59,37 @@ const FavoritesPage = () => {
     setDeleteLoading(true);
     try {
       const res = await request.delete(`${API_FAVORITES_DELETE}/${id}`);
-      if (res.data.code === 200) { setFavList(prev => prev.filter(item => item.id !== id)); }
-      else alert(res.data.message || '删除失败');
+      if (res.data.code === 200) {
+        setFavList(prev => prev.filter(item => item.id !== id));
+        // 同时删除对应的AI扩展
+        setAiExtensions(prev => {
+          const newExtensions = { ...prev };
+          delete newExtensions[id];
+          return newExtensions;
+        });
+      } else alert(res.data.message || '删除失败');
     } catch (err) { alert('网络错误，删除失败'); }
     finally { setDeleteLoading(false); }
   };
 
   const handleAIExtend = async (item) => {
-    setAiLoading(true);
+    setAiLoading(prev => ({ ...prev, [item.id]: true }));
     try {
       const res = await request.post(API_FAVORITES_AI_EXTEND, { content: item.content, type: item.type || 'note' }, { timeout: 60000 });
-      if (res.data.code === 200) alert(`🤖 AI拓展学习：\n${res.data.data.extendContent}`);
-      else alert(res.data.message || 'AI拓展生成失败');
+      if (res.data.code === 200) {
+        setAiExtensions(prev => ({
+          ...prev,
+          [item.id]: res.data.data.extendContent
+        }));
+      } else alert(res.data.message || 'AI拓展生成失败');
     } catch (err) { alert('网络错误，AI拓展生成失败'); }
-    finally { setAiLoading(false); }
+    finally {
+      setAiLoading(prev => {
+        const newLoading = { ...prev };
+        delete newLoading[item.id];
+        return newLoading;
+      });
+    }
   };
 
   return (
@@ -105,10 +123,19 @@ const FavoritesPage = () => {
                   {item.rule && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">📚 规则：{item.rule}</p>}
                   {item.note && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">📝 备注：{item.note}</p>}
                 </div>
-                <div className="flex gap-3">
-                  <button onClick={() => handleAIExtend(item)} disabled={aiLoading}
+                
+                {/* AI拓展内容 */}
+                {aiExtensions[item.id] && (
+                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-900/40">
+                    <h4 className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-2">🤖 AI拓展学习</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{aiExtensions[item.id]}</p>
+                  </div>
+                )}
+                
+                <div className="flex gap-3 mt-3">
+                  <button onClick={() => handleAIExtend(item)} disabled={aiLoading[item.id]}
                     className="px-4 py-2 bg-blue-100 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-200 disabled:opacity-50 transition-colors text-sm font-medium">
-                    {aiLoading ? '生成中...' : '🤖 AI拓展'}
+                    {aiLoading[item.id] ? '生成中...' : '🤖 AI拓展'}
                   </button>
                   <button onClick={() => handleDeleteFav(item.id)} disabled={deleteLoading}
                     className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/45 disabled:opacity-50 transition-colors text-sm">
