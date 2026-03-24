@@ -111,7 +111,7 @@ class WritingReq(BaseModel):
 
 
 class ErrorReviewReq(BaseModel):
-    categoryId: int
+    categoryId: int | None = None
     categoryName: str | None = None
 
 
