@@ -168,6 +168,10 @@ def generate_response(messages, system_instruction=None):
     
     response = None
     try:
+        if not API_KEY:
+            print("[API] 错误: QWEN_API_KEY 未配置", flush=True)
+            return ""
+        
         response = requests.post(
             API_URL,
             headers=headers,

@@ -9,7 +9,7 @@ import { API_BASE } from './config';
 
 const request = axios.create({
     baseURL: API_BASE,
-    timeout: 60000,
+    timeout: 15000,
 });
 
 // 请求拦截器 — 注入 Token

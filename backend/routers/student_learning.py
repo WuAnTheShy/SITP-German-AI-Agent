@@ -194,8 +194,13 @@ def vocab_generate(req: VocabGenerateReq, db: Session = Depends(get_db)):
             f'返回JSON数组: [{{"german":"…","chinese":"…","example":"例句…"}}]\n只返回JSON。'
         )
         words = ai_json(prompt, [])
+        
+        # 检查AI是否返回了有效结果
+        if not words or not isinstance(words, list):
+            return fail("AI生成词汇失败，请检查API配置")
+        
         saved = []
-        for w in words or []:
+        for w in words:
             if not isinstance(w, dict) or "german" not in w:
                 continue
             try:
@@ -210,11 +215,17 @@ def vocab_generate(req: VocabGenerateReq, db: Session = Depends(get_db)):
                     "id": v.id, "german": v.german, "chinese": v.chinese,
                     "example": v.example, "isCollected": False,
                 })
-            except Exception:
+            except Exception as e:
+                print(f"[Vocab] 保存词汇失败: {e}", flush=True)
                 pass
+        
+        if not saved:
+            return fail("未能生成有效词汇，请稍后重试")
+            
         return ok(saved)
     except Exception as e:
-        return fail(f"生成词汇失败: {e}")
+        print(f"[Vocab] 生成词汇失败: {e}", flush=True)
+        return fail(f"生成词汇失败: {str(e)}")
 
 
 @router.get("/api/student/grammar/categories")
