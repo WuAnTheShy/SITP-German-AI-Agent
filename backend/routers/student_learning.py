@@ -445,13 +445,16 @@ def error_book_categories(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/api/student/error-book/list")
 def error_book_list(
-    categoryId: int = Query(...), request: Request = None, db: Session = Depends(get_db)
+    categoryId: int = Query(None), request: Request = None, db: Session = Depends(get_db)
 ):
     try:
         student = current_student(request, db)
         if not student:
             return fail("未找到学生信息", 401)
-        entries = ErrorBookEntryCRUD.list_by_student_and_category(db, student.id, categoryId)
+        if categoryId:
+            entries = ErrorBookEntryCRUD.list_by_student_and_category(db, student.id, categoryId)
+        else:
+            entries = ErrorBookEntryCRUD.list_by_student(db, student.id)
         return ok([
             {
                 "id": e.id, "source": e.source, "question": e.question,
@@ -470,8 +473,11 @@ def error_book_start_review(req: ErrorReviewReq, request: Request, db: Session =
         student = current_student(request, db)
         if not student:
             return fail("未找到学生信息", 401)
-        entries = ErrorBookEntryCRUD.list_by_student_and_category(db, student.id, req.categoryId)
-        cat_name = req.categoryName or "此分类"
+        if req.categoryId:
+            entries = ErrorBookEntryCRUD.list_by_student_and_category(db, student.id, req.categoryId)
+        else:
+            entries = ErrorBookEntryCRUD.list_by_student(db, student.id)
+        cat_name = req.categoryName or "所有错题"
         if not entries:
             return ok({"reviewTip": f"🎉 「{cat_name}」没有未掌握的错题，继续保持！"})
         questions_summary = "\n".join(
