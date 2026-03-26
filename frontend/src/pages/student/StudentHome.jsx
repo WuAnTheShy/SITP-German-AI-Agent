@@ -7,6 +7,7 @@ import {
   API_STUDENT_CHAT_SESSIONS,
   API_STUDENT_CHAT_MESSAGES,
   API_STUDENT_CHAT_SESSION,
+  API_USER_KB_DOCS,
   API_USER_KB_UPLOAD,
 } from "../../api/config";
 import {
@@ -42,6 +43,7 @@ const StudentHome = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [kbUploading, setKbUploading] = useState(false);
   const [kbHint, setKbHint] = useState("");
+  const [kbDocs, setKbDocs] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -53,6 +55,16 @@ const StudentHome = () => {
         setSessions(Array.isArray(list) ? list : []);
       })
       .catch(() => {});
+  }, []);
+
+  const loadKbDocs = useCallback(async () => {
+    try {
+      const r = await request.get(API_USER_KB_DOCS, { timeout: 60000 });
+      const list = Array.isArray(r.data) ? r.data : [];
+      setKbDocs(list);
+    } catch {
+      setKbDocs([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -97,6 +109,10 @@ const StudentHome = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    loadKbDocs();
+  }, [loadKbDocs]);
 
   const loadSessionMessages = async (sid) => {
     if (!sid) {
@@ -189,6 +205,7 @@ const StudentHome = () => {
         timeout: 600000,
       });
       setKbHint(`已加入我的资料库：${file.name}（仅自己可见）`);
+      await loadKbDocs();
     } catch (err) {
       setKbHint(
         `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`
@@ -459,9 +476,24 @@ const StudentHome = () => {
                   onChange={handleKbUpload}
                 />
               </label>
+              <span className="text-xs text-slate-500 dark:text-slate-400">仅自己可见</span>
+            </div>
+            <div className="max-w-4xl mx-auto mb-2 flex flex-wrap items-center gap-1.5">
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                仅自己可见；完成后可在本页对话中检索
+                已上传 {kbDocs.length} 份:
               </span>
+              {kbDocs.slice(0, 4).map((d) => (
+                <span
+                  key={d.id}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  title={`${d.source_name} · ${d.status}`}
+                >
+                  {d.title}
+                </span>
+              ))}
+              {kbDocs.length > 4 && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">+{kbDocs.length - 4}</span>
+              )}
             </div>
             {kbHint && (
               <p

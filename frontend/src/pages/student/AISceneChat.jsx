@@ -5,6 +5,7 @@ import {
   API_SCENE_CHAT,
   API_SCENE_CHAT_STATE,
   API_SCENE_CHAT_CLEAR,
+  API_USER_KB_DOCS,
   API_USER_KB_UPLOAD,
 } from "../../api/config";
 import { Bot, User, Send, Loader2, Trash2, Upload } from "lucide-react";
@@ -58,6 +59,7 @@ const AISceneChat = () => {
   const [loadingScene, setLoadingScene] = useState(false);
   const [kbUploading, setKbUploading] = useState(false);
   const [kbHint, setKbHint] = useState("");
+  const [kbDocs, setKbDocs] = useState([]);
   const chatContainerRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -98,6 +100,15 @@ const AISceneChat = () => {
       ]);
     } finally {
       setLoadingScene(false);
+    }
+  }, []);
+
+  const loadKbDocs = useCallback(async () => {
+    try {
+      const r = await request.get(API_USER_KB_DOCS, { timeout: 60000 });
+      setKbDocs(Array.isArray(r.data) ? r.data : []);
+    } catch {
+      setKbDocs([]);
     }
   }, []);
 
@@ -223,6 +234,7 @@ const AISceneChat = () => {
         timeout: 600000,
       });
       setKbHint(`已加入我的资料库：${file.name}（仅自己可见）`);
+      await loadKbDocs();
     } catch (err) {
       setKbHint(
         `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`
@@ -249,6 +261,10 @@ const AISceneChat = () => {
       chatContainerRef.current.scrollTop =
         chatContainerRef.current.scrollHeight;
   }, [messages, loading]);
+
+  useEffect(() => {
+    loadKbDocs();
+  }, [loadKbDocs]);
 
   return (
     <StudentLayout>
@@ -389,9 +405,22 @@ const AISceneChat = () => {
                         onChange={handleKbUpload}
                       />
                     </label>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      仅自己可见；上传完成后可用于当前对话检索
-                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">仅自己可见</span>
+                  </div>
+                  <div className="max-w-3xl mx-auto mb-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">已上传 {kbDocs.length} 份:</span>
+                    {kbDocs.slice(0, 4).map((d) => (
+                      <span
+                        key={d.id}
+                        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                        title={`${d.source_name} · ${d.status}`}
+                      >
+                        {d.title}
+                      </span>
+                    ))}
+                    {kbDocs.length > 4 && (
+                      <span className="text-xs text-slate-500 dark:text-slate-400">+{kbDocs.length - 4}</span>
+                    )}
                   </div>
                   {kbHint && (
                     <p

@@ -1,6 +1,8 @@
 import json
 import os
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from crud.repositories import (
     StudentCRUD,
@@ -65,6 +67,25 @@ QWEN_API_URL = _env_or_default(
 
 LMSTUDIO_BASE_URL = _env_or_default("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234").rstrip("/")
 LMSTUDIO_API_KEY = _env_or_default("LMSTUDIO_API_KEY", "")
+LLM_TIMEOUT = float(_env_or_default("LLM_TIMEOUT", "180"))
+
+
+def _build_http_session() -> requests.Session:
+    retry = Retry(
+        total=3,
+        connect=2,
+        read=2,
+        backoff_factor=0.8,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=("POST",),
+    )
+    s = requests.Session()
+    s.mount("https://", HTTPAdapter(max_retries=retry))
+    s.mount("http://", HTTPAdapter(max_retries=retry))
+    return s
+
+
+_HTTP_SESSION = _build_http_session()
 
 if LLM_PROVIDER == "lmstudio":
     MODEL_ID = _env_or_default("LLM_MODEL", _env_or_default("LMSTUDIO_MODEL", "qwen2.5-7b-instruct"))
@@ -172,11 +193,11 @@ def generate_response(messages, system_instruction=None):
             print("[API] 错误: QWEN_API_KEY 未配置", flush=True)
             return ""
         
-        response = requests.post(
+        response = _HTTP_SESSION.post(
             API_URL,
             headers=headers,
             json=payload,
-            timeout=60
+            timeout=(20, LLM_TIMEOUT),
         )
         response.raise_for_status()
         data = response.json()
