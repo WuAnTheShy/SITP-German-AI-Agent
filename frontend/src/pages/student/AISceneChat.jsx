@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import StudentLayout from "../../components/StudentLayout";
 import request from "../../api/request";
+import { parseStoredUserInfo } from "../../utils/safeJson";
 import {
   API_SCENE_CHAT,
   API_SCENE_CHAT_STATE,
   API_SCENE_CHAT_CLEAR,
   API_USER_KB_DOCS,
-  API_USER_KB_UPLOAD,
+  API_USER_KB_UPLOAD_TEMP,
 } from "../../api/config";
 import { Bot, User, Send, Loader2, Trash2, Upload } from "lucide-react";
 import MarkdownContent from "../../components/MarkdownContent";
@@ -62,6 +63,8 @@ const AISceneChat = () => {
   const [kbDocs, setKbDocs] = useState([]);
   const chatContainerRef = useRef(null);
   const inputRef = useRef(null);
+  const userInfo = parseStoredUserInfo();
+  const myKbHref = userInfo.id ? `#/student/${userInfo.id}/my-kb` : "#/student/login";
 
   const loadSceneState = useCallback(async (scene) => {
     if (!scene) return;
@@ -229,11 +232,14 @@ const AISceneChat = () => {
     setKbHint("");
     setKbUploading(true);
     try {
-      await request.post(API_USER_KB_UPLOAD, fd, {
+      if (!selectedScene) throw new Error("请先选择场景");
+      const uploadUrl = `${API_USER_KB_UPLOAD_TEMP}?session_key=${encodeURIComponent(`scene:${selectedScene.id}`)}`;
+      await request.post(uploadUrl, fd, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 600000,
       });
-      setKbHint(`已加入我的资料库：${file.name}（仅自己可见）`);
+      setKbHint(`已加入本场景会话：${file.name}`);
+      window.setTimeout(() => setKbHint(""), 3500);
       await loadKbDocs();
     } catch (err) {
       setKbHint(
@@ -265,6 +271,10 @@ const AISceneChat = () => {
   useEffect(() => {
     loadKbDocs();
   }, [loadKbDocs]);
+  const currentSceneKey = selectedScene ? `scene:${selectedScene.id}` : null;
+  const currentSceneTempDocs = kbDocs.filter(
+    (d) => d.is_temporary && currentSceneKey && d.session_key === currentSceneKey
+  );
 
   return (
     <StudentLayout>
@@ -396,7 +406,7 @@ const AISceneChat = () => {
                       ) : (
                         <Upload size={14} />
                       )}
-                      {kbUploading ? "资料上传中…" : "上传到我的资料库"}
+                      {kbUploading ? "资料上传中…" : "上传到本场景会话"}
                       <input
                         type="file"
                         accept=".pdf,.txt,.md"
@@ -405,29 +415,38 @@ const AISceneChat = () => {
                         onChange={handleKbUpload}
                       />
                     </label>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">仅自己可见</span>
+                    <a
+                      href={myKbHref}
+                      className="text-xs text-blue-600 dark:text-blue-300 hover:underline"
+                    >
+                      去我的资料库上传长期资料
+                    </a>
                   </div>
-                  <div className="max-w-3xl mx-auto mb-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-slate-500 dark:text-slate-400">已上传 {kbDocs.length} 份:</span>
-                    {kbDocs.slice(0, 4).map((d) => (
-                      <span
-                        key={d.id}
-                        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                        title={`${d.source_name} · ${d.status}`}
-                      >
-                        {d.title}
-                      </span>
-                    ))}
-                    {kbDocs.length > 4 && (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">+{kbDocs.length - 4}</span>
-                    )}
+                  <div className="max-w-3xl mx-auto mb-2 space-y-1.5 text-xs">
+                    <div className="text-slate-500 dark:text-slate-400">本场景会话资料 {currentSceneTempDocs.length} 份</div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {currentSceneTempDocs.length === 0 ? (
+                        <span className="text-slate-400 dark:text-slate-500">暂无</span>
+                      ) : (
+                        currentSceneTempDocs.slice(0, 4).map((d) => (
+                          <span
+                            key={d.id}
+                            className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                            title={`${d.source_name} · ${d.status}`}
+                          >
+                            {d.title}
+                            <span className="ml-1 text-[10px] opacity-70">本场景</span>
+                          </span>
+                        ))
+                      )}
+                    </div>
                   </div>
                   {kbHint && (
                     <p
                       className={`max-w-3xl mx-auto mb-2 text-xs ${
                         kbHint.startsWith("上传失败")
                           ? "text-red-600 dark:text-red-400"
-                          : "text-emerald-600 dark:text-emerald-400"
+                          : "text-slate-600 dark:text-slate-300"
                       }`}
                     >
                       {kbHint}

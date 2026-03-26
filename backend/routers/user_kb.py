@@ -65,6 +65,46 @@ async def upload_user_doc(
     return {"id": doc["id"], "status": "processing"}
 
 
+@router.post("/upload-temporary")
+async def upload_user_temp_doc(
+    session_key: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    actor=Depends(require_login_user),
+):
+    """
+    仅本会话资料：
+    - 存在向量库中，但仅对当前会话可检索（由 session_key 过滤）
+    - 仍归属当前用户，不会被他人检索
+    """
+    session_key = (session_key or "").strip()
+    if not session_key:
+        raise HTTPException(status_code=400, detail="session_key 不能为空")
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".pdf", ".txt", ".md"}:
+        raise HTTPException(status_code=400, detail="暂仅支持 pdf/txt/md")
+    KB_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    saved_name = f"{actor['user_id']}_{uuid4().hex}{suffix}"
+    save_path = KB_STORAGE_DIR / saved_name
+    data = await file.read()
+    save_path.write_bytes(data)
+
+    doc = KnowledgeBaseCRUD.create_document(
+        db=db,
+        title=Path(file.filename or "未命名文档").stem,
+        source_name=file.filename or saved_name,
+        source_path=str(save_path),
+        mime_type=file.content_type,
+        uploaded_by=actor["user_id"],
+        scope="private",
+        owner_user_id=actor["user_id"],
+        is_temporary=True,
+        session_key=session_key,
+    )
+    _ingest_document_sync(db, int(doc["id"]))
+    return {"id": doc["id"], "status": "processing"}
+
+
 @router.post("/reindex/{doc_id}")
 def reindex_user_doc(doc_id: int, db: Session = Depends(get_db), actor=Depends(require_login_user)):
     doc = KnowledgeBaseCRUD.get_document(db, doc_id)

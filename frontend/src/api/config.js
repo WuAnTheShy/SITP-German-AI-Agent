@@ -43,6 +43,7 @@ export const API_STUDENT_CLASSES = `${API_BASE}/api/student/classes`;
 export const API_STUDENT_JOIN_CLASS = `${API_BASE}/api/student/join-class`;
 export const API_USER_KB_DOCS = `${API_BASE}/api/user/kb/docs`;
 export const API_USER_KB_UPLOAD = `${API_BASE}/api/user/kb/upload`;
+export const API_USER_KB_UPLOAD_TEMP = `${API_BASE}/api/user/kb/upload-temporary`;
 export const API_USER_KB_REINDEX = `${API_BASE}/api/user/kb/reindex`;
 export const API_USER_KB_DELETE = `${API_BASE}/api/user/kb/docs`;
 

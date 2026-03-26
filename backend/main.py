@@ -345,6 +345,8 @@ def startup_event():
                 conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS scope VARCHAR(16) NOT NULL DEFAULT 'public'"))
                 conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS owner_user_id BIGINT NULL REFERENCES users(id) ON DELETE CASCADE"))
                 conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"))
+                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS is_temporary BOOLEAN NOT NULL DEFAULT FALSE"))
+                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS session_key VARCHAR(128) NULL"))
             except Exception as e:
                 print(f"[Server] Note: kb_documents scope/owner migration: {e}")
             conn.execute(text(

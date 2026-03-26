@@ -72,13 +72,13 @@ const TeacherKnowledgeBase = () => {
             <div className="max-w-5xl mx-auto space-y-6">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">我的私有知识库</h1>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1">仅你可见，回答时优先使用你的私有资料。</p>
+                        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">我的资料库（长期资料）</h1>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">这里上传的是长期资料，会在你的所有会话中可用；对话页仅上传当前会话临时资料。</p>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={() => navigate(`/teacher/${userInfo.id}/dashboard`)} className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">返回控制台</button>
                         <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium cursor-pointer">
-                            上传资料
+                            上传长期资料
                             <input type="file" accept=".pdf,.txt,.md" className="hidden" onChange={onUpload} />
                         </label>
                     </div>
@@ -86,15 +86,15 @@ const TeacherKnowledgeBase = () => {
                 {error && <div className="text-sm text-red-500">{error}</div>}
                 {loading ? (
                     <div className="text-gray-400">加载中...</div>
-                ) : docs.length === 0 ? (
-                    <div className="text-gray-500">暂无私有文档。</div>
+                ) : docs.filter((d) => !d.is_temporary).length === 0 ? (
+                    <div className="text-gray-500">暂无长期资料。</div>
                 ) : (
                     <div className="space-y-3">
-                        {docs.map((d) => (
+                        {docs.filter((d) => !d.is_temporary).map((d) => (
                             <div key={d.id} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                                 <div className="font-medium text-gray-800 dark:text-gray-200">{d.title}</div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    {d.source_name} · 状态: {d.status} · 切片: {d.chunk_count ?? 0}
+                                    {d.source_name} · 类型: 长期 · 状态: {d.status} · 切片: {d.chunk_count ?? 0}
                                 </div>
                                 {d.error_message && <div className="text-xs text-red-500 mt-1">{d.error_message}</div>}
                                 <div className="mt-3 flex gap-2">

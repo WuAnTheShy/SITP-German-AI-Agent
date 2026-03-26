@@ -101,7 +101,12 @@ def chat_endpoint(
         messages = []
         if getattr(user, "long_memory_summary", None):
             messages.append({"role": "user", "content": "[Teaching context]\n" + user.long_memory_summary})
-        rag_context, rag_sources = build_rag_context(db, request.message, viewer_user_id=user.id)
+        rag_context, rag_sources = build_rag_context(
+            db,
+            request.message,
+            viewer_user_id=user.id,
+            viewer_session_key=f"teacher:{session.id}",
+        )
         if rag_context:
             messages.append({"role": "user", "content": "[Knowledge Base]\n" + rag_context})
         messages.extend(history_to_messages(history, max_turns=14))
@@ -169,7 +174,12 @@ def student_chat_endpoint(
         messages = []
         if getattr(student, "long_memory_summary", None):
             messages.append({"role": "user", "content": "[Learner profile]\n" + student.long_memory_summary})
-        rag_context, rag_sources = build_rag_context(db, request.message, viewer_user_id=student.user_id)
+        rag_context, rag_sources = build_rag_context(
+            db,
+            request.message,
+            viewer_user_id=student.user_id,
+            viewer_session_key=f"student:{session.id}",
+        )
         if rag_context:
             messages.append({"role": "user", "content": "[Knowledge Base]\n" + rag_context})
         messages.extend(history_to_messages(history, max_turns=14))

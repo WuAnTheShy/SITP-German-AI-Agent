@@ -68,26 +68,26 @@ const MyKnowledgeBase = () => {
             <div className="flex-1 overflow-y-auto p-8">
                 <div className="flex justify-between items-center mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">我的私有知识库</h1>
-                        <p className="text-gray-500 dark:text-gray-400">你上传的资料仅你本人可见，并优先用于你的 AI 回答。</p>
+                        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">我的资料库（长期资料）</h1>
+                        <p className="text-gray-500 dark:text-gray-400">这里上传的是长期资料，会在你的所有会话中可用；对话页仅上传当前会话临时资料。</p>
                     </div>
                     <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium cursor-pointer">
-                        上传资料
+                        上传长期资料
                         <input type="file" accept=".pdf,.txt,.md" className="hidden" onChange={onUpload} />
                     </label>
                 </div>
                 {error && <div className="mb-4 text-sm text-red-500">{error}</div>}
                 {loading ? (
                     <p className="text-gray-400">加载中...</p>
-                ) : docs.length === 0 ? (
-                    <div className="text-gray-500">暂无私有文档，上传后即可用于对话。</div>
+                ) : docs.filter((d) => !d.is_temporary).length === 0 ? (
+                    <div className="text-gray-500">暂无长期资料，上传后即可在所有会话中使用。</div>
                 ) : (
                     <div className="space-y-3">
-                        {docs.map((d) => (
+                        {docs.filter((d) => !d.is_temporary).map((d) => (
                             <div key={d.id} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                                 <div className="font-medium text-gray-800 dark:text-gray-200">{d.title}</div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    {d.source_name} · 状态: {d.status} · 切片: {d.chunk_count ?? 0}
+                                    {d.source_name} · 类型: 长期 · 状态: {d.status} · 切片: {d.chunk_count ?? 0}
                                 </div>
                                 {d.error_message && <div className="text-xs text-red-500 mt-1">{d.error_message}</div>}
                                 <div className="mt-3 flex gap-2">

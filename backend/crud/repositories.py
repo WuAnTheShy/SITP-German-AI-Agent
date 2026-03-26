@@ -1176,6 +1176,18 @@ class StudentKnowledgeMasteryCRUD:
 
 class KnowledgeBaseCRUD:
     @staticmethod
+    def _ensure_temp_columns(db: Session) -> None:
+        """
+        兼容旧库：若启动阶段迁移因事务中断未生效，运行时再次补齐临时会话字段。
+        """
+        try:
+            db.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS is_temporary BOOLEAN NOT NULL DEFAULT FALSE"))
+            db.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS session_key VARCHAR(128) NULL"))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    @staticmethod
     def create_document(
         db: Session,
         title: str,
@@ -1185,12 +1197,16 @@ class KnowledgeBaseCRUD:
         uploaded_by: int | None,
         scope: str = "public",
         owner_user_id: int | None = None,
+        is_temporary: bool = False,
+        session_key: str | None = None,
     ) -> dict[str, Any]:
+        KnowledgeBaseCRUD._ensure_temp_columns(db)
         row = db.execute(
             text(
-                "INSERT INTO kb_documents(title, source_name, source_path, mime_type, uploaded_by, status, scope, owner_user_id) "
-                "VALUES (:title, :source_name, :source_path, :mime_type, :uploaded_by, 'processing', :scope, :owner_user_id) "
-                "RETURNING id, title, source_name, source_path, mime_type, status, scope, owner_user_id, is_active, chunk_count, error_message, created_at, updated_at"
+                "INSERT INTO kb_documents(title, source_name, source_path, mime_type, uploaded_by, status, scope, owner_user_id, is_temporary, session_key) "
+                "VALUES (:title, :source_name, :source_path, :mime_type, :uploaded_by, 'processing', :scope, :owner_user_id, :is_temporary, :session_key) "
+                "RETURNING id, title, source_name, source_path, mime_type, status, scope, owner_user_id, is_active, "
+                "is_temporary, session_key, chunk_count, error_message, created_at, updated_at"
             ),
             {
                 "title": title,
@@ -1200,6 +1216,8 @@ class KnowledgeBaseCRUD:
                 "uploaded_by": uploaded_by,
                 "scope": scope,
                 "owner_user_id": owner_user_id,
+                "is_temporary": is_temporary,
+                "session_key": session_key,
             },
         ).mappings().first()
         db.commit()
@@ -1207,6 +1225,7 @@ class KnowledgeBaseCRUD:
 
     @staticmethod
     def list_documents(db: Session, scope: str | None = None, owner_user_id: int | None = None) -> list[dict[str, Any]]:
+        KnowledgeBaseCRUD._ensure_temp_columns(db)
         where_sql = []
         params: dict[str, Any] = {}
         if scope:
@@ -1218,7 +1237,9 @@ class KnowledgeBaseCRUD:
         where_clause = (" WHERE " + " AND ".join(where_sql)) if where_sql else ""
         rows = db.execute(
             text(
-                "SELECT id, title, source_name, mime_type, status, scope, owner_user_id, is_active, chunk_count, error_message, created_at, updated_at "
+                "SELECT id, title, source_name, mime_type, status, scope, owner_user_id, is_active, "
+                "COALESCE(is_temporary, FALSE) AS is_temporary, session_key, "
+                "chunk_count, error_message, created_at, updated_at "
                 "FROM kb_documents" + where_clause + " ORDER BY created_at DESC"
             ),
             params,
@@ -1227,9 +1248,12 @@ class KnowledgeBaseCRUD:
 
     @staticmethod
     def get_document(db: Session, doc_id: int) -> dict[str, Any] | None:
+        KnowledgeBaseCRUD._ensure_temp_columns(db)
         row = db.execute(
             text(
-                "SELECT id, title, source_name, source_path, mime_type, status, scope, owner_user_id, is_active, chunk_count, error_message, created_at, updated_at "
+                "SELECT id, title, source_name, source_path, mime_type, status, scope, owner_user_id, is_active, "
+                "COALESCE(is_temporary, FALSE) AS is_temporary, session_key, "
+                "chunk_count, error_message, created_at, updated_at "
                 "FROM kb_documents WHERE id=:id"
             ),
             {"id": doc_id},
@@ -1280,7 +1304,9 @@ class KnowledgeBaseCRUD:
         top_k: int = 5,
         score_threshold: float = 0.25,
         viewer_user_id: int | None = None,
+        viewer_session_key: str | None = None,
     ) -> list[dict[str, Any]]:
+        KnowledgeBaseCRUD._ensure_temp_columns(db)
         rows = db.execute(
             text(
                 "SELECT c.id, c.document_id, c.chunk_index, c.content, c.metadata, d.title, d.source_name, d.owner_user_id, "
@@ -1288,7 +1314,11 @@ class KnowledgeBaseCRUD:
                 "FROM kb_chunks c "
                 "JOIN kb_documents d ON d.id = c.document_id "
                 "WHERE d.status='ready' AND d.is_active=TRUE "
-                "AND (d.scope='public' OR (d.scope='private' AND d.owner_user_id=:viewer_user_id)) "
+                "AND ("
+                "d.scope='public' "
+                "OR (d.scope='private' AND d.owner_user_id=:viewer_user_id "
+                "    AND (COALESCE(d.is_temporary, FALSE)=FALSE OR d.session_key=:viewer_session_key))"
+                ") "
                 "AND (1 - (c.embedding <=> CAST(:query_embedding AS vector))) >= :score_threshold "
                 "ORDER BY c.embedding <=> CAST(:query_embedding AS vector) "
                 "LIMIT :top_k"
@@ -1298,6 +1328,7 @@ class KnowledgeBaseCRUD:
                 "top_k": top_k,
                 "score_threshold": score_threshold,
                 "viewer_user_id": viewer_user_id,
+                "viewer_session_key": viewer_session_key,
             },
         ).mappings().all()
         return [dict(r) for r in rows]

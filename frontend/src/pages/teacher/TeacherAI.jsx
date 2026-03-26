@@ -9,7 +9,7 @@ import {
   API_TEACHER_CHAT_MESSAGES,
   API_TEACHER_CHAT_SESSION,
   API_USER_KB_DOCS,
-  API_USER_KB_UPLOAD,
+  API_USER_KB_UPLOAD_TEMP,
 } from "../../api/config";
 import {
   Send,
@@ -39,6 +39,7 @@ const welcomeMessages = () => [
 const TeacherAI = () => {
   const navigate = useNavigate();
   const userInfo = parseStoredUserInfo();
+  const myKbHref = userInfo.id ? `#/teacher/${userInfo.id}/my-kb` : "#/teacher/login";
   const [messages, setMessages] = useState(welcomeMessages());
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -222,11 +223,16 @@ const TeacherAI = () => {
     setKbHint("");
     setKbUploading(true);
     try {
-      await request.post(API_USER_KB_UPLOAD, fd, {
+      if (!sessionId) {
+        throw new Error("请先创建或选择一个会话");
+      }
+      const uploadUrl = `${API_USER_KB_UPLOAD_TEMP}?session_key=${encodeURIComponent(`teacher:${sessionId}`)}`;
+      await request.post(uploadUrl, fd, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 600000,
       });
-      setKbHint(`已加入我的资料库：${file.name}（本账号私有）`);
+      setKbHint(`已加入本会话：${file.name}`);
+      window.setTimeout(() => setKbHint(""), 3500);
       await loadKbDocs();
     } catch (err) {
       setKbHint(
@@ -306,6 +312,10 @@ const TeacherAI = () => {
       icon: <Brain size={14} className="mr-1" />,
     },
   ];
+  const currentSessionKey = sessionId ? `teacher:${sessionId}` : null;
+  const currentSessionTempDocs = kbDocs.filter(
+    (d) => d.is_temporary && currentSessionKey && d.session_key === currentSessionKey
+  );
 
   return (
     <div className="teacher-shell flex flex-col min-h-screen">
@@ -551,7 +561,7 @@ const TeacherAI = () => {
                 ) : (
                   <Upload size={14} />
                 )}
-                {kbUploading ? "资料上传中…" : "上传到我的资料库"}
+                {kbUploading ? "资料上传中…" : "上传到当前会话"}
                 <input
                   type="file"
                   accept=".pdf,.txt,.md"
@@ -560,29 +570,38 @@ const TeacherAI = () => {
                   onChange={handleKbUpload}
                 />
               </label>
-              <span className="text-xs text-slate-500 dark:text-slate-400">仅自己可见</span>
+              <a
+                href={myKbHref}
+                className="text-xs text-teal-700 dark:text-teal-300 hover:underline"
+              >
+                去我的资料库上传长期资料
+              </a>
             </div>
-            <div className="max-w-4xl mx-auto mb-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-slate-500 dark:text-slate-400">已上传 {kbDocs.length} 份:</span>
-              {kbDocs.slice(0, 4).map((d) => (
-                <span
-                  key={d.id}
-                  className="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  title={`${d.source_name} · ${d.status}`}
-                >
-                  {d.title}
-                </span>
-              ))}
-              {kbDocs.length > 4 && (
-                <span className="text-xs text-slate-500 dark:text-slate-400">+{kbDocs.length - 4}</span>
-              )}
+            <div className="max-w-4xl mx-auto mb-2 space-y-1.5 text-xs">
+              <div className="text-slate-500 dark:text-slate-400">当前会话资料 {currentSessionTempDocs.length} 份</div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {currentSessionTempDocs.length === 0 ? (
+                  <span className="text-slate-400 dark:text-slate-500">暂无</span>
+                ) : (
+                  currentSessionTempDocs.slice(0, 4).map((d) => (
+                    <span
+                      key={d.id}
+                      className="inline-flex items-center px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                      title={`${d.source_name} · ${d.status}`}
+                    >
+                      {d.title}
+                      <span className="ml-1 text-[10px] opacity-70">本会话</span>
+                    </span>
+                  ))
+                )}
+              </div>
             </div>
             {kbHint && (
               <p
                 className={`max-w-4xl mx-auto mb-2 text-xs ${
                   kbHint.startsWith("上传失败")
                     ? "text-red-600 dark:text-red-400"
-                    : "text-emerald-600 dark:text-emerald-400"
+                    : "text-slate-600 dark:text-slate-300"
                 }`}
               >
                 {kbHint}
