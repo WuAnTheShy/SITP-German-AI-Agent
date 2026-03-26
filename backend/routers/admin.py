@@ -15,7 +15,12 @@ from schemas.entities import ClassroomCreate
 from core.deps import require_admin
 from core.password import ensure_transport_hash, hash_password
 from services.metrics import refresh_student_metrics
-from services.kb_ingest import extract_text, chunk_text, enrich_chunks_with_embeddings
+from services.kb_ingest import (
+    KB_EMPTY_TEXT_HINT,
+    chunk_text,
+    enrich_chunks_with_embeddings,
+    extract_text,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 KB_STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage" / "kb"
@@ -68,7 +73,7 @@ def _ingest_document_sync(db: Session, doc_id: int) -> None:
         text = extract_text(source_path, doc.get("mime_type"))
         chunks = chunk_text(text)
         if not chunks:
-            KnowledgeBaseCRUD.set_document_status(db, doc_id, "failed", "文档内容为空或解析失败")
+            KnowledgeBaseCRUD.set_document_status(db, doc_id, "failed", KB_EMPTY_TEXT_HINT)
             return
         enriched = enrich_chunks_with_embeddings(chunks)
         KnowledgeBaseCRUD.replace_chunks(db, doc_id, enriched)
@@ -498,3 +503,23 @@ def kb_reindex_doc(doc_id: int, db: Session = Depends(get_db), _admin=Depends(re
     KnowledgeBaseCRUD.set_document_status(db, doc_id, "processing", None)
     _ingest_document_sync(db, doc_id)
     return {"id": doc_id, "status": "processing"}
+
+
+@router.delete("/kb/docs/{doc_id}")
+def kb_delete_doc(doc_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    """删除公共知识库文档：移除数据库记录（级联删除向量切片）及本地文件。"""
+    doc = KnowledgeBaseCRUD.get_document(db, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    if doc.get("scope") != "public":
+        raise HTTPException(status_code=400, detail="仅支持删除公共知识库文档")
+    source_path = Path(doc.get("source_path") or "")
+    ok = KnowledgeBaseCRUD.delete_document(db, doc_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    if source_path.exists():
+        try:
+            source_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+    return {"deleted": True}

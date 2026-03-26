@@ -3,7 +3,14 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from services.embedding import embed_text
+from services.embedding import embed_texts
+
+# 与管理员界面展示一致：抽不到文本时的说明
+KB_EMPTY_TEXT_HINT = (
+    "未能从该文件提取到可索引文本。"
+    "若为扫描件/图片型 PDF，请先 OCR 或导出为可复制文字的 PDF 后再上传；"
+    "也可尝试将内容另存为 .txt / .md。"
+)
 
 
 def _extract_text_from_pdf(path: Path) -> str:
@@ -11,7 +18,21 @@ def _extract_text_from_pdf(path: Path) -> str:
     pages = []
     for p in reader.pages:
         pages.append(p.extract_text() or "")
-    return "\n".join(pages).strip()
+    text = "\n".join(pages).strip()
+    if text:
+        return text
+    # 部分 PDF 用 pypdf 抽不到字，PyMuPDF 有时能抽到（仍非 OCR，纯图片页仍为空）
+    try:
+        import fitz  # PyMuPDF
+
+        doc = fitz.open(path)
+        try:
+            parts = [(page.get_text() or "") for page in doc]
+        finally:
+            doc.close()
+        return "\n".join(parts).strip()
+    except Exception:
+        return ""
 
 
 def extract_text(path: Path, mime_type: str | None = None) -> str:
@@ -49,11 +70,12 @@ def chunk_text(text: str, chunk_size: int = 700, overlap: int = 100) -> list[dic
 
 
 def enrich_chunks_with_embeddings(chunks: list[dict]) -> list[dict]:
+    texts = [c["content"] for c in chunks]
+    embeddings, pg_literals = embed_texts(texts)
     out = []
-    for c in chunks:
-        emb, emb_pg = embed_text(c["content"])
+    for i, c in enumerate(chunks):
         c2 = dict(c)
-        c2["embedding"] = emb
-        c2["embedding_vector"] = emb_pg
+        c2["embedding"] = embeddings[i]
+        c2["embedding_vector"] = pg_literals[i]
         out.append(c2)
     return out

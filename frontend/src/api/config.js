@@ -32,6 +32,7 @@ export const API_ADMIN_RESET_USER_PASSWORD = (id) => `${API_BASE}/api/admin/user
 export const API_ADMIN_KB_DOCS = `${API_BASE}/api/admin/kb/docs`;
 export const API_ADMIN_KB_UPLOAD = `${API_BASE}/api/admin/kb/upload`;
 export const API_ADMIN_KB_REINDEX = `${API_BASE}/api/admin/kb/reindex`;
+export const API_ADMIN_KB_DELETE_DOC = (id) => `${API_BASE}/api/admin/kb/docs/${id}`;
 
 // ---- 注册 ----
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
