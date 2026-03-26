@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { parseStoredUserInfo } from "../../utils/safeJson";
 import request from "../../api/request";
 import {
   API_CHAT,
@@ -7,6 +8,7 @@ import {
   API_TEACHER_CHAT_SESSIONS,
   API_TEACHER_CHAT_MESSAGES,
   API_TEACHER_CHAT_SESSION,
+  API_USER_KB_UPLOAD,
 } from "../../api/config";
 import {
   Send,
@@ -22,6 +24,7 @@ import {
   Trash2,
   PanelLeftClose,
   PanelLeft,
+  Upload,
 } from "lucide-react";
 import MarkdownContent from "../../components/MarkdownContent";
 
@@ -34,7 +37,7 @@ const welcomeMessages = () => [
 
 const TeacherAI = () => {
   const navigate = useNavigate();
-  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+  const userInfo = parseStoredUserInfo();
   const [messages, setMessages] = useState(welcomeMessages());
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,6 +47,8 @@ const TeacherAI = () => {
   const [sidebarDesktopOpen, setSidebarDesktopOpen] = useState(true);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [kbUploading, setKbUploading] = useState(false);
+  const [kbHint, setKbHint] = useState("");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -191,6 +196,29 @@ const TeacherAI = () => {
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKbUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || kbUploading) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setKbHint("");
+    setKbUploading(true);
+    try {
+      await request.post(API_USER_KB_UPLOAD, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 600000,
+      });
+      setKbHint(`已加入我的资料库：${file.name}（本账号私有）`);
+    } catch (err) {
+      setKbHint(
+        `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`
+      );
+    } finally {
+      setKbUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -494,6 +522,43 @@ const TeacherAI = () => {
                 </button>
               ))}
             </div>
+            <div className="max-w-4xl mx-auto mb-2 flex items-center gap-2">
+              <label
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${
+                  kbUploading
+                    ? "cursor-wait opacity-80 border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                    : "cursor-pointer border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 dark:border-teal-800/50 dark:text-teal-300 dark:bg-teal-900/20"
+                }`}
+              >
+                {kbUploading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Upload size={14} />
+                )}
+                {kbUploading ? "资料上传中…" : "上传到我的资料库"}
+                <input
+                  type="file"
+                  accept=".pdf,.txt,.md"
+                  className="hidden"
+                  disabled={kbUploading || loading}
+                  onChange={handleKbUpload}
+                />
+              </label>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                仅自己可见；上传完成后可用于当前与后续对话检索
+              </span>
+            </div>
+            {kbHint && (
+              <p
+                className={`max-w-4xl mx-auto mb-2 text-xs ${
+                  kbHint.startsWith("上传失败")
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
+                {kbHint}
+              </p>
+            )}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-4xl mx-auto">
               <textarea
                 ref={inputRef}

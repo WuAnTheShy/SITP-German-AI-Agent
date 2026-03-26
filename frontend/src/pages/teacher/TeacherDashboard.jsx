@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { parseStoredUserInfo } from '../../utils/safeJson';
 import request from '../../api/request';
 import { LayoutDashboard, LogOut, Users, FileText, Activity, ArrowRight, TrendingUp, Clock, Search, Loader2, Bot, RefreshCw, Plus, GraduationCap, Award, Key, UserPlus, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
 import { API_DASHBOARD, API_TEACHER_PENDING_STUDENTS, API_TEACHER_APPROVE_STUDENT, API_TEACHER_REJECT_STUDENT, API_TEACHER_STUDENTS, API_TEACHER_UPDATE_STUDENT, API_TEACHER_REMOVE_STUDENT } from '../../api/config';
@@ -25,7 +26,7 @@ const TeacherDashboard = () => {
     const [isPendingPanelOpen, setIsPendingPanelOpen] = useState(false);
 
     // 🟢 从 localStorage 读取教师名称
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userInfo = parseStoredUserInfo();
     const teacherName = userInfo.name || data?.teacherName || '老师';
 
     const normalizeArrayPayload = useCallback((res) => {

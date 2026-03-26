@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { parseStoredUserInfo } from '../../utils/safeJson';
 import request from '../../api/request';
 import { FileText, ArrowLeft, Brain, Wand2, MessageSquare, Loader2, Send, Zap } from 'lucide-react';
 import { API_EXAM_GENERATE } from '../../api/config';
@@ -8,7 +9,7 @@ import { useToast } from '../../components/Toast';
 const ExamGenerator = () => {
     const navigate = useNavigate();
     const toast = useToast();
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userInfo = parseStoredUserInfo();
     const [isProcessing, setIsProcessing] = useState(false);
 
     // 🟢 1. 状态管理：全量捕获配置

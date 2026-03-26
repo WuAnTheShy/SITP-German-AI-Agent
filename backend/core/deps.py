@@ -115,43 +115,65 @@ def current_student(req: Request, db: Session):
 def require_login_user(req: Request, db: Session = Depends(get_db)):
     """
     统一解析已登录用户（teacher/student/admin）。
+    与 issue_token 生成的 v1 令牌一致，并兼容旧版 teacher-token / student-token 等（见 parse_token）。
     返回 dict: {role, user_id, username, display_name, student_id?}
     """
     auth = req.headers.get("authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
-    token = auth.replace("Bearer ", "")
-    parts = token.split("-")
-    if len(parts) < 4:
-        raise HTTPException(status_code=401, detail="无效令牌")
+    token = auth.replace("Bearer ", "").strip()
+    payload = parse_token(token, allow_legacy=allow_legacy_tokens())
+    if not payload:
+        raise HTTPException(status_code=401, detail="未登录或令牌无效，请重新登录")
 
-    if token.startswith("teacher-token-") or token.startswith("admin-token-"):
+    role = str(payload.get("role", "")).strip()
+    sub = str(payload.get("sub", "")).strip()
+
+    if role == "teacher":
         try:
-            uid = int(parts[2])
+            user_id = int(sub)
         except ValueError:
             raise HTTPException(status_code=401, detail="无效令牌")
-        user = UserCRUD.get_by_id(db, uid)
-        if not user:
-            raise HTTPException(status_code=401, detail="用户不存在")
-        if token.startswith("teacher-token-") and user.role != "teacher":
+        user = UserCRUD.get_by_id(db, user_id)
+        if not user or user.role != "teacher":
             raise HTTPException(status_code=403, detail="需要教师权限")
-        if token.startswith("admin-token-") and user.role != "admin":
-            raise HTTPException(status_code=403, detail="需要管理员权限")
+        if getattr(user, "status", "approved") != "approved":
+            raise HTTPException(status_code=403, detail="教师账号未通过审核，无法访问")
+        if not getattr(user, "is_active", True):
+            raise HTTPException(status_code=403, detail="教师账号已被停用，请联系管理员")
         return {
-            "role": user.role,
+            "role": "teacher",
             "user_id": user.id,
             "username": user.username,
             "display_name": user.display_name,
         }
 
-    if token.startswith("student-token-"):
-        stu_uid = parts[2]
-        s = StudentCRUD.get_by_uid(db, stu_uid)
+    if role == "admin":
+        try:
+            user_id = int(sub)
+        except ValueError:
+            raise HTTPException(status_code=401, detail="无效令牌")
+        user = UserCRUD.get_by_id(db, user_id)
+        if not user or user.role != "admin":
+            raise HTTPException(status_code=403, detail="需要管理员权限")
+        return {
+            "role": "admin",
+            "user_id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+        }
+
+    if role == "student":
+        s = StudentCRUD.get_by_uid(db, sub)
         if not s:
             raise HTTPException(status_code=401, detail="学生不存在")
         user = UserCRUD.get_by_id(db, s.user_id)
         if not user:
             raise HTTPException(status_code=401, detail="用户不存在")
+        if getattr(s, "status", "approved") != "approved":
+            raise HTTPException(status_code=403, detail="学生账号未通过审核，无法访问")
+        if not getattr(user, "is_active", True):
+            raise HTTPException(status_code=403, detail="学生账号已被停用，请联系管理员")
         return {
             "role": "student",
             "user_id": user.id,

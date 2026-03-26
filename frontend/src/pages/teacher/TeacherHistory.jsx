@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, LogOut, RefreshCw, FileText, ArrowLeft, Eye, MessageSquare, AlertCircle } from 'lucide-react';
+import { parseStoredUserInfo } from '../../utils/safeJson';
 import request from '../../api/request';
 import { API_TEACHER_SCENARIO_LIST, API_TEACHER_EXAM_LIST, API_TEACHER_EXAM_DETAIL } from '../../api/config';
 
 const TeacherHistory = () => {
     const navigate = useNavigate();
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userInfo = parseStoredUserInfo();
     const [activeTab, setActiveTab] = useState('scenarios');
     const [scenarios, setScenarios] = useState([]);
     const [exams, setExams] = useState([]);

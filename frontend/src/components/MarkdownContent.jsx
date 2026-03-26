@@ -8,16 +8,17 @@ const normalizeMarkdownText = (content) => {
 };
 
 const MarkdownContent = ({ content, className = "" }) => (
-  <ReactMarkdown
-    className={`markdown-content ${className}`.trim()}
-    components={{
-      a: ({ node, ...props }) => (
-        <a {...props} target="_blank" rel="noreferrer noopener" />
-      ),
-    }}
-  >
-    {normalizeMarkdownText(content)}
-  </ReactMarkdown>
+  <div className={`markdown-content ${className}`.trim()}>
+    <ReactMarkdown
+      components={{
+        a: ({ node, ...props }) => (
+          <a {...props} target="_blank" rel="noreferrer noopener" />
+        ),
+      }}
+    >
+      {normalizeMarkdownText(content)}
+    </ReactMarkdown>
+  </div>
 );
 
 export default MarkdownContent;

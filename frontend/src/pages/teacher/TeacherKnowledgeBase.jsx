@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { parseStoredUserInfo } from '../../utils/safeJson';
 import request from '../../api/request';
 import { API_USER_KB_DELETE, API_USER_KB_DOCS, API_USER_KB_REINDEX, API_USER_KB_UPLOAD } from '../../api/config';
 
@@ -9,13 +10,13 @@ const TeacherKnowledgeBase = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userInfo = parseStoredUserInfo();
 
     const fetchDocs = async () => {
         setLoading(true);
         setError('');
         try {
-            const res = await request.get(API_USER_KB_DOCS);
+            const res = await request.get(API_USER_KB_DOCS, { timeout: 60000 });
             setDocs(Array.isArray(res.data) ? res.data : []);
         } catch (e) {
             setError(e.response?.data?.detail || e.message || '加载失败');
@@ -35,7 +36,10 @@ const TeacherKnowledgeBase = () => {
         const fd = new FormData();
         fd.append('file', file);
         try {
-            await request.post(API_USER_KB_UPLOAD, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+            await request.post(API_USER_KB_UPLOAD, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 600000,
+            });
             await fetchDocs();
         } catch (err) {
             alert(err.response?.data?.detail || err.message || '上传失败');
@@ -46,7 +50,7 @@ const TeacherKnowledgeBase = () => {
 
     const reindex = async (id) => {
         try {
-            await request.post(`${API_USER_KB_REINDEX}/${id}`);
+            await request.post(`${API_USER_KB_REINDEX}/${id}`, {}, { timeout: 600000 });
             await fetchDocs();
         } catch (err) {
             alert(err.response?.data?.detail || err.message || '重建失败');

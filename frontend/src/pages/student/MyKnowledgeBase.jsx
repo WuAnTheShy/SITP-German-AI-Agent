@@ -12,7 +12,7 @@ const MyKnowledgeBase = () => {
         setLoading(true);
         setError('');
         try {
-            const res = await request.get(API_USER_KB_DOCS);
+            const res = await request.get(API_USER_KB_DOCS, { timeout: 60000 });
             setDocs(Array.isArray(res.data) ? res.data : []);
         } catch (e) {
             setError(e.response?.data?.detail || e.message || '加载失败');
@@ -32,7 +32,10 @@ const MyKnowledgeBase = () => {
         const fd = new FormData();
         fd.append('file', file);
         try {
-            await request.post(API_USER_KB_UPLOAD, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+            await request.post(API_USER_KB_UPLOAD, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 600000,
+            });
             await fetchDocs();
         } catch (err) {
             alert(err.response?.data?.detail || err.message || '上传失败');
@@ -43,7 +46,7 @@ const MyKnowledgeBase = () => {
 
     const reindex = async (id) => {
         try {
-            await request.post(`${API_USER_KB_REINDEX}/${id}`);
+            await request.post(`${API_USER_KB_REINDEX}/${id}`, {}, { timeout: 600000 });
             await fetchDocs();
         } catch (err) {
             alert(err.response?.data?.detail || err.message || '重建失败');

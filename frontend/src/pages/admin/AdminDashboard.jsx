@@ -4,6 +4,7 @@ import request from '../../api/request';
 import { LogOut, Users, BookOpen, Loader2, Shield, Plus, Pencil, Settings, UserPlus, Trash2, CheckCircle, XCircle, Search, RefreshCw, KeyRound, Database, Upload } from 'lucide-react';
 import { useToast } from '../../components/Toast';
 import { sha256Hex } from '../../utils/security';
+import { parseStoredUserInfo } from '../../utils/safeJson';
 import {
     API_ADMIN_TEACHERS,
     API_ADMIN_CLASSES,
@@ -61,7 +62,7 @@ const AdminDashboard = () => {
     const [kbDeletingId, setKbDeletingId] = useState(null);
     const [kbError, setKbError] = useState('');
 
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userInfo = parseStoredUserInfo();
     const adminName = userInfo.name || '管理员';
     const activeTeacherCount = teachers.filter((t) => t.is_active).length;
     const unassignedStudentCount = students.filter((s) => {

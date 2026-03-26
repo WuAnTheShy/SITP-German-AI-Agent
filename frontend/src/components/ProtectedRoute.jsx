@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation, useParams } from 'react-router-dom';
+import { parseStoredUserInfo } from '../utils/safeJson';
 
 /**
  * 路由守卫组件
@@ -13,7 +14,7 @@ const ProtectedRoute = ({ requiredRole, children }) => {
     const location = useLocation();
     const params = useParams();
     const token = localStorage.getItem('authToken');
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userInfo = parseStoredUserInfo();
     const userRole = userInfo.role;
 
     // 1. 未登录 → 回到首页
@@ -35,22 +36,30 @@ const ProtectedRoute = ({ requiredRole, children }) => {
 
     // 3. 学生端 URL 的 userId 校验（确保每个人只能访问自己的页面）
     if (userRole === 'student' && params.userId) {
-        // 当前登录学生的学号
-        const loggedInUid = userInfo.id || userInfo.studentId;
-        if (params.userId !== loggedInUid) {
-            // 如果访问别人的页面，强制重定向到自己的页面
-            const redirectPath = location.pathname.replace(`/student/${params.userId}`, `/student/${loggedInUid}`);
+        const loggedInUid = String(userInfo.id ?? userInfo.studentId ?? '').trim();
+        if (!loggedInUid) {
+            return <Navigate to="/" replace />;
+        }
+        if (String(params.userId) !== loggedInUid) {
+            const redirectPath = location.pathname.replace(
+                `/student/${params.userId}`,
+                `/student/${loggedInUid}`
+            );
             return <Navigate to={redirectPath} replace />;
         }
     }
 
     // 4. 教师端 URL 的 teacherId 校验（确保每位教师只能访问自己的页面）
     if (userRole === 'teacher' && params.teacherId) {
-        // 当前登录教师的工号
-        const loggedInTid = userInfo.id;
-        if (params.teacherId !== loggedInTid) {
-            // 如果访问别人的页面，强制重定向到自己的页面
-            const redirectPath = location.pathname.replace(`/teacher/${params.teacherId}`, `/teacher/${loggedInTid}`);
+        const loggedInTid = String(userInfo.id ?? '').trim();
+        if (!loggedInTid) {
+            return <Navigate to="/" replace />;
+        }
+        if (String(params.teacherId) !== loggedInTid) {
+            const redirectPath = location.pathname.replace(
+                `/teacher/${params.teacherId}`,
+                `/teacher/${loggedInTid}`
+            );
             return <Navigate to={redirectPath} replace />;
         }
     }

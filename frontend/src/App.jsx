@@ -29,6 +29,7 @@ import TaskCenter from './pages/student/TaskCenter';
 import TakeExam from './pages/student/TakeExam';
 import ExamResult from './pages/student/ExamResult';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // 文件路径: src/App.jsx
 
@@ -36,6 +37,7 @@ function App() {
     return (
         <ThemeProvider>
             <HashRouter>
+                <ErrorBoundary>
                 <ThemeToggle />
                 <Routes>
                     {/* 1. 首页（统一登录入口） */}
@@ -78,6 +80,7 @@ function App() {
                     <Route path="/teacher/:teacherId/my-kb" element={<ProtectedRoute requiredRole="teacher"><TeacherKnowledgeBase /></ProtectedRoute>} />
                     <Route path="/teacher/:teacherId/student/:id" element={<ProtectedRoute requiredRole="teacher"><StudentDetail /></ProtectedRoute>} />
                 </Routes>
+                </ErrorBoundary>
             </HashRouter>
         </ThemeProvider>
     );

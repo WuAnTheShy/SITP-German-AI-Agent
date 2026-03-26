@@ -21,20 +21,21 @@ import {
 import request from "../api/request";
 import { API_STUDENT_CLASSES, API_STUDENT_JOIN_CLASS } from "../api/config";
 import PasswordChangeModal from "./PasswordChangeModal";
+import { parseStoredUserInfo } from "../utils/safeJson";
 
 const StudentLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
-  const [userInfo, setUserInfo] = React.useState(() => JSON.parse(localStorage.getItem('userInfo') || '{}'));
+  const [userInfo, setUserInfo] = React.useState(() => parseStoredUserInfo());
   const [showJoinClassModal, setShowJoinClassModal] = React.useState(false);
   const [classList, setClassList] = React.useState([]);
   const [joinClassLoading, setJoinClassLoading] = React.useState(false);
   const [joinClassError, setJoinClassError] = React.useState('');
 
   const userId = userInfo.id || userInfo.studentId || '';
-  const userName = userInfo.name || '未登录';
+  const userName = String(userInfo.name != null ? userInfo.name : '未登录');
   const initials = userName.slice(0, 1);
   const hasClass = userInfo.classId != null && userInfo.classId !== '';
 

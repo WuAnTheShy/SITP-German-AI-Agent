@@ -5,8 +5,9 @@ import {
   API_SCENE_CHAT,
   API_SCENE_CHAT_STATE,
   API_SCENE_CHAT_CLEAR,
+  API_USER_KB_UPLOAD,
 } from "../../api/config";
-import { Bot, User, Send, Loader2, Trash2 } from "lucide-react";
+import { Bot, User, Send, Loader2, Trash2, Upload } from "lucide-react";
 import MarkdownContent from "../../components/MarkdownContent";
 
 const WELCOME = (name) =>
@@ -55,6 +56,8 @@ const AISceneChat = () => {
   const [inputMsg, setInputMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingScene, setLoadingScene] = useState(false);
+  const [kbUploading, setKbUploading] = useState(false);
+  const [kbHint, setKbHint] = useState("");
   const chatContainerRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -207,6 +210,29 @@ const AISceneChat = () => {
     }
   };
 
+  const handleKbUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || kbUploading) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setKbHint("");
+    setKbUploading(true);
+    try {
+      await request.post(API_USER_KB_UPLOAD, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 600000,
+      });
+      setKbHint(`已加入我的资料库：${file.name}（仅自己可见）`);
+    } catch (err) {
+      setKbHint(
+        `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`
+      );
+    } finally {
+      setKbUploading(false);
+      e.target.value = "";
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !loading) {
       e.preventDefault();
@@ -341,6 +367,43 @@ const AISceneChat = () => {
                 </div>
 
                 <div className="student-panel p-4 border-t border-slate-200/70 dark:border-slate-700/70">
+                  <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2">
+                    <label
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${
+                        kbUploading
+                          ? "cursor-wait opacity-80 border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                          : "cursor-pointer border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 dark:border-blue-800/50 dark:text-blue-300 dark:bg-blue-900/20"
+                      }`}
+                    >
+                      {kbUploading ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Upload size={14} />
+                      )}
+                      {kbUploading ? "资料上传中…" : "上传到我的资料库"}
+                      <input
+                        type="file"
+                        accept=".pdf,.txt,.md"
+                        className="hidden"
+                        disabled={kbUploading || loading}
+                        onChange={handleKbUpload}
+                      />
+                    </label>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      仅自己可见；上传完成后可用于当前对话检索
+                    </span>
+                  </div>
+                  {kbHint && (
+                    <p
+                      className={`max-w-3xl mx-auto mb-2 text-xs ${
+                        kbHint.startsWith("上传失败")
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                      }`}
+                    >
+                      {kbHint}
+                    </p>
+                  )}
                   <div className="max-w-3xl mx-auto flex gap-3">
                     <textarea
                       ref={inputRef}

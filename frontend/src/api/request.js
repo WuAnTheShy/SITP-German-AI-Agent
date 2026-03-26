@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE } from './config';
+import { parseStoredUserInfo } from '../utils/safeJson';
 
 // ---------------------------------------------------------------
 // 统一 axios 实例
@@ -30,7 +31,7 @@ request.interceptors.response.use(
     (error) => {
         const skipAuthRedirect = Boolean(error?.config?.skipAuthRedirect);
         if (error.response?.status === 401 && !skipAuthRedirect) {
-            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            const userInfo = parseStoredUserInfo();
             const role = userInfo.role;
             localStorage.removeItem('authToken');
             localStorage.removeItem('userInfo');

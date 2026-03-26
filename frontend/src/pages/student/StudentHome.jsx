@@ -7,18 +7,19 @@ import {
   API_STUDENT_CHAT_SESSIONS,
   API_STUDENT_CHAT_MESSAGES,
   API_STUDENT_CHAT_SESSION,
+  API_USER_KB_UPLOAD,
 } from "../../api/config";
 import {
   Send,
   Bot,
   User,
-  Image as ImageIcon,
   Loader2,
   Plus,
   MessageSquare,
   Trash2,
   PanelLeftClose,
   PanelLeft,
+  Upload,
 } from "lucide-react";
 import MarkdownContent from "../../components/MarkdownContent";
 
@@ -30,7 +31,7 @@ const welcomeMessages = () => [
 ];
 
 const StudentHome = () => {
-  const [messages, setMessages] = useState(welcomeMessages);
+  const [messages, setMessages] = useState(() => welcomeMessages());
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
@@ -39,6 +40,8 @@ const StudentHome = () => {
   const [sidebarDesktopOpen, setSidebarDesktopOpen] = useState(true);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [kbUploading, setKbUploading] = useState(false);
+  const [kbHint, setKbHint] = useState("");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -170,6 +173,29 @@ const StudentHome = () => {
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKbUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || kbUploading) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setKbHint("");
+    setKbUploading(true);
+    try {
+      await request.post(API_USER_KB_UPLOAD, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 600000,
+      });
+      setKbHint(`已加入我的资料库：${file.name}（仅自己可见）`);
+    } catch (err) {
+      setKbHint(
+        `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`
+      );
+    } finally {
+      setKbUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -357,7 +383,7 @@ const StudentHome = () => {
                 <Loader2 className="animate-spin mr-2" /> 加载历史…
               </div>
             ) : (
-              messages.map((msg) => (
+              (Array.isArray(messages) ? messages : []).map((msg) => (
                 <div
                   key={msg.id}
                   className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
@@ -411,6 +437,43 @@ const StudentHome = () => {
           </div>
 
           <div className="student-panel p-3 border-t border-slate-200/70 dark:border-slate-700/70">
+            <div className="max-w-4xl mx-auto mb-2 flex flex-wrap items-center gap-2">
+              <label
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${
+                  kbUploading
+                    ? "cursor-wait opacity-80 border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                    : "cursor-pointer border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 dark:border-blue-800/50 dark:text-blue-300 dark:bg-blue-900/20"
+                }`}
+              >
+                {kbUploading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Upload size={14} />
+                )}
+                {kbUploading ? "资料上传中…" : "上传到我的资料库"}
+                <input
+                  type="file"
+                  accept=".pdf,.txt,.md"
+                  className="hidden"
+                  disabled={kbUploading || loading}
+                  onChange={handleKbUpload}
+                />
+              </label>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                仅自己可见；完成后可在本页对话中检索
+              </span>
+            </div>
+            {kbHint && (
+              <p
+                className={`max-w-4xl mx-auto mb-2 text-xs ${
+                  kbHint.startsWith("上传失败")
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
+                {kbHint}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2 mb-2">
               {promptTemplates.map((t, i) => (
                 <button
@@ -442,12 +505,9 @@ const StudentHome = () => {
                 }
                 disabled={loading || !sessionId}
                 rows={3}
-                className="student-input w-full pl-4 pr-28 py-3 rounded-xl disabled:opacity-60 resize-y min-h-[96px]"
+                className="student-input w-full pl-4 pr-14 py-3 rounded-xl disabled:opacity-60 resize-y min-h-[96px]"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <button type="button" className="p-2 text-gray-400 hidden sm:block">
-                  <ImageIcon size={18} />
-                </button>
                 <button
                   type="button"
                   onClick={handleSend}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { parseStoredUserInfo } from '../../utils/safeJson';
 import request from '../../api/request';
 import { MessageSquare, ArrowLeft, CheckCircle, Loader2, Send } from 'lucide-react';
 import { API_SCENARIO_PUBLISH } from '../../api/config';
@@ -8,7 +9,7 @@ import { useToast } from '../../components/Toast';
 const ScenarioLaunch = () => {
     const navigate = useNavigate();
     const toast = useToast();
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userInfo = parseStoredUserInfo();
     const [isProcessing, setIsProcessing] = useState(false);
 
     // 🟢 1. 状态管理：实时捕获"点击的配置"
