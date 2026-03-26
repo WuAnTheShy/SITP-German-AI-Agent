@@ -337,6 +337,14 @@ const TeacherAI = () => {
             智能分析学情，自动化教务辅助
           </p>
         </div>
+        <a
+          href={myKbHref}
+          className="ml-auto inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 dark:border-teal-800/50 dark:text-teal-300 dark:bg-teal-900/20"
+          title="管理长期资料库"
+        >
+          <BookOpen size={16} />
+          长期资料库
+        </a>
       </div>
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -570,12 +578,7 @@ const TeacherAI = () => {
                   onChange={handleKbUpload}
                 />
               </label>
-              <a
-                href={myKbHref}
-                className="text-xs text-teal-700 dark:text-teal-300 hover:underline"
-              >
-                去我的资料库上传长期资料
-              </a>
+              <span className="text-xs text-slate-500 dark:text-slate-400">仅上传当前会话临时资料</span>
             </div>
             <div className="max-w-4xl mx-auto mb-2 space-y-1.5 text-xs">
               <div className="text-slate-500 dark:text-slate-400">当前会话资料 {currentSessionTempDocs.length} 份</div>

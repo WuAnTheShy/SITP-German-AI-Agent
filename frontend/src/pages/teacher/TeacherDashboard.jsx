@@ -303,6 +303,13 @@ const TeacherDashboard = () => {
                                 >
                                     <Bot size={16} /> AI 助手
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/teacher/${userInfo.id}/my-kb`)}
+                                    className="h-10 px-4 rounded-xl font-bold flex items-center gap-2 transition-colors text-sm bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 border border-teal-200 dark:border-teal-800/40"
+                                >
+                                    <FileText size={16} /> 长期资料库
+                                </button>
                             </div>
                         </div>
                         <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3 bg-white/50 dark:bg-slate-900/50">
