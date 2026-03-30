@@ -156,229 +156,34 @@ def startup_event():
             print(f"[Server] Waiting for database ({attempt}/{max_retries})... {e}")
             time.sleep(retry_interval)
 
-    print("[Server] Checking for database migrations...")
+    print("[Server] Checking database schema status (read-only)...")
     try:
-        with engine.begin() as conn:
-            # 检查 content 字段是否已存在
-            result = conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name='exams' AND column_name='content';
-            """))
-            if not result.fetchone():
-                print("[Server] Missing 'content' column in 'exams' table. Applying patch...")
-                conn.execute(text("ALTER TABLE exams ADD COLUMN content JSONB DEFAULT '[]'::jsonb NOT NULL;"))
-                print("[Server] Database patch applied successfully to exams.")
-            
-            # 检查 personalized_content 是否已存在于 exam_assignments
-            result2 = conn.execute(text("""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name='exam_assignments' AND column_name='personalized_content';
-            """))
-            if not result2.fetchone():
-                print("[Server] Missing 'personalized_content' in 'exam_assignments'. Applying patch...")
-                conn.execute(text("ALTER TABLE exam_assignments ADD COLUMN personalized_content JSONB;"))
-                print("[Server] Database patch applied successfully to exam_assignments.")
-                
-            # 移除 homeworks 表的 file_type 检查约束，以便支持 JSON 类型的试卷
-            try:
-                conn.execute(text("ALTER TABLE homeworks DROP CONSTRAINT IF EXISTS ck_homeworks_file_type;"))
-                conn.execute(text("ALTER TABLE homeworks DROP CONSTRAINT IF EXISTS homeworks_file_type_check;"))
-                print("[Server] Dropped restrictive homeworks file_type check constraints.")
-            except Exception as e:
-                print(f"[Server] Note: Could not drop constraint, it might not exist. {e}")
+        with engine.connect() as conn:
+            version_table = conn.execute(text("SELECT to_regclass('public.alembic_version')")).scalar()
+            if version_table:
+                version_row = conn.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
+                version_num = version_row.scalar()
+                if version_num:
+                    print(f"[Server] Alembic version: {version_num}")
+                else:
+                    print("[Server] Alembic version is empty. Run `alembic upgrade head`.")
+            else:
+                print("[Server] Alembic version table is missing. Run `alembic upgrade head`.")
 
-            # 检查 exam_assignment_id 是否已存在于 homeworks
-            result3 = conn.execute(text("""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name='homeworks' AND column_name='exam_assignment_id';
-            """))
-            if not result3.fetchone():
-                print("[Server] Missing 'exam_assignment_id' in 'homeworks'. Applying patch...")
-                conn.execute(text("ALTER TABLE homeworks ADD COLUMN exam_assignment_id INTEGER;"))
-                print("[Server] Database patch applied successfully to homeworks.")
-
-            # 教师教研助手对话表（按用户隔离）
-            r_tc = conn.execute(text(
-                "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='teacher_chat_sessions'"
-            ))
-            if not r_tc.fetchone():
-                print("[Server] Creating teacher_chat_sessions / teacher_chat_messages...")
-                conn.execute(text(
-                    "CREATE TABLE teacher_chat_sessions ("
-                    "id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
-                    "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
-                ))
-                conn.execute(text(
-                    "CREATE TABLE teacher_chat_messages ("
-                    "id BIGSERIAL PRIMARY KEY, session_id BIGINT NOT NULL REFERENCES teacher_chat_sessions(id) ON DELETE CASCADE, "
-                    "role VARCHAR(16) NOT NULL CHECK (role IN ('user','assistant')), content TEXT NOT NULL, "
-                    "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
-                ))
-                conn.execute(text("CREATE INDEX idx_teacher_chat_sessions_user ON teacher_chat_sessions(user_id)"))
-                conn.execute(text("CREATE INDEX idx_teacher_chat_messages_session ON teacher_chat_messages(session_id)"))
-                print("[Server] Teacher chat tables created.")
-
-            # Agent memory columns
-            for tbl, cols in [
-                ("chat_sessions", [("closed_at", "TIMESTAMPTZ NULL"), ("updated_at", "TIMESTAMPTZ NOT NULL DEFAULT NOW()"), ("title", "VARCHAR(128) NULL")]),
-                ("teacher_chat_sessions", [("closed_at", "TIMESTAMPTZ NULL"), ("updated_at", "TIMESTAMPTZ NOT NULL DEFAULT NOW()"), ("title", "VARCHAR(128) NULL")]),
-                ("students", [("long_memory_summary", "TEXT NULL"), ("memory_updated_at", "TIMESTAMPTZ NULL")]),
-                ("users", [("long_memory_summary", "TEXT NULL"), ("memory_updated_at", "TIMESTAMPTZ NULL")]),
-            ]:
-                for col_name, col_def in cols:
-                    r = conn.execute(text(
-                        "SELECT 1 FROM information_schema.columns WHERE table_name=:t AND column_name=:c"
-                    ), {"t": tbl, "c": col_name})
-                    if not r.fetchone():
-                        conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col_name} {col_def}"))
-                        print(f"[Server] Added {tbl}.{col_name}")
-            conn.execute(text(
-                "UPDATE chat_sessions SET updated_at = created_at WHERE updated_at < created_at OR updated_at IS NULL"
-            ))
-            conn.execute(text(
-                "UPDATE teacher_chat_sessions SET updated_at = created_at WHERE updated_at < created_at OR updated_at IS NULL"
-            ))
-
-            # Migrate missing 'status' columns
-            for tbl in ["users", "students"]:
-                r = conn.execute(text(f"SELECT 1 FROM information_schema.columns WHERE table_name='{tbl}' AND column_name='status'"))
-                if not r.fetchone():
-                    conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved'"))
-                    print(f"[Server] Added {tbl}.status")
-            
-            # Create system_settings table if not exists
-            r_ss = conn.execute(text("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='system_settings'"))
-            if not r_ss.fetchone():
-                conn.execute(text(
-                    "CREATE TABLE system_settings ("
-                    "id SERIAL PRIMARY KEY, "
-                    "setting_key VARCHAR(64) UNIQUE NOT NULL, "
-                    "setting_value VARCHAR(255) NOT NULL, "
-                    "description TEXT)"
-                ))
-                print("[Server] Created system_settings table.")
-
-            # 允许 users.role 为 admin（兼容已有库；PostgreSQL 可能生成 ck_users_role 或 users_role_check）
-            try:
-                conn.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_role"))
-                conn.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check"))
-                conn.execute(text("ALTER TABLE users ADD CONSTRAINT ck_users_role CHECK (role IN ('teacher', 'student', 'admin'))"))
-                print("[Server] users.role constraint updated to include 'admin'.")
-            except Exception as e:
-                print(f"[Server] Note: users role constraint update: {e}")
-
-            # 学生可不关联班级（先注册后加入班级）
-            try:
-                conn.execute(text("ALTER TABLE students ALTER COLUMN class_id DROP NOT NULL"))
-                print("[Server] students.class_id allowed NULL.")
-            except Exception as e:
-                print(f"[Server] Note: students class_id nullable: {e}")
-
-            # 班级可暂不设置主教师（多教师关系以关系表为准）
-            try:
-                conn.execute(text("ALTER TABLE classes ALTER COLUMN teacher_user_id DROP NOT NULL"))
-                print("[Server] classes.teacher_user_id allowed NULL.")
-            except Exception as e:
-                print(f"[Server] Note: classes teacher_user_id nullable: {e}")
-
-            # 班级-教师多对多关系表
-            conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS class_teacher_relations ("
-                "id BIGSERIAL PRIMARY KEY, "
-                "class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE, "
-                "teacher_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
-                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
-                "UNIQUE (class_id, teacher_user_id))"
-            ))
-
-            # 班级-学生多对多关系表
-            conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS class_student_relations ("
-                "id BIGSERIAL PRIMARY KEY, "
-                "class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE, "
-                "student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE, "
-                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
-                "UNIQUE (class_id, student_id))"
-            ))
-
-            # 从旧单字段回填关系表
-            conn.execute(text(
-                "INSERT INTO class_teacher_relations (class_id, teacher_user_id) "
-                "SELECT id, teacher_user_id FROM classes WHERE teacher_user_id IS NOT NULL "
-                "ON CONFLICT (class_id, teacher_user_id) DO NOTHING"
-            ))
-            conn.execute(text(
-                "INSERT INTO class_student_relations (class_id, student_id) "
-                "SELECT class_id, id FROM students WHERE class_id IS NOT NULL "
-                "ON CONFLICT (class_id, student_id) DO NOTHING"
-            ))
-
-            # RAG 知识库：pgvector + 文档/切片表
-            try:
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-                print("[Server] pgvector extension ensured.")
-            except Exception as e:
-                print(f"[Server] Note: pgvector extension unavailable: {e}")
-
-            conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS kb_documents ("
-                "id BIGSERIAL PRIMARY KEY, "
-                "title VARCHAR(255) NOT NULL, "
-                "source_name VARCHAR(255) NOT NULL, "
-                "source_path TEXT NOT NULL, "
-                "mime_type VARCHAR(128) NULL, "
-                "status VARCHAR(32) NOT NULL DEFAULT 'processing', "
-                "scope VARCHAR(16) NOT NULL DEFAULT 'public', "
-                "owner_user_id BIGINT NULL REFERENCES users(id) ON DELETE CASCADE, "
-                "is_active BOOLEAN NOT NULL DEFAULT TRUE, "
-                "chunk_count INTEGER NOT NULL DEFAULT 0, "
-                "error_message TEXT NULL, "
-                "uploaded_by BIGINT NULL REFERENCES users(id) ON DELETE SET NULL, "
-                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
-                "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
-                ")"
-            ))
-            try:
-                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS scope VARCHAR(16) NOT NULL DEFAULT 'public'"))
-                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS owner_user_id BIGINT NULL REFERENCES users(id) ON DELETE CASCADE"))
-                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"))
-                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS is_temporary BOOLEAN NOT NULL DEFAULT FALSE"))
-                conn.execute(text("ALTER TABLE kb_documents ADD COLUMN IF NOT EXISTS session_key VARCHAR(128) NULL"))
-            except Exception as e:
-                print(f"[Server] Note: kb_documents scope/owner migration: {e}")
-            conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS kb_chunks ("
-                "id BIGSERIAL PRIMARY KEY, "
-                "document_id BIGINT NOT NULL REFERENCES kb_documents(id) ON DELETE CASCADE, "
-                "chunk_index INTEGER NOT NULL, "
-                "content TEXT NOT NULL, "
-                "token_count INTEGER NOT NULL DEFAULT 0, "
-                "metadata JSONB NOT NULL DEFAULT '{}'::jsonb, "
-                "embedding vector, "
-                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
-                "UNIQUE(document_id, chunk_index)"
-                ")"
-            ))
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS idx_kb_documents_status ON kb_documents(status)"
-            ))
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS idx_kb_chunks_doc ON kb_chunks(document_id)"
-            ))
-            try:
-                conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS idx_kb_chunks_embedding_ivfflat "
-                    "ON kb_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
-                ))
-            except Exception as e:
-                print(f"[Server] Note: ivfflat index skipped: {e}")
+            ext_row = conn.execute(text("SELECT extname FROM pg_extension WHERE extname='vector'"))
+            has_vector = bool(ext_row.fetchone())
+            docs_row = conn.execute(text("SELECT to_regclass('public.kb_documents')"))
+            chunks_row = conn.execute(text("SELECT to_regclass('public.kb_chunks')"))
+            has_docs = bool((docs_row.scalar() or "").strip())
+            has_chunks = bool((chunks_row.scalar() or "").strip())
+            if has_vector and has_docs and has_chunks:
+                print("[Server] RAG check: pgvector and kb schema are present.")
+            else:
+                print("[Server] RAG check: missing extension/schema. Run `alembic upgrade head`.")
 
             print("[Server] Database schema checks completed.")
     except Exception as e:
-        print(f"[Server] Database migration failed (might be handled by alembic): {e}")
+        print(f"[Server] Database schema check failed: {e}")
 
     # 确保管理员账号存在（由环境变量 INIT_ADMIN_USERNAME / INIT_ADMIN_PASSWORD 控制）
     try:
