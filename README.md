@@ -428,7 +428,8 @@ docker compose exec backend alembic history
 
 说明：
 
-- 首次建库时，`backend/db/sql/*.sql` 仍用于基线初始化。
+- 当前仓库采用“基线 SQL + 增量 Alembic”的过渡方案：首次建库由 `001/002/003/004_student_seed.sql` 完成基础结构与示例数据。
+- `teacher_chat` 与 `agent_memory` 相关结构已统一收敛到 Alembic，避免与初始化 SQL 重复执行。
 - 后续新功能的表结构变更，请统一新增 Alembic revision，不再依赖手工改库。
 - 历史数据卷不会自动重跑初始化 SQL，但会在启动时通过 Alembic 升级到最新结构。
 
