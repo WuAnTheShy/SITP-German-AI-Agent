@@ -22,12 +22,12 @@
 
 ### 核心特性
 
-| 模块           | 功能亮点                                                                                           |
-| -------------- | -------------------------------------------------------------------------------------------------- |
+| 模块            | 功能亮点                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
 | 🛡️ **管理员端** | 教师审核与账号启停 · 班级创建/编辑/删除 · 学生名单与分班管理 · 账号密码重置（教师/学生） · 系统审核策略开关 |
-| 🎓 **教师端**  | 教学仪表盘 · 学情监控 · AI教研助手 · 智能试卷生成 · 情景任务发布 · 发布历史溯源 · 作业全轨批改      |
-| 📚 **学生端**  | 专属 AI 语伴 · 词汇/语法/听说写作跨板块评测 · 错题精练诊断 · 学习进度追踪 · 收藏夹          |
-| 🤖 **AI 引擎** | Qwen / LM Studio 双模式 · 德语助教人设 · 语法纠错 · 中德双语解释                                     |
+| 🎓 **教师端**   | 教学仪表盘 · 学情监控 · AI教研助手 · 智能试卷生成 · 情景任务发布 · 发布历史溯源 · 作业全轨批改              |
+| 📚 **学生端**   | 专属 AI 语伴 · 词汇/语法/听说写作跨板块评测 · 错题精练诊断 · 学习进度追踪 · 收藏夹                          |
+| 🤖 **AI 引擎**  | Qwen / LM Studio 双模式 · 德语助教人设 · 语法纠错 · 中德双语解释                                            |
 
 ---
 
@@ -68,14 +68,14 @@
 
 ### 后端 (Backend)
 
-| 技术                                               | 用途              |
-| -------------------------------------------------- | ----------------- |
-| [FastAPI](https://fastapi.tiangolo.com/)           | Web 框架 (Python) |
-| [Uvicorn](https://www.uvicorn.org/)                | ASGI 服务器       |
+| 技术                                                                                  | 用途                             |
+| ------------------------------------------------------------------------------------- | -------------------------------- |
+| [FastAPI](https://fastapi.tiangolo.com/)                                              | Web 框架 (Python)                |
+| [Uvicorn](https://www.uvicorn.org/)                                                   | ASGI 服务器                      |
 | [Qwen API](https://help.aliyun.com/zh/dashscope/) / [LM Studio](https://lmstudio.ai/) | OpenAI 兼容模型调用（云端/本地） |
-| [SQLAlchemy](https://www.sqlalchemy.org/)          | ORM 数据库操作    |
-| [Psycopg](https://www.psycopg.org/psycopg3/)       | PostgreSQL 驱动   |
-| [Alembic](https://alembic.sqlalchemy.org/)         | 数据库迁移管理    |
+| [SQLAlchemy](https://www.sqlalchemy.org/)                                             | ORM 数据库操作                   |
+| [Psycopg](https://www.psycopg.org/psycopg3/)                                          | PostgreSQL 驱动                  |
+| [Alembic](https://alembic.sqlalchemy.org/)                                            | 数据库迁移管理                   |
 
 ### 基础设施 (DevOps)
 
@@ -100,9 +100,9 @@ SITP-German-AI-Agent/
 │   ├── crud/                    # 数据库 CRUD 操作层
 │   │   └── repositories.py      # 数据仓库实现
 │   ├── db/                      # 数据库相关
-│   │   ├── sql/                 # SQL 初始化脚本
+│   │   ├── sql/                 # 历史基线脚本（由 Alembic 基线迁移引用）
 │   │   ├── session.py           # 数据库会话管理
-│   │   └── init_db.py           # 数据库初始化
+│   │   └── init_db.py           # 历史工具（当前不作为主流程）
 │   ├── models/                  # SQLAlchemy ORM 模型
 │   │   └── entities.py          # 数据库实体定义
 │   ├── routers/                 # API 路由
@@ -172,26 +172,26 @@ SITP-German-AI-Agent/
 
 #### 核心配置项速查
 
-| 变量名 | 类型 | 必填 | 生产建议值 | 说明 |
-|--------|------|------|---------|------|
-| `APP_ENV` | 字符串 | ✅ | `production` | 运行环境标志 |
-| `POSTGRES_USER` | 字符串 | ✅ | `postgres` | 数据库用户名（通常不变） |
-| `POSTGRES_PASSWORD` | 字符串 | ✅ | 高强度密码 | 数据库密码，Docker Compose 必填 |
-| `POSTGRES_DB` | 字符串 | ✅ | `sitp_german_ai_agent` | 数据库名 |
-| `INIT_ADMIN_USERNAME` | 字符串 | ✅ | `admin` | 首次启动创建的管理员用户名 |
-| `INIT_ADMIN_PASSWORD` | 字符串 | ✅ | 高强度密码 | 首次启动创建的管理员密码 |
-| `AUTH_TOKEN_SECRET` | 字符串 | ✅ | 32+ 随机字符 | 令牌签名密钥，**绝不能硬编码在代码中** |
-| `RESET_ADMIN_PASSWORD_ON_STARTUP` | 布尔 | ⭕ | `false` | 每次启动是否重置管理员密码（生产 false） |
-| `RESET_DEMO_PASSWORDS_ON_STARTUP` | 布尔 | ⭕ | `false` | 每次启动是否重置演示账号密码（生产 false） |
-| `ENABLE_DEMO_SEED` | 布尔 | ⭕ | `false` | 是否初始化演示数据（生产 false） |
-| `DEMO_TEACHER_PASSWORD` | 字符串 | ⭕ | 高强度密码 | 演示教师账号密码（可留空让系统随机生成） |
-| `DEMO_STUDENT_PASSWORD` | 字符串 | ⭕ | 高强度密码 | 演示学生账号密码（可留空让系统随机生成） |
-| `CORS_ALLOW_ORIGINS` | 字符串 | ⭕ | 生产域名 | 前端域名（同域留空，跨域用逗号分隔） |
-| `LLM_PROVIDER` | 字符串 | ✅ | `qwen` 或 `lmstudio` | 大语言模型提供商 |
-| `QWEN_API_KEY` | 字符串 | 有条件 | 阿里云密钥 | 使用 Qwen 时必填 |
-| `LMSTUDIO_BASE_URL` | 字符串 | 有条件 | Docker: `http://host.docker.internal:1234` | 使用 LM Studio 时必填 |
-| `LMSTUDIO_MODEL` | 字符串 | 有条件 | `qwen2.5-7b-instruct` | LM Studio 模型 ID（需与实际加载模型一致） |
-| `DEBUG_LLM_LOGS` | 布尔 | ⭕ | `false` | 是否打印 LLM 调试日志（生产 false） |
+| 变量名                            | 类型   | 必填   | 生产建议值                                 | 说明                                       |
+| --------------------------------- | ------ | ------ | ------------------------------------------ | ------------------------------------------ |
+| `APP_ENV`                         | 字符串 | ✅     | `production`                               | 运行环境标志                               |
+| `POSTGRES_USER`                   | 字符串 | ✅     | `postgres`                                 | 数据库用户名（通常不变）                   |
+| `POSTGRES_PASSWORD`               | 字符串 | ✅     | 高强度密码                                 | 数据库密码，Docker Compose 必填            |
+| `POSTGRES_DB`                     | 字符串 | ✅     | `sitp_german_ai_agent`                     | 数据库名                                   |
+| `INIT_ADMIN_USERNAME`             | 字符串 | ✅     | `admin`                                    | 首次启动创建的管理员用户名                 |
+| `INIT_ADMIN_PASSWORD`             | 字符串 | ✅     | 高强度密码                                 | 首次启动创建的管理员密码                   |
+| `AUTH_TOKEN_SECRET`               | 字符串 | ✅     | 32+ 随机字符                               | 令牌签名密钥，**绝不能硬编码在代码中**     |
+| `RESET_ADMIN_PASSWORD_ON_STARTUP` | 布尔   | ⭕     | `false`                                    | 每次启动是否重置管理员密码（生产 false）   |
+| `RESET_DEMO_PASSWORDS_ON_STARTUP` | 布尔   | ⭕     | `false`                                    | 每次启动是否重置演示账号密码（生产 false） |
+| `ENABLE_DEMO_SEED`                | 布尔   | ⭕     | `false`                                    | 是否初始化演示数据（生产 false）           |
+| `DEMO_TEACHER_PASSWORD`           | 字符串 | ⭕     | 高强度密码                                 | 演示教师账号密码（可留空让系统随机生成）   |
+| `DEMO_STUDENT_PASSWORD`           | 字符串 | ⭕     | 高强度密码                                 | 演示学生账号密码（可留空让系统随机生成）   |
+| `CORS_ALLOW_ORIGINS`              | 字符串 | ⭕     | 生产域名                                   | 前端域名（同域留空，跨域用逗号分隔）       |
+| `LLM_PROVIDER`                    | 字符串 | ✅     | `qwen` 或 `lmstudio`                       | 大语言模型提供商                           |
+| `QWEN_API_KEY`                    | 字符串 | 有条件 | 阿里云密钥                                 | 使用 Qwen 时必填                           |
+| `LMSTUDIO_BASE_URL`               | 字符串 | 有条件 | Docker: `http://host.docker.internal:1234` | 使用 LM Studio 时必填                      |
+| `LMSTUDIO_MODEL`                  | 字符串 | 有条件 | `qwen2.5-7b-instruct`                      | LM Studio 模型 ID（需与实际加载模型一致）  |
+| `DEBUG_LLM_LOGS`                  | 布尔   | ⭕     | `false`                                    | 是否打印 LLM 调试日志（生产 false）        |
 
 #### 完整配置示例（生产推荐）
 
@@ -259,10 +259,10 @@ QWEN_API_KEY=sk-your-dashscope-api-key
 - 启动 LM Studio API 服务（默认 `http://127.0.0.1:1234`）
 - 配置 `.env`（需分情况）：
 
-| 运行场景 | 配置值 |
-|---------|--------|
-| 后端在宿主机运行（本地开发） | `LMSTUDIO_BASE_URL=http://127.0.0.1:1234` |
-| 后端在 Docker 容器运行 | `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` |
+| 运行场景                     | 配置值                                               |
+| ---------------------------- | ---------------------------------------------------- |
+| 后端在宿主机运行（本地开发） | `LMSTUDIO_BASE_URL=http://127.0.0.1:1234`            |
+| 后端在 Docker 容器运行       | `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` |
 
 ---
 
@@ -480,12 +480,12 @@ echo "✅ Password update complete!"
 
 #### 常见启动问题速查
 
-| 错误现象 | 根本原因 | 解决方案 |
-|--------|--------|--------|
-| `required variable POSTGRES_PASSWORD is missing` | `.env` 缺少 `POSTGRES_PASSWORD` | 补齐该变量后重新 `docker compose up -d --build` |
-| 后端日志：`password authentication failed for user "postgres"` | `.env` 与数据库内部密码不一致 | 按上文"场景 B"执行 `ALTER USER` 同步密码 |
-| 前端返回 `502 Bad Gateway` | Nginx 无法连接后端容器或后端未就绪 | 查看 backend 日志：`docker compose logs backend` |
-| 系统正常启动但 AI 对话无回复 | LLM 配置错误或 API Key 无效 | 检查 LLM_PROVIDER、QWEN_API_KEY、LMSTUDIO 连接 |
+| 错误现象                                                       | 根本原因                           | 解决方案                                         |
+| -------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------ |
+| `required variable POSTGRES_PASSWORD is missing`               | `.env` 缺少 `POSTGRES_PASSWORD`    | 补齐该变量后重新 `docker compose up -d --build`  |
+| 后端日志：`password authentication failed for user "postgres"` | `.env` 与数据库内部密码不一致      | 按上文"场景 B"执行 `ALTER USER` 同步密码         |
+| 前端返回 `502 Bad Gateway`                                     | Nginx 无法连接后端容器或后端未就绪 | 查看 backend 日志：`docker compose logs backend` |
+| 系统正常启动但 AI 对话无回复                                   | LLM 配置错误或 API Key 无效        | 检查 LLM_PROVIDER、QWEN_API_KEY、LMSTUDIO 连接   |
 
 #### 第 6 步：日志查看与故障诊断
 
@@ -511,12 +511,12 @@ docker compose logs --since 1h backend
 
 **常见日志特征：**
 
-| 关键字 | 含义 | 处理 |
-|--------|------|------|
-| `password authentication failed` | PostgreSQL 用户认证失败 | 检查 POSTGRES_PASSWORD 与容器内密码一致性 |
+| 关键字                                | 含义                       | 处理                                             |
+| ------------------------------------- | -------------------------- | ------------------------------------------------ |
+| `password authentication failed`      | PostgreSQL 用户认证失败    | 检查 POSTGRES_PASSWORD 与容器内密码一致性        |
 | `Connection to localhost:5432 failed` | 后端连接数据库超时或被拒绝 | 检查 DB 容器是否运行、POSTGRES_PASSWORD 是否正确 |
-| `502 Bad Gateway` (Nginx 日志) | 反向代理无法连接后端 | 检查后端容器是否运行、端口是否正确 |
-| `Application startup complete` | 后端启动成功 | 系统就绪 |
+| `502 Bad Gateway` (Nginx 日志)        | 反向代理无法连接后端       | 检查后端容器是否运行、端口是否正确               |
+| `Application startup complete`        | 后端启动成功               | 系统就绪                                         |
 
 #### 第 7 步：停止、重启、清理
 
@@ -538,11 +538,9 @@ docker system prune -a --volumes -f && docker compose up -d --build
 
 ### 💻 本地开发环境快速启动
 
+适用需要于需要修改代码并实时预览开发的开发场景。
 
-
-适用于需要修改代码并实时预览的开发场景。
-
-> **前置要求**：Node.js ≥ 18、Python ≥ 3.10、正在运行的 PostgreSQL 16 实例
+> **前置要求**：Node.js ≥ 18、Python ≥ 3.10、正在运行的 PostgreSQL 16 实例、根目录下.env环境配置文件
 
 **1. 启动数据库**
 
@@ -551,6 +549,8 @@ docker system prune -a --volumes -f && docker compose up -d --build
 ```bash
 docker compose up -d db
 ```
+
+> 说明：本项目数据库结构由 Alembic 统一管理，本地开发不再需要手工执行 `backend/db/sql` 下的 SQL 文件。
 
 **2. 启动后端**
 
@@ -570,6 +570,9 @@ pip install -r requirements.txt
 # $env:LLM_PROVIDER="lmstudio"
 # $env:LMSTUDIO_BASE_URL="http://127.0.0.1:1234"
 # $env:LMSTUDIO_MODEL="qwen2.5-7b-instruct"
+
+# 执行数据库迁移
+alembic -c alembic.ini upgrade head
 
 # 启动开发服务器 (热重载)
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -643,13 +646,13 @@ LMSTUDIO_API_KEY=
 
 ### 5. 常见问题排查
 
-| 现象 | 常见原因 | 处理方式 |
-| ---- | ---- | ---- |
-| AI 对话无响应 / 超时 | LM Studio 服务未启动 | 在 LM Studio 中重新启动本地 API 服务 |
-| 后端报 404 | `LMSTUDIO_BASE_URL` 配错（缺端口或路径） | 使用 `http://127.0.0.1:1234` 或 `http://host.docker.internal:1234`，不要手动拼 `/v1/chat/completions` |
-| Docker 模式连接失败 | 容器内写成了 `127.0.0.1` | 改为 `host.docker.internal` |
-| 模型调用报错 | `LMSTUDIO_MODEL` 与当前加载模型名不一致 | 在 LM Studio 中复制准确模型 ID 到 `.env` |
-| 切换 provider 后行为异常 | 后端未重启，仍使用旧环境变量 | 重启后端服务（本地重启 uvicorn / Docker 重启 backend） |
+| 现象                     | 常见原因                                 | 处理方式                                                                                              |
+| ------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| AI 对话无响应 / 超时     | LM Studio 服务未启动                     | 在 LM Studio 中重新启动本地 API 服务                                                                  |
+| 后端报 404               | `LMSTUDIO_BASE_URL` 配错（缺端口或路径） | 使用 `http://127.0.0.1:1234` 或 `http://host.docker.internal:1234`，不要手动拼 `/v1/chat/completions` |
+| Docker 模式连接失败      | 容器内写成了 `127.0.0.1`                 | 改为 `host.docker.internal`                                                                           |
+| 模型调用报错             | `LMSTUDIO_MODEL` 与当前加载模型名不一致  | 在 LM Studio 中复制准确模型 ID 到 `.env`                                                              |
+| 切换 provider 后行为异常 | 后端未重启，仍使用旧环境变量             | 重启后端服务（本地重启 uvicorn / Docker 重启 backend）                                                |
 
 ---
 
@@ -663,12 +666,12 @@ LMSTUDIO_API_KEY=
 - 管理员账号密码来自 `.env` 的 `INIT_ADMIN_PASSWORD`
 - 若未配置上述密码，系统会为“新建账号”生成随机强密码并输出到后端日志
 
-| 角色  | 用户名/学号|密码 | 班级 | 备注 |
-| ----  | -----------| ----------- | ---- | ---- |
-| 教师  | `t_zhang` |`TeacherDemo@2026!`| 软件工程(四)班（SE-2026-4） | 张老师 |
-| 学生  | `2452001` |`StudentDemo@2026!`| 软件工程(四)班（SE-2026-4） | 李娜 |
-| 学生  | `2452002` |`StudentDemo@2026!`| 软件工程(四)班（SE-2026-4） | 王强 |
-| 管理员  | `admin` | `admin123`|- | 管理员 |
+| 角色   | 用户名/学号 | 密码                | 班级                        | 备注   |
+| ------ | ----------- | ------------------- | --------------------------- | ------ |
+| 教师   | `t_zhang`   | `TeacherDemo@2026!` | 软件工程(四)班（SE-2026-4） | 张老师 |
+| 学生   | `2452001`   | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 李娜   |
+| 学生   | `2452002`   | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 王强   |
+| 管理员 | `admin`     | `admin123`          | -                           | 管理员 |
 
 > ⚠️ 教师端和学生端均已启用密码校验与权限隔离，学生账号无法访问教师端功能，反之亦然。
 
@@ -695,19 +698,19 @@ LMSTUDIO_API_KEY=
 
 前端通过 Vite 环境变量实现三种运行模式的**零改动切换**：
 
-| 运行模式 | 启动方式 | 前端访问地址 | API 请求路由 |
-| --------- | -------------------------------- | -------------------- | ---------------------------------------- |
-| 🖥️ 本地开发 | `npm run dev` | `localhost:5173` | Vite Proxy → `localhost:8000` |
-| 🐳 本地 Docker | `docker compose up -d --build` | `localhost:80` | Nginx 反向代理 → `backend:8000` |
-| 🌐 服务器 Docker | 同上 (在服务器执行) | `服务器IP:80` | Nginx 反向代理 → `backend:8000` |
+| 运行模式         | 启动方式                       | 前端访问地址     | API 请求路由                    |
+| ---------------- | ------------------------------ | ---------------- | ------------------------------- |
+| 🖥️ 本地开发      | `npm run dev`                  | `localhost:5173` | Vite Proxy → `localhost:8000`   |
+| 🐳 本地 Docker   | `docker compose up -d --build` | `localhost:80`   | Nginx 反向代理 → `backend:8000` |
+| 🌐 服务器 Docker | 同上 (在服务器执行)            | `服务器IP:80`    | Nginx 反向代理 → `backend:8000` |
 
 **配置文件说明**
 
-| 文件 | 用途 | 是否提交到 Git |
-| ------ | ------ | ------------- |
-| `frontend/.env.development` | 开发模式默认配置（Proxy 目标地址等） | ✅ 是 |
-| `frontend/.env.production` | 生产模式默认配置 | ✅ 是 |
-| `frontend/.env.development.local` | **本地覆盖**（如需代理到远程服务器） | ❌ 否 |
+| 文件                              | 用途                                 | 是否提交到 Git |
+| --------------------------------- | ------------------------------------ | -------------- |
+| `frontend/.env.development`       | 开发模式默认配置（Proxy 目标地址等） | ✅ 是          |
+| `frontend/.env.production`        | 生产模式默认配置                     | ✅ 是          |
+| `frontend/.env.development.local` | **本地覆盖**（如需代理到远程服务器） | ❌ 否          |
 
 **进阶用法：本地开发时代理到远程服务器**
 
@@ -756,30 +759,30 @@ docker system df
 
 ## 📡 API 概览
 
-| 方法   | 端点                       | 功能                 |
-| ------ | -------------------------- | -------------------- |
-| `POST` | `/api/auth/login` | 教师/管理员登录 |
-| `POST` | `/api/auth/student-login` | 学生登录 |
-| `PUT` | `/api/user/password` | 教师/学生自助修改密码 |
-| `GET` | `/api/admin/teachers` | 管理员查看教师列表 |
-| `PUT` | `/api/admin/teachers/{user_id}` | 管理员更新教师状态与启停 |
-| `DELETE` | `/api/admin/teachers/{user_id}` | 管理员删除教师账号 |
-| `GET` | `/api/admin/students` | 管理员查看学生列表 |
-| `PUT` | `/api/admin/students/{student_id}` | 管理员更新学生信息 |
-| `DELETE` | `/api/admin/students/{student_id}` | 管理员删除学生账号 |
-| `PUT` | `/api/admin/users/{user_id}/password` | 管理员重置教师/学生密码 |
-| `GET` | `/api/admin/classes` | 管理员查看班级列表 |
-| `POST` | `/api/admin/classes` | 管理员创建班级 |
-| `PUT` | `/api/admin/classes/{class_id}` | 管理员编辑班级 |
-| `DELETE` | `/api/admin/classes/{class_id}` | 管理员删除班级 |
-| `PUT` | `/api/admin/system/settings` | 管理员更新审核策略 |
-| `GET`  | `/api/teacher/dashboard` | 教师教学仪表盘 |
-| `GET`  | `/api/teacher/students` | 教师查看班内学生 |
-| `POST` | `/api/scenario/publish` | 教师发布情景任务 |
-| `POST` | `/api/exam/generate` | 教师生成智能试卷 |
-| `GET` | `/api/student/favorites/list` | 学生查看收藏列表 |
-| `DELETE` | `/api/student/favorites/{fav_id}` | 学生删除收藏 |
-| `GET` | `/api/student/learning/progress` | 学生学习进度总览 |
+| 方法     | 端点                                  | 功能                     |
+| -------- | ------------------------------------- | ------------------------ |
+| `POST`   | `/api/auth/login`                     | 教师/管理员登录          |
+| `POST`   | `/api/auth/student-login`             | 学生登录                 |
+| `PUT`    | `/api/user/password`                  | 教师/学生自助修改密码    |
+| `GET`    | `/api/admin/teachers`                 | 管理员查看教师列表       |
+| `PUT`    | `/api/admin/teachers/{user_id}`       | 管理员更新教师状态与启停 |
+| `DELETE` | `/api/admin/teachers/{user_id}`       | 管理员删除教师账号       |
+| `GET`    | `/api/admin/students`                 | 管理员查看学生列表       |
+| `PUT`    | `/api/admin/students/{student_id}`    | 管理员更新学生信息       |
+| `DELETE` | `/api/admin/students/{student_id}`    | 管理员删除学生账号       |
+| `PUT`    | `/api/admin/users/{user_id}/password` | 管理员重置教师/学生密码  |
+| `GET`    | `/api/admin/classes`                  | 管理员查看班级列表       |
+| `POST`   | `/api/admin/classes`                  | 管理员创建班级           |
+| `PUT`    | `/api/admin/classes/{class_id}`       | 管理员编辑班级           |
+| `DELETE` | `/api/admin/classes/{class_id}`       | 管理员删除班级           |
+| `PUT`    | `/api/admin/system/settings`          | 管理员更新审核策略       |
+| `GET`    | `/api/teacher/dashboard`              | 教师教学仪表盘           |
+| `GET`    | `/api/teacher/students`               | 教师查看班内学生         |
+| `POST`   | `/api/scenario/publish`               | 教师发布情景任务         |
+| `POST`   | `/api/exam/generate`                  | 教师生成智能试卷         |
+| `GET`    | `/api/student/favorites/list`         | 学生查看收藏列表         |
+| `DELETE` | `/api/student/favorites/{fav_id}`     | 学生删除收藏             |
+| `GET`    | `/api/student/learning/progress`      | 学生学习进度总览         |
 
 > 完整 API 文档（自动生成）：启动后端后访问 http://localhost:8000/docs
 
@@ -790,10 +793,12 @@ docker system df
 详细的系统设计与操作指南请参考 [`doc/`](doc/) 目录：
 
 ### 👤 用户手册 (User Manuals)
+
 - [教师端后台操作手册](doc/User_Manuals/教师端后台手册.md) — 涵盖登录、仪表盘、情景发布、试卷生成、作业批改等全流程。
 - [学生端应用手册](doc/User_Manuals/学生端应用手册.md) — 介绍任务中心、AI 语伴对话、考试系统及专项学习工具。
 
 ### 🔧 技术文档 (Technical Docs)
+
 - [系统流程与架构](doc/Technical/系统流程与架构.md) — 核心业务流程图（Mermaid）与数据流转说明。
 - [数据库架构说明](doc/Database/数据库开发使用说明.md) — 详述 27 张核心数据表的结构与关联。
 - [API 接口参考手册](doc/Technical/API参考手册.md) — 各端点功能、请求方法及响应格式列表。
@@ -801,6 +806,7 @@ docker system df
 - [开发维护与扩展导引](doc/Technical/开发维护与扩展导引.md) — 代码结构解析与扩展开发指南。
 
 ### 🚀 运维指南 (Maintenance)
+
 - [环境部署与维护指南](doc/Maintenance/环境部署与维护指南.md) — Docker 部署、数据备份、代理配置及安全建议。
 
 ---
