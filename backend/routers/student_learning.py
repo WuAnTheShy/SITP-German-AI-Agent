@@ -499,6 +499,9 @@ def error_book_start_review(req: ErrorReviewReq, request: Request, db: Session =
             f"请用中文给出针对性的复习建议(100字以内)。"
         )
         tip = ai_text(prompt, f"建议重点复习「{cat_name}」相关语法规则，结合例句反复练习。")
+        # 确保返回的提示不为空
+        if not tip or tip.strip() == "":
+            tip = f"建议重点复习「{cat_name}」相关语法规则，结合例句反复练习。"
         _track_and_refresh(db, student.id, "语法练习", 3, f"错题复盘: {cat_name}")
         return ok({"reviewTip": tip})
     except Exception as e:
@@ -617,6 +620,28 @@ def favorites_delete(fav_id: int, request: Request, db: Session = Depends(get_db
 def favorites_ai_extend(req: FavAIExtendReq, request: Request = None, db: Session = Depends(get_db)):
     require_student(request, db)
     try:
+        # 验证内容是否为空
+        if not req.content or req.content.strip() == "":
+            return fail("内容不能为空")
+        
+        # 验证类型是否有效
+        valid_types = ["vocab", "grammar", "sentence", "note"]
+        if req.type not in valid_types:
+            # 尝试根据内容自动判断类型
+            content = req.content.strip()
+            if any(char.isdigit() for char in content) or len(content.split()) > 10:
+                # 包含数字或长文本，可能是笔记
+                req.type = "note"
+            elif len(content.split()) <= 3 and any(char.isupper() for char in content):
+                # 短文本且包含大写字母，可能是词汇
+                req.type = "vocab"
+            elif "." in content or "，" in content or "!" in content or "?" in content:
+                # 包含标点，可能是句子
+                req.type = "sentence"
+            else:
+                # 默认为笔记
+                req.type = "note"
+        
         type_prompts = {
             "vocab": f"请对德语词汇「{req.content}」进行扩展：给出词性、复数形式、常用搭配和2个例句。用中文回答。",
             "grammar": f"请对德语语法规则「{req.content}」进行扩展讲解：给出详细说明和3个例句。用中文回答。",
@@ -625,6 +650,9 @@ def favorites_ai_extend(req: FavAIExtendReq, request: Request = None, db: Sessio
         }
         prompt = type_prompts.get(req.type, f"请对「{req.content}」进行扩展讲解，用中文回答。")
         extended = ai_text(prompt, f"暂无法为「{req.content}」生成扩展内容。")
+        # 确保返回的扩展内容不为空
+        if not extended or extended.strip() == "":
+            extended = f"暂无法为「{req.content}」生成扩展内容。"
         return ok({"extendContent": extended})
     except Exception as e:
         return fail(f"AI扩展失败: {e}")
