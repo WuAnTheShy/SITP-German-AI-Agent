@@ -100,9 +100,9 @@ SITP-German-AI-Agent/
 │   ├── crud/                    # 数据库 CRUD 操作层
 │   │   └── repositories.py      # 数据仓库实现
 │   ├── db/                      # 数据库相关
-│   │   ├── sql/                 # SQL 初始化脚本
+│   │   ├── sql/                 # 历史基线脚本（由 Alembic 基线迁移引用）
 │   │   ├── session.py           # 数据库会话管理
-│   │   └── init_db.py           # 数据库初始化
+│   │   └── init_db.py           # 历史工具（当前不作为主流程）
 │   ├── models/                  # SQLAlchemy ORM 模型
 │   │   └── entities.py          # 数据库实体定义
 │   ├── routers/                 # API 路由
@@ -408,44 +408,6 @@ curl -X POST http://localhost/api/auth/login \
   -d '{"username":"admin","password":"TestPassword"}'
 ```
 
-#### 团队统一：数据库迁移标准流程（推荐）
-
-为避免“同一代码、不同成员库结构不一致”，统一使用 Alembic 迁移版本。
-
-本流程同时适用于以下两种协作方式：
-
-- 方式 A：全 Docker 部署（db + backend + frontend）
-- 方式 B：Docker 数据库 + 本地后端/前端开发
-
-- 后端容器启动时会自动执行：`alembic upgrade head`
-- 团队成员日常只需执行：`docker compose up -d --build`
-- 若要手动确认迁移状态，可执行：
-
-```bash
-docker compose exec backend alembic current
-docker compose exec backend alembic history
-```
-
-说明：
-
-- 当前仓库采用“基线 SQL + 增量 Alembic”的过渡方案：首次建库由 `001/002/003/004_student_seed.sql` 完成基础结构与示例数据。
-- `teacher_chat` 与 `agent_memory` 相关结构已统一收敛到 Alembic，避免与初始化 SQL 重复执行。
-- 后续新功能的表结构变更，请统一新增 Alembic revision，不再依赖手工改库。
-- 历史数据卷不会自动重跑初始化 SQL，但会在启动时通过 Alembic 升级到最新结构。
-
-新增数据库结构变更时，建议按如下步骤执行：
-
-```bash
-# 进入后端目录
-cd backend
-
-# 生成一个新的迁移文件（消息按实际功能命名）
-alembic -c alembic.ini revision -m "add_xxx_table"
-
-# 编辑 alembic/versions/*.py 后，执行升级
-alembic -c alembic.ini upgrade head
-```
-
 #### 升级部署可选：一键改密脚本（Shell + Python）
 
 ```bash
@@ -588,6 +550,8 @@ docker system prune -a --volumes -f && docker compose up -d --build
 docker compose up -d db
 ```
 
+> 说明：本项目数据库结构由 Alembic 统一管理，本地开发不再需要手工执行 `backend/db/sql` 下的 SQL 文件。
+
 **2. 启动后端**
 
 ```bash
@@ -608,7 +572,7 @@ pip install -r requirements.txt
 # $env:LMSTUDIO_MODEL="qwen2.5-7b-instruct"
 
 # 执行数据库迁移
-alembic -c alembic.ini upgrade head  # 在首次启动或 git pull 新 migration 时必须运行
+alembic -c alembic.ini upgrade head
 
 # 启动开发服务器 (热重载)
 uvicorn main:app --reload --host 0.0.0.0 --port 8000

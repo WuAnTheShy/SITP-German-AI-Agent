@@ -1,7 +1,7 @@
 """add rag kb schema
 
 Revision ID: 20260330_0001
-Revises:
+Revises: 20260330_0000
 Create Date: 2026-03-30 00:00:00
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20260330_0001"
-down_revision = None
+down_revision = "20260330_0000"
 branch_labels = None
 depends_on = None
 
