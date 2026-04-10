@@ -427,6 +427,11 @@ class ErrorBookEntryRead(ORMBase):
 
 # ---------- 收藏夹 ----------
 
+class FavoriteCategoryCreate(BaseModel):
+    type: str
+    name: str
+
+
 class FavoriteCategoryRead(ORMBase):
     id: int
     type: str

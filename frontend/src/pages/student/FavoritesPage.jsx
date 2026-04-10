@@ -11,6 +11,7 @@ const FavoritesPage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [newFav, setNewFav] = useState({
+    type: 'note',
     content: '',
     translate: '',
     rule: '',
@@ -153,6 +154,19 @@ const FavoritesPage = () => {
             <div className="student-panel rounded-2xl shadow-xl w-full max-w-md p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">新建收藏</h3>
               <form onSubmit={handleAddFav}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">收藏类型</label>
+                  <select
+                    value={newFav.type}
+                    onChange={(e) => setNewFav({...newFav, type: e.target.value})}
+                    className="student-input w-full px-3 py-2 rounded-lg text-sm"
+                  >
+                    <option value="vocab">词汇</option>
+                    <option value="grammar">语法</option>
+                    <option value="sentence">句子</option>
+                    <option value="note">笔记</option>
+                  </select>
+                </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">收藏内容 *</label>
                   <input 
