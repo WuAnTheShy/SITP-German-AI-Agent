@@ -1065,6 +1065,14 @@ class FavoriteCategoryCRUD:
     def get_by_type(db: Session, fav_type: str) -> FavoriteCategory | None:
         return db.scalar(select(FavoriteCategory).where(FavoriteCategory.type == fav_type))
 
+    @staticmethod
+    def create(db: Session, payload) -> FavoriteCategory:
+        obj = FavoriteCategory(**payload.model_dump())
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
 
 class FavoriteCRUD:
     @staticmethod

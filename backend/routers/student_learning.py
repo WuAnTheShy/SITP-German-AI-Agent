@@ -125,6 +125,14 @@ class FavAIExtendReq(BaseModel):
     type: str = "note"
 
 
+class FavoriteAddReq(BaseModel):
+    type: str = "note"
+    content: str
+    translate: str = ""
+    rule: str = ""
+    note: str = ""
+
+
 @router.get("/api/student/vocab/list")
 def vocab_list(request: Request, db: Session = Depends(get_db)):
     try:
@@ -733,3 +741,77 @@ def learning_progress(request: Request, db: Session = Depends(get_db)):
         })
     except Exception as e:
         return fail(f"获取学习进度失败: {e}")
+
+
+@router.post("/api/student/favorites/add")
+def favorites_add(req: FavoriteAddReq, request: Request, db: Session = Depends(get_db)):
+    try:
+        student = current_student(request, db)
+        if not student:
+            return fail("未找到学生信息", 401)
+        
+        # 验证内容是否为空
+        if not req.content or req.content.strip() == "":
+            return fail("内容不能为空")
+        
+        # 验证类型是否有效
+        valid_types = ["vocab", "grammar", "sentence", "note"]
+        if req.type not in valid_types:
+            return fail("无效的收藏类型")
+        
+        # 获取或创建分类
+        category = FavoriteCategoryCRUD.get_by_type(db, req.type)
+        if not category:
+            # 如果分类不存在，创建默认分类
+            from schemas.entities import FavoriteCategoryCreate
+            category = FavoriteCategoryCRUD.create(
+                db,
+                FavoriteCategoryCreate(
+                    type=req.type,
+                    name={
+                        "vocab": "词汇",
+                        "grammar": "语法",
+                        "sentence": "句子",
+                        "note": "笔记"
+                    }.get(req.type, "笔记")
+                )
+            )
+        
+        # 检查是否已存在相同内容的收藏
+        existing_favs = FavoriteCRUD.list_by_student_and_category(db, student.id, category.id)
+        for fav in existing_favs:
+            if fav.content == req.content:
+                return fail("该内容已在收藏夹中")
+        
+        # 创建收藏
+        favorite = FavoriteCRUD.create(
+            db,
+            FavoriteCreate(
+                student_id=student.id,
+                category_id=category.id,
+                content=req.content,
+                translate=req.translate,
+                rule=req.rule,
+                note=req.note
+            )
+        )
+        
+        # 记录学习行为
+        _track_and_refresh(
+            db,
+            student.id,
+            "收藏",
+            1,
+            f"添加{category.name}收藏"
+        )
+        
+        return ok({
+            "id": favorite.id,
+            "type": req.type,
+            "content": favorite.content,
+            "translate": favorite.translate,
+            "rule": favorite.rule,
+            "note": favorite.note
+        }, "添加收藏成功")
+    except Exception as e:
+        return fail(f"添加收藏失败: {e}")
