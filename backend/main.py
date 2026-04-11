@@ -192,6 +192,95 @@ def startup_event():
         _db = SessionLocal()
         try:
             _ensure_admin(_db)
+            
+            # 初始化 chat_scenes 表
+            from models.entities import ChatScene, GrammarCategory, GrammarExercise
+            from sqlalchemy import select
+            
+            # 检查 chat_scenes 表是否为空
+            existing_scenes = _db.scalars(select(ChatScene)).all()
+            if not existing_scenes:
+                print("[Server] Initializing chat_scenes table...")
+                # 添加前端定义的场景
+                scenes = [
+                    {"id": 1, "name": "校园课堂问答", "description": "和老师互动、回答课堂问题"},
+                    {"id": 2, "name": "日常购物交流", "description": "超市/商店买东西的德语对话"},
+                    {"id": 3, "name": "留学面试沟通", "description": "德国大学入学面试常见问题"},
+                    {"id": 4, "name": "餐厅点餐对话", "description": "德国餐厅点餐、询问菜品"},
+                ]
+                for scene_data in scenes:
+                    scene = ChatScene(
+                        id=scene_data["id"],
+                        name=scene_data["name"],
+                        description=scene_data["description"]
+                    )
+                    _db.add(scene)
+                _db.commit()
+                print("[Server] chat_scenes table initialized successfully")
+            
+            # 初始化 grammar_categories 表
+            existing_categories = _db.scalars(select(GrammarCategory)).all()
+            if not existing_categories:
+                print("[Server] Initializing grammar_categories table...")
+                # 添加默认语法分类
+                categories = [
+                    {"id": 1, "name": "动词变位", "description": "学习德语动词的各种变位形式"},
+                    {"id": 2, "name": "名词格变化", "description": "掌握德语名词的四个格变化"},
+                    {"id": 3, "name": "完成时", "description": "学习德语完成时的构成和用法"},
+                    {"id": 4, "name": "被动语态", "description": "掌握德语被动语态的构成和用法"},
+                    {"id": 5, "name": "虚拟式", "description": "学习德语虚拟式的用法"},
+                    {"id": 6, "name": "介词搭配", "description": "掌握德语介词的正确搭配"},
+                    {"id": 7, "name": "句序", "description": "学习德语句子的正确语序"},
+                ]
+                for cat_data in categories:
+                    category = GrammarCategory(
+                        id=cat_data["id"],
+                        name=cat_data["name"],
+                        description=cat_data["description"]
+                    )
+                    _db.add(category)
+                _db.commit()
+                print("[Server] grammar_categories table initialized successfully")
+                
+                # 为每个分类添加一些练习题
+                print("[Server] Adding sample grammar exercises...")
+                exercises = [
+                    # 动词变位练习
+                    {"category_id": 1, "question": "Ich ______ (sein) Student.", "correct_answer": "bin", "analysis": "sein的第一人称单数变位是bin"},
+                    {"category_id": 1, "question": "Du ______ (haben) ein Buch.", "correct_answer": "hast", "analysis": "haben的第二人称单数变位是hast"},
+                    {"category_id": 1, "question": "Er ______ (gehen) zur Schule.", "correct_answer": "geht", "analysis": "gehen的第三人称单数变位是geht"},
+                    
+                    # 名词格变化练习
+                    {"category_id": 2, "question": "Der Hund beißt ______ (der) Mann.", "correct_answer": "den", "analysis": "四格宾语，阳性名词der变den"},
+                    {"category_id": 2, "question": "Ich gebe ______ (die) Frau ein Buch.", "correct_answer": "der", "analysis": "三格宾语，阴性名词die变der"},
+                    
+                    # 完成时练习
+                    {"category_id": 3, "question": "Ich ______ (essen) schon.", "correct_answer": "habe gegessen", "analysis": "完成时由haben+第二分词构成"},
+                    {"category_id": 3, "question": "Er ______ (gehen) nach Hause.", "correct_answer": "ist gegangen", "analysis": "gehen是不及物动词，完成时用sein"},
+                    
+                    # 被动语态练习
+                    {"category_id": 4, "question": "Das Buch ______ (lesen) von mir.", "correct_answer": "wird gelesen", "analysis": "现在时被动语态：werden+第二分词"},
+                    
+                    # 虚拟式练习
+                    {"category_id": 5, "question": "Wenn ich Zeit ______ (haben), gehe ich ins Kino.", "correct_answer": "hätte", "analysis": "第二虚拟式，表示与现在事实相反的假设"},
+                    
+                    # 介词搭配练习
+                    {"category_id": 6, "question": "Ich komme ______ Deutschland.", "correct_answer": "aus", "analysis": "kommen aus表示来自"},
+                    {"category_id": 6, "question": "Er geht ______ Schule.", "correct_answer": "zur", "analysis": "gehen zur Schule表示去上学"},
+                    
+                    # 句序练习
+                    {"category_id": 7, "question": "Ich / gern / Fußball / spiele", "correct_answer": "Ich spiele gern Fußball", "analysis": "德语基本语序：主语+谓语+宾语"},
+                ]
+                for ex_data in exercises:
+                    exercise = GrammarExercise(
+                        category_id=ex_data["category_id"],
+                        question=ex_data["question"],
+                        correct_answer=ex_data["correct_answer"],
+                        analysis=ex_data["analysis"]
+                    )
+                    _db.add(exercise)
+                _db.commit()
+                print("[Server] Sample grammar exercises added successfully")
         finally:
             _db.close()
     except Exception as e:
