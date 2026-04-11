@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.session import get_db
@@ -248,68 +249,156 @@ def grammar_categories(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/api/student/grammar/exercises")
 def grammar_exercises(request: Request, categoryId: int = Query(...), db: Session = Depends(get_db)):
-    require_student(request, db)
+    student = require_student(request, db)
     try:
         exs = GrammarExerciseCRUD.list_by_category(db, categoryId)
-        return ok([{"id": e.id, "question": e.question} for e in exs])
+        # 获取当前学生的历史提交记录映射
+        submissions = GrammarSubmissionCRUD.list_by_student_and_exercises(
+            db, student.id, [e.id for e in exs]
+        )
+        submission_map = {s.exercise_id: s for s in submissions}
+        
+        result = []
+        for e in exs:
+            item = {"id": e.id, "question": e.question}
+            # 如果有历史记录，添加到响应中
+            if e.id in submission_map:
+                sub = submission_map[e.id]
+                item["userAnswer"] = sub.user_answer
+                item["isCorrect"] = sub.is_correct
+                item["analysis"] = sub.ai_analysis or ""
+                item["submittedAt"] = sub.submitted_at.isoformat() if sub.submitted_at else None
+                item["hasHistory"] = True
+            else:
+                item["hasHistory"] = False
+            result.append(item)
+        
+        return ok(result)
     except Exception as e:
         return fail(f"获取练习失败: {e}")
 
 
 @router.post("/api/student/grammar/submit")
 def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depends(get_db)):
+    """
+    语法题目提交接口
+    1. 保存/更新学生答题历史到GrammarSubmission
+    2. 答错时同步到错题本，答对时标记为已掌握
+    """
     try:
         student = current_student(request, db)
         if not student:
             return fail("未找到学生信息", 401)
+        
         details = []
         correct_count = 0
         error_cats = {c.name: c.id for c in ErrorBookCategoryCRUD.list_all(db)}
+        
         for ans in req.answers:
             ex = GrammarExerciseCRUD.get_by_id(db, ans.exerciseId)
             if not ex:
                 continue
+            
+            # 判断答案是否正确（不区分大小写）
             is_correct = ans.userAnswer.strip().lower() == ex.correct_answer.strip().lower()
             if is_correct:
                 correct_count += 1
+            
+            # 生成或获取分析文本
             analysis = ex.analysis or ""
             if not is_correct and not analysis:
-                analysis = ai_text(
-                    f"德语语法题:\n题目:{ex.question}\n学生答:{ans.userAnswer}\n"
-                    f"正确答案:{ex.correct_answer}\n请用中文简短解释错误原因(50字以内)。",
-                    "请参考正确答案复习。",
+                try:
+                    analysis = ai_text(
+                        f"德语语法题:\n题目:{ex.question}\n学生答:{ans.userAnswer}\n"
+                        f"正确答案:{ex.correct_answer}\n请用中文简短解释错误原因(50字以内)。",
+                        "请参考正确答案复习。",
+                    )
+                except Exception as e:
+                    print(f"[Grammar] AI解析失败: {e}", flush=True)
+                    analysis = "请参考正确答案复习"
+            
+            # 保存答题历史（UPSERT逻辑）
+            last_sub = GrammarSubmissionCRUD.get_last_submission(db, student.id, ans.exerciseId)
+            if last_sub:
+                # 更新现有记录
+                last_sub.user_answer = ans.userAnswer
+                last_sub.is_correct = is_correct
+                last_sub.ai_analysis = analysis if not is_correct else None
+                db.merge(last_sub)
+            else:
+                # 创建新记录
+                GrammarSubmissionCRUD.create(
+                    db,
+                    GrammarSubmissionCreate(
+                        student_id=student.id, exercise_id=ans.exerciseId,
+                        user_answer=ans.userAnswer, is_correct=is_correct,
+                        ai_analysis=analysis if not is_correct else None,
+                    ),
                 )
-            GrammarSubmissionCRUD.create(
-                db,
-                GrammarSubmissionCreate(
-                    student_id=student.id, exercise_id=ans.exerciseId,
-                    user_answer=ans.userAnswer, is_correct=is_correct,
-                    ai_analysis=analysis if not is_correct else None,
-                ),
+            
+            # 【错题本同步逻辑】
+            grammar_cat = GrammarCategoryCRUD.get_by_id(db, req.categoryId)
+            eb_cat_id = _match_error_category(
+                grammar_cat.name if grammar_cat else "", error_cats
             )
-            if not is_correct:
-                grammar_cat = GrammarCategoryCRUD.get_by_id(db, req.categoryId)
-                eb_cat_id = _match_error_category(
-                    grammar_cat.name if grammar_cat else "", error_cats
-                )
-                if eb_cat_id:
+            
+            if eb_cat_id:
+                if not is_correct:
+                    # 答错：添加或更新错题本记录
                     try:
-                        ErrorBookEntryCRUD.create(
-                            db,
-                            ErrorBookEntryCreate(
-                                student_id=student.id, category_id=eb_cat_id,
-                                source="语法练习", question=ex.question,
-                                user_answer=ans.userAnswer,
-                                correct_answer=ex.correct_answer, analysis=analysis,
-                            ),
+                        existing_error = db.scalar(
+                            select(ErrorBookEntry).where(
+                                (ErrorBookEntry.student_id == student.id) &
+                                (ErrorBookEntry.source == "语法练习") &
+                                (ErrorBookEntry.question == ex.question)
+                            )
                         )
-                    except Exception:
-                        pass
+                        if existing_error:
+                            # 更新现有错题记录
+                            existing_error.user_answer = ans.userAnswer
+                            existing_error.correct_answer = ex.correct_answer
+                            existing_error.analysis = analysis
+                            existing_error.is_mastered = False
+                            db.merge(existing_error)
+                        else:
+                            # 新增错题记录
+                            ErrorBookEntryCRUD.create(
+                                db,
+                                ErrorBookEntryCreate(
+                                    student_id=student.id, category_id=eb_cat_id,
+                                    source="语法练习", question=ex.question,
+                                    user_answer=ans.userAnswer,
+                                    correct_answer=ex.correct_answer, 
+                                    analysis=analysis,
+                                ),
+                            )
+                    except Exception as e:
+                        print(f"[Grammar] 错题本同步失败: {e}", flush=True)
+                else:
+                    # 答对：标记错题本中该题为已掌握（如果存在的话）
+                    try:
+                        existing_error = db.scalar(
+                            select(ErrorBookEntry).where(
+                                (ErrorBookEntry.student_id == student.id) &
+                                (ErrorBookEntry.source == "语法练习") &
+                                (ErrorBookEntry.question == ex.question)
+                            )
+                        )
+                        if existing_error:
+                            existing_error.is_mastered = True
+                            db.merge(existing_error)
+                    except Exception as e:
+                        print(f"[Grammar] 更新错题本状态失败: {e}", flush=True)
+            
             details.append({
-                "exerciseId": ex.id, "isCorrect": is_correct,
+                "exerciseId": ex.id, 
+                "isCorrect": is_correct,
                 "correctAnswer": ex.correct_answer,
                 "analysis": analysis if not is_correct else "",
             })
+        
+        db.commit()  # 提交所有更改
+        
         wrong_count = len(req.answers) - correct_count
         _track_and_refresh(
             db,
@@ -318,12 +407,17 @@ def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depend
             max(3, len(req.answers) * 2),
             f"语法提交: 正确{correct_count}/{len(req.answers)}",
         )
+        
         return ok({
-            "totalCount": len(req.answers), "correctCount": correct_count,
-            "wrongCount": wrong_count, "detailList": details,
+            "totalCount": len(req.answers), 
+            "correctCount": correct_count,
+            "wrongCount": wrong_count, 
+            "detailList": details,
         })
     except Exception as e:
-        return fail(f"提交失败: {e}")
+        db.rollback()
+        print(f"[Grammar Submit] 错误: {e}", flush=True)
+        return fail(f"提交失败: {str(e)}")
 
 
 @router.get("/api/student/listening/materials")

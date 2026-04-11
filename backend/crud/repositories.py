@@ -933,6 +933,30 @@ class GrammarSubmissionCRUD:
             select(GrammarSubmission).where(GrammarSubmission.student_id == student_id).order_by(GrammarSubmission.submitted_at.desc())
         ))
 
+    @staticmethod
+    def list_by_student_and_exercises(
+        db: Session, student_id: int, exercise_ids: list[int]
+    ) -> list[GrammarSubmission]:
+        """查询学生指定练习题的最新提交记录"""
+        if not exercise_ids:
+            return []
+        return list(db.scalars(
+            select(GrammarSubmission).where(
+                (GrammarSubmission.student_id == student_id) &
+                (GrammarSubmission.exercise_id.in_(exercise_ids))
+            ).order_by(GrammarSubmission.submitted_at.desc())
+        ))
+
+    @staticmethod
+    def get_last_submission(db: Session, student_id: int, exercise_id: int) -> GrammarSubmission | None:
+        """获取某题的最新提交记录"""
+        return db.scalar(
+            select(GrammarSubmission).where(
+                (GrammarSubmission.student_id == student_id) &
+                (GrammarSubmission.exercise_id == exercise_id)
+            ).order_by(GrammarSubmission.submitted_at.desc()).limit(1)
+        )
+
 
 class ListeningMaterialCRUD:
     @staticmethod
