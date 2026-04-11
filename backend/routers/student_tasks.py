@@ -11,13 +11,24 @@ from crud.repositories import (
     HomeworkCRUD, StudentCRUD, ClassroomCRUD,
     ErrorBookCategoryCRUD, ErrorBookEntryCRUD
 )
-from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPush, ErrorBookEntry
+from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPush, ErrorBookEntry, ErrorBookCategory
 from schemas.entities import HomeworkCreate
 from core.responses import ok, fail
 from core.deps import current_student, require_student
 from services.metrics import track_learning_activity, refresh_student_metrics
 
 router = APIRouter()
+
+
+def _ensure_default_error_category_id(db: Session) -> int | None:
+    """确保存在默认错题分类，避免错题写入依赖seed。"""
+    cat = db.scalar(select(ErrorBookCategory).where(ErrorBookCategory.name == "全部"))
+    if cat:
+        return cat.id
+    cat = ErrorBookCategory(name="全部")
+    db.add(cat)
+    db.flush()
+    return cat.id
 
 
 class JoinClassBody(BaseModel):
@@ -154,7 +165,7 @@ def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session
         
         # 获取错题分类信息 - 统一使用"全部"分类
         error_cats = {c.name: c.id for c in ErrorBookCategoryCRUD.list_all(db)}
-        default_error_cat_id = error_cats.get("全部", next(iter(error_cats.values())) if error_cats else None)
+        default_error_cat_id = error_cats.get("全部") or _ensure_default_error_category_id(db)
         
         earned_score = 0
         ai_comment_lines = []

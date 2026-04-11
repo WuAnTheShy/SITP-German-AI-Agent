@@ -39,6 +39,7 @@ from services.metrics import (
     parse_duration_minutes,
     compute_student_interaction_minutes,
 )
+from models.entities import ErrorBookCategory, ErrorBookEntry
 
 router = APIRouter()
 
@@ -71,6 +72,17 @@ def _get_error_category_id(error_cats: dict[str, int]) -> int | None:
     return error_cats.get("全部", next(iter(error_cats.values()), None) if error_cats else None)
 
 
+def _ensure_default_error_category_id(db: Session) -> int | None:
+    """确保存在默认错题分类，避免因未初始化分类导致错题丢失。"""
+    cat = db.scalar(select(ErrorBookCategory).where(ErrorBookCategory.name == "全部"))
+    if cat:
+        return cat.id
+    cat = ErrorBookCategory(name="全部")
+    db.add(cat)
+    db.flush()
+    return cat.id
+
+
 class VocabCollectReq(BaseModel):
     vocabId: int
     isCollect: bool
@@ -89,6 +101,13 @@ class GrammarAnswerItem(BaseModel):
 class GrammarSubmitReq(BaseModel):
     categoryId: int
     answers: list[GrammarAnswerItem]
+
+
+class GrammarGenerateReq(BaseModel):
+    categoryId: int
+    count: int = 5
+    difficulty: str = "A2"
+    preference: str | None = None
 
 
 class SpeakingEvalReq(BaseModel):
@@ -267,6 +286,68 @@ def grammar_exercises(request: Request, categoryId: int = Query(...), db: Sessio
         return fail(f"获取练习失败: {e}")
 
 
+@router.post("/api/student/grammar/generate")
+def grammar_generate(req: GrammarGenerateReq, request: Request, db: Session = Depends(get_db)):
+    """按分类与用户偏好生成新语法题，并直接入库后返回。"""
+    require_student(request, db)
+    try:
+        category = GrammarCategoryCRUD.get_by_id(db, req.categoryId)
+        if not category:
+            return fail("语法分类不存在", 404)
+
+        count = max(1, min(10, req.count))
+        existing = GrammarExerciseCRUD.list_by_category(db, req.categoryId)
+        existing_questions = [e.question for e in existing]
+        existing_preview = "\n".join(f"- {q}" for q in existing_questions[:25]) or "无"
+        pref = (req.preference or "").strip()
+
+        prompt = (
+            f"你是德语语法出题助手。请围绕分类「{category.name}」生成 {count} 道{req.difficulty}难度练习题。\n"
+            f"学生偏好/薄弱点：{pref or '无特别偏好'}。\n"
+            "题目要简洁、明确，避免与已有题目重复。\n"
+            f"已有题目（避免重复）：\n{existing_preview}\n"
+            "请严格返回 JSON 数组，每项字段为："
+            "question(题干，包含空格或提示)、correctAnswer(标准答案)、analysis(中文简析，40字内)。"
+            "只返回 JSON，不要其他文字。"
+        )
+
+        generated = ai_json(prompt, [])
+        if not isinstance(generated, list) or not generated:
+            return fail("AI未生成有效题目，请稍后重试")
+
+        saved = []
+        seen = set(existing_questions)
+        for item in generated:
+            if not isinstance(item, dict):
+                continue
+            q = str(item.get("question", "")).strip()
+            a = str(item.get("correctAnswer", "")).strip()
+            analysis = str(item.get("analysis", "")).strip() or None
+            if not q or not a or q in seen:
+                continue
+            try:
+                obj = GrammarExerciseCRUD.create(
+                    db,
+                    category_id=req.categoryId,
+                    question=q,
+                    correct_answer=a,
+                    analysis=analysis,
+                )
+                saved.append({"id": obj.id, "question": obj.question, "hasHistory": False})
+                seen.add(q)
+            except Exception:
+                continue
+            if len(saved) >= count:
+                break
+
+        if not saved:
+            return fail("未生成可用新题（可能与现有题重复），请更换偏好后重试")
+
+        return ok(saved, f"已生成{len(saved)}道新题")
+    except Exception as e:
+        return fail(f"AI生成语法题失败: {e}")
+
+
 @router.post("/api/student/grammar/submit")
 def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depends(get_db)):
     """
@@ -282,6 +363,9 @@ def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depend
         details = []
         correct_count = 0
         error_cats = {c.name: c.id for c in ErrorBookCategoryCRUD.list_all(db)}
+        default_error_cat_id = _ensure_default_error_category_id(db)
+        if default_error_cat_id and "全部" not in error_cats:
+            error_cats["全部"] = default_error_cat_id
         
         for ans in req.answers:
             ex = GrammarExerciseCRUD.get_by_id(db, ans.exerciseId)

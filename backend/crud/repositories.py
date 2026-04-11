@@ -917,6 +917,37 @@ class GrammarExerciseCRUD:
     def get_by_id(db: Session, exercise_id: int) -> GrammarExercise | None:
         return db.scalar(select(GrammarExercise).where(GrammarExercise.id == exercise_id))
 
+    @staticmethod
+    def get_by_category_and_question(
+        db: Session, category_id: int, question: str
+    ) -> GrammarExercise | None:
+        return db.scalar(
+            select(GrammarExercise).where(
+                GrammarExercise.category_id == category_id,
+                GrammarExercise.question == question,
+            )
+        )
+
+    @staticmethod
+    def create(
+        db: Session,
+        *,
+        category_id: int,
+        question: str,
+        correct_answer: str,
+        analysis: str | None = None,
+    ) -> GrammarExercise:
+        obj = GrammarExercise(
+            category_id=category_id,
+            question=question,
+            correct_answer=correct_answer,
+            analysis=analysis,
+        )
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
 
 class GrammarSubmissionCRUD:
     @staticmethod

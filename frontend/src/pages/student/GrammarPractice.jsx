@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
 import request from '../../api/request';
-import { API_GRAMMAR_CATEGORIES, API_GRAMMAR_EXERCISES, API_GRAMMAR_SUBMIT } from '../../api/config';
+import { API_GRAMMAR_CATEGORIES, API_GRAMMAR_EXERCISES, API_GRAMMAR_SUBMIT, API_GRAMMAR_GENERATE } from '../../api/config';
 
 const GrammarPractice = () => {
   const [grammarCategories, setGrammarCategories] = useState([]);
@@ -13,6 +13,10 @@ const GrammarPractice = () => {
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasHistoryData, setHasHistoryData] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
+  const [generateCount, setGenerateCount] = useState(5);
+  const [generateDifficulty, setGenerateDifficulty] = useState('A2');
+  const [generatePreference, setGeneratePreference] = useState('');
 
   useEffect(() => {
     const getGrammarCategories = async () => {
@@ -119,6 +123,41 @@ const GrammarPractice = () => {
     }
   };
 
+  const handleGenerateExercises = async () => {
+    if (!selectedCategory) {
+      alert('请先选择语法分类');
+      return;
+    }
+    setGeneratingAI(true);
+    try {
+      const response = await request.post(API_GRAMMAR_GENERATE, {
+        categoryId: selectedCategory.id,
+        count: Number(generateCount),
+        difficulty: generateDifficulty,
+        preference: generatePreference.trim() || null,
+      });
+      const result = response.data;
+      if (result.code !== 200) throw new Error(result.message || 'AI生成题目失败');
+
+      const existingIds = new Set(exercises.map(item => item.id));
+      const appended = (result.data || []).filter(item => !existingIds.has(item.id));
+      if (appended.length === 0) {
+        alert('AI生成完成，但没有可追加的新题（可能重复）。');
+        return;
+      }
+
+      setExercises(prev => [...prev, ...appended]);
+      setCorrectionResult(null);
+      setHasHistoryData(false);
+      alert(`已追加 ${appended.length} 道AI新题，可直接作答并提交。`);
+    } catch (err) {
+      alert(err.message || 'AI生成题目失败');
+      console.error('AI生成语法题错误：', err);
+    } finally {
+      setGeneratingAI(false);
+    }
+  };
+
   const handleResetAnswers = () => {
     setUserAnswers({});
     setCorrectionResult(null);
@@ -165,6 +204,55 @@ const GrammarPractice = () => {
                   🔄 重新答题
                 </button>
               )}
+            </div>
+
+            <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+              <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300 mb-3">AI个性化出题</p>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">难度</label>
+                  <select
+                    value={generateDifficulty}
+                    onChange={(e) => setGenerateDifficulty(e.target.value)}
+                    className="student-input w-full px-3 py-2 rounded-lg"
+                  >
+                    <option value="A1">A1</option>
+                    <option value="A2">A2</option>
+                    <option value="B1">B1</option>
+                    <option value="B2">B2</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">数量</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={generateCount}
+                    onChange={(e) => setGenerateCount(e.target.value)}
+                    className="student-input w-full px-3 py-2 rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">你的偏好（可选）</label>
+                  <input
+                    type="text"
+                    placeholder="例如：我总是错动词变位，想多练第一二人称"
+                    value={generatePreference}
+                    onChange={(e) => setGeneratePreference(e.target.value)}
+                    className="student-input w-full px-3 py-2 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="mt-3">
+                <button
+                  onClick={handleGenerateExercises}
+                  disabled={generatingAI || loadingExercises || submitting}
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                >
+                  {generatingAI ? 'AI生成中...' : '✨ AI追加新题'}
+                </button>
+              </div>
             </div>
 
             {loadingExercises ? (

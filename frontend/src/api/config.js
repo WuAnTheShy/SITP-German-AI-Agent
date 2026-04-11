@@ -103,6 +103,7 @@ export const API_VOCAB_GENERATE = `${API_BASE}/api/student/vocab/generate`;
 export const API_GRAMMAR_CATEGORIES = `${API_BASE}/api/student/grammar/categories`;
 export const API_GRAMMAR_EXERCISES = `${API_BASE}/api/student/grammar/exercises`;
 export const API_GRAMMAR_SUBMIT = `${API_BASE}/api/student/grammar/submit`;
+export const API_GRAMMAR_GENERATE = `${API_BASE}/api/student/grammar/generate`;
 
 // ---- 听说训练 ----
 export const API_LISTENING_MATERIALS = `${API_BASE}/api/student/listening/materials`;
