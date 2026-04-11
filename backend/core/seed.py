@@ -3,6 +3,7 @@ import os
 import secrets
 import string
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from crud.repositories import (
@@ -11,7 +12,9 @@ from crud.repositories import (
     StudentCRUD,
     StudentAbilityCRUD,
     HomeworkCRUD,
+    ErrorBookCategoryCRUD,
 )
+from models.entities import ErrorBookCategory
 from schemas.entities import (
     UserCreate,
     ClassroomCreate,
@@ -102,9 +105,24 @@ def _ensure_admin(db: Session):
     )
 
 
+def _ensure_error_book_categories(db: Session):
+    """初始化默认的错题分类 - 只创建一个"全部"分类"""
+    cat_name = "全部"
+    
+    existing = db.scalar(select(ErrorBookCategory).where(ErrorBookCategory.name == cat_name))
+    if not existing:
+        cat = ErrorBookCategory(name=cat_name)
+        db.add(cat)
+        db.commit()
+        print(f"[Seed] 创建错题分类: {cat_name}", flush=True)
+
+
 def _ensure_demo_data(db: Session):
     if not should_seed_demo_data():
         return None, None
+
+    # 初始化错题分类
+    _ensure_error_book_categories(db)
 
     global _WARNED_DEMO_TEACHER_PASSWORD, _WARNED_DEMO_STUDENT_PASSWORD
 

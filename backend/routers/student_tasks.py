@@ -7,8 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from crud.repositories import HomeworkCRUD, StudentCRUD, ClassroomCRUD
-from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPush
+from crud.repositories import (
+    HomeworkCRUD, StudentCRUD, ClassroomCRUD,
+    ErrorBookCategoryCRUD, ErrorBookEntryCRUD
+)
+from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPush, ErrorBookEntry
 from schemas.entities import HomeworkCreate
 from core.responses import ok, fail
 from core.deps import current_student, require_student
@@ -126,32 +129,93 @@ def get_exam_for_student(assignment_id: int, request: Request, db: Session = Dep
 
 @router.post("/api/student/exam/submit")
 def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session = Depends(get_db)):
+    """
+    试卷提交接口
+    1. 评分并保存答卷记录
+    2. 答错的题目自动添加到错题本
+    """
     try:
         student = current_student(request, db)
         if not student:
             return fail("未授权", 401)
-        assignment = db.scalar(select(ExamAssignment).where(ExamAssignment.id == req.assignment_id, ExamAssignment.student_id == student.id))
+        assignment = db.scalar(select(ExamAssignment).where(
+            ExamAssignment.id == req.assignment_id, 
+            ExamAssignment.student_id == student.id
+        ))
         if not assignment:
             return fail("任务不存在")
         if assignment.status == "completed":
             return fail("该试卷已提交过")
+        
         exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
         content = assignment.personalized_content if assignment.personalized_content else exam.content
         if not content:
             content = []
+        
+        # 获取错题分类信息 - 统一使用"全部"分类
+        error_cats = {c.name: c.id for c in ErrorBookCategoryCRUD.list_all(db)}
+        default_error_cat_id = error_cats.get("全部", next(iter(error_cats.values())) if error_cats else None)
+        
         earned_score = 0
         ai_comment_lines = []
+        
         for idx, q_data in enumerate(content):
             q_score = q_data.get("score", 0)
             u_ans = req.answers.get(str(idx), "")
+            
             if q_data.get("type") == "grammar":
                 correct_ans = str(q_data.get("answer", ""))
-                if correct_ans and (u_ans.startswith(correct_ans + '.') or u_ans.startswith(correct_ans + ' ') or u_ans == correct_ans or correct_ans.startswith(u_ans) or u_ans.startswith(correct_ans)):
+                is_correct = (
+                    correct_ans and (
+                        u_ans.startswith(correct_ans + '.') or 
+                        u_ans.startswith(correct_ans + ' ') or 
+                        u_ans == correct_ans or 
+                        correct_ans.startswith(u_ans) or 
+                        u_ans.startswith(correct_ans)
+                    )
+                )
+                
+                if is_correct:
                     earned_score += q_score
                 else:
+                    # 答错：添加到错题本
                     ai_comment_lines.append(f"第 {idx + 1} 题(语法): 答错了，你的答案 [{u_ans}]；正确答案 [{correct_ans}]")
+                    
+                    if default_error_cat_id:
+                        try:
+                            question_text = q_data.get("q", f"第 {idx + 1} 题")
+                            # 检查是否已存在该题目的错题记录
+                            existing_error = db.scalar(
+                                select(ErrorBookEntry).where(
+                                    (ErrorBookEntry.student_id == student.id) &
+                                    (ErrorBookEntry.source == "试卷测验") &
+                                    (ErrorBookEntry.question == question_text)
+                                )
+                            )
+                            
+                            if existing_error:
+                                # 更新现有错题
+                                existing_error.user_answer = u_ans
+                                existing_error.correct_answer = correct_ans
+                                existing_error.is_mastered = False
+                                db.merge(existing_error)
+                            else:
+                                # 创建新的错题记录
+                                new_error = ErrorBookEntry(
+                                    student_id=student.id,
+                                    category_id=default_error_cat_id,
+                                    source="试卷测验",
+                                    question=question_text,
+                                    user_answer=u_ans,
+                                    correct_answer=correct_ans,
+                                    analysis=f"来自试卷 [{exam.exam_code}]，请参考正确答案复习。",
+                                )
+                                db.add(new_error)
+                        except Exception as e:
+                            print(f"[Exam] 添加错题本失败: {e}", flush=True)
             else:
                 ai_comment_lines.append(f"第 {idx + 1} 题(写作): 已记录答案，待教师或AI后续评分。")
+        
         assignment.status = "completed"
         HomeworkCRUD.create(db, HomeworkCreate(
             student_id=student.id,
@@ -164,15 +228,19 @@ def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session
             ai_comment="\n".join(ai_comment_lines) if ai_comment_lines else "语法全对！大题待教师评分。",
             exam_assignment_id=assignment.id
         ))
+        
         # 提交测验后将学习行为计入统计，并实时刷新评测指标
         estimated_minutes = max(8, min(90, len(content) * 3))
         track_learning_activity(db, student.id, "综合测验", estimated_minutes, f"完成测验 {exam.exam_code}")
-        db.commit()
+        
+        db.commit()  # 提交所有更改
         latest = refresh_student_metrics(db, student.id)
         return ok({"score": earned_score, "message": "提交成功", "metrics": latest})
     except Exception as e:
+        db.rollback()
         import traceback
         traceback.print_exc()
+        print(f"[Exam Submit] 错误: {e}", flush=True)
         return fail(f"Server error: {str(e)}", 500)
 
 

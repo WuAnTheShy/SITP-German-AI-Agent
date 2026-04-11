@@ -27,7 +27,6 @@ from schemas.entities import (
     VocabularyCreate,
     FavoriteCreate,
     GrammarSubmissionCreate,
-    ErrorBookEntryCreate,
     SpeakingEvaluationCreate,
     WritingSessionCreate,
 )
@@ -67,19 +66,9 @@ def _track_and_refresh(
         pass
 
 
-def _match_error_category(grammar_name: str, error_cats: dict[str, int]) -> int | None:
-    mapping = {
-        "动词变位": "动词变位", "Konjugation": "动词变位",
-        "名词": "名词格变化", "Deklination": "名词格变化",
-        "完成时": "时态错误", "Perfekt": "时态错误",
-        "被动": "时态错误", "Passiv": "时态错误",
-        "虚拟": "时态错误", "Konjunktiv": "时态错误",
-        "句序": "句序错误", "介词": "介词搭配",
-    }
-    for keyword, cat_name in mapping.items():
-        if keyword in grammar_name and cat_name in error_cats:
-            return error_cats[cat_name]
-    return next(iter(error_cats.values()), None) if error_cats else None
+def _get_error_category_id(error_cats: dict[str, int]) -> int | None:
+    """获取错题分类ID - 统一使用"全部"分类"""
+    return error_cats.get("全部", next(iter(error_cats.values()), None) if error_cats else None)
 
 
 class VocabCollectReq(BaseModel):
@@ -337,10 +326,7 @@ def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depend
                 )
             
             # 【错题本同步逻辑】
-            grammar_cat = GrammarCategoryCRUD.get_by_id(db, req.categoryId)
-            eb_cat_id = _match_error_category(
-                grammar_cat.name if grammar_cat else "", error_cats
-            )
+            eb_cat_id = _get_error_category_id(error_cats)
             
             if eb_cat_id:
                 if not is_correct:
@@ -362,16 +348,16 @@ def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depend
                             db.merge(existing_error)
                         else:
                             # 新增错题记录
-                            ErrorBookEntryCRUD.create(
-                                db,
-                                ErrorBookEntryCreate(
-                                    student_id=student.id, category_id=eb_cat_id,
-                                    source="语法练习", question=ex.question,
-                                    user_answer=ans.userAnswer,
-                                    correct_answer=ex.correct_answer, 
-                                    analysis=analysis,
-                                ),
+                            new_error = ErrorBookEntry(
+                                student_id=student.id, 
+                                category_id=eb_cat_id,
+                                source="语法练习", 
+                                question=ex.question,
+                                user_answer=ans.userAnswer,
+                                correct_answer=ex.correct_answer, 
+                                analysis=analysis,
                             )
+                            db.add(new_error)
                     except Exception as e:
                         print(f"[Grammar] 错题本同步失败: {e}", flush=True)
                 else:
