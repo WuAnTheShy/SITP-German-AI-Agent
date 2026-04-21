@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>SITP-German-AI-Agent</strong><br/>
-  同济大学大学生创新训练项目 (SITP) · 校级项目
+  同济大学大学生创新训练项目 (SITP) · 上海市级项目
 </p>
 
 <p align="center">
@@ -826,4 +826,4 @@ docker system df
 
 ## 📄 许可证
 
-本项目为同济大学 SITP 校级科研项目，仅供学术研究与教学使用。
+本项目为同济大学 SITP 上海市级科研项目，仅供学术研究与教学使用。
