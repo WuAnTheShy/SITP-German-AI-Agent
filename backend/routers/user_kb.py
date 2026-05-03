@@ -1,3 +1,6 @@
+"""
+user_kb.py - 上传/删除/列表 API
+"""
 from pathlib import Path
 from uuid import uuid4
 

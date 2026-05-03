@@ -1,3 +1,6 @@
+"""
+embedding.py - 调嵌入API把文本变为向量
+"""
 import os
 from typing import Any
 

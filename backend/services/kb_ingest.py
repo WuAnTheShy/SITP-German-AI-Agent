@@ -1,3 +1,6 @@
+"""
+kb_ingest.py - 文档提取+切块+入库
+"""
 import json
 from pathlib import Path
 
@@ -12,7 +15,9 @@ KB_EMPTY_TEXT_HINT = (
     "也可尝试将内容另存为 .txt / .md。"
 )
 
-
+# 1.文本提取
+#   先用 pypdf 提取 -> 失败再用 PyMuPDF 兜底
+#   得到一长串纯文本
 def _extract_text_from_pdf(path: Path) -> str:
     reader = PdfReader(str(path))
     pages = []
@@ -35,6 +40,7 @@ def _extract_text_from_pdf(path: Path) -> str:
         return ""
 
 
+
 def extract_text(path: Path, mime_type: str | None = None) -> str:
     suffix = path.suffix.lower()
     if suffix == ".pdf" or (mime_type and "pdf" in mime_type.lower()):
@@ -42,6 +48,8 @@ def extract_text(path: Path, mime_type: str | None = None) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
+# 2.切块
+#   按 700字符 固定长度切，相邻 chunk 重叠 100 字符
 def chunk_text(text: str, chunk_size: int = 700, overlap: int = 100) -> list[dict]:
     cleaned = (text or "").replace("\r\n", "\n").strip()
     if not cleaned:
@@ -69,6 +77,9 @@ def chunk_text(text: str, chunk_size: int = 700, overlap: int = 100) -> list[dic
     return chunks
 
 
+# 3.向量化
+#   把每个 chunk 调一次阿里云 text-embedding-v3 API
+#   每个 chunk -> 一个 1024 维向量(1024个浮点数)
 def enrich_chunks_with_embeddings(chunks: list[dict]) -> list[dict]:
     texts = [c["content"] for c in chunks]
     embeddings, pg_literals = embed_texts(texts)

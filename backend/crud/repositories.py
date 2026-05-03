@@ -1237,6 +1237,7 @@ class StudentKnowledgeMasteryCRUD:
         ))
 
 
+# 数据库操作
 class KnowledgeBaseCRUD:
     @staticmethod
     def _ensure_temp_columns(db: Session) -> None:
@@ -1376,11 +1377,11 @@ class KnowledgeBaseCRUD:
                 "(1 - (c.embedding <=> CAST(:query_embedding AS vector))) AS score "
                 "FROM kb_chunks c "
                 "JOIN kb_documents d ON d.id = c.document_id "
-                "WHERE d.status='ready' AND d.is_active=TRUE "
+                "WHERE d.status='ready' AND d.is_active=TRUE " # 文档状态是ready且激活
                 "AND ("
-                "d.scope='public' "
-                "OR (d.scope='private' AND d.owner_user_id=:viewer_user_id "
-                "    AND (COALESCE(d.is_temporary, FALSE)=FALSE OR d.session_key=:viewer_session_key))"
+                "d.scope='public' " # 要么是公共文档
+                "OR (d.scope='private' AND d.owner_user_id=:viewer_user_id " # 要么是私有文档
+                "    AND (COALESCE(d.is_temporary, FALSE)=FALSE OR d.session_key=:viewer_session_key))" # 且必须是调用者本人的
                 ") "
                 "AND (1 - (c.embedding <=> CAST(:query_embedding AS vector))) >= :score_threshold "
                 "ORDER BY c.embedding <=> CAST(:query_embedding AS vector) "

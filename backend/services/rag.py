@@ -1,3 +1,6 @@
+"""
+rag.py - 向量检索+拼接上下文
+"""
 import os
 
 from sqlalchemy.orm import Session
@@ -7,7 +10,7 @@ from services.embedding import embed_text
 
 
 RAG_ENABLED = os.getenv("RAG_ENABLED", "true").lower() == "true"
-RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5")) # 默认 top5
 RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.25"))
 
 
@@ -23,6 +26,7 @@ def search_knowledge(
     if not q:
         return []
     _, q_vec = embed_text(q)
+    # 在 kb_chunks 表里做向量检索
     return KnowledgeBaseCRUD.search_chunks_by_embedding(
         db,
         q_vec,
@@ -49,6 +53,7 @@ def build_rag_context(
         return "", []
     sources = []
     parts = []
+    # 把检索到的 5 个 chunk 拼成 “参考资料” 段落
     for i, r in enumerate(rows, start=1):
         scope = "私有" if r.get("owner_user_id") else "公共"
         src = f"[{scope}] {r.get('title','未命名文档')}#chunk{r.get('chunk_index', 0)}"
