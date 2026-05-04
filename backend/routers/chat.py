@@ -101,7 +101,7 @@ def chat_endpoint(
         messages = []
         if getattr(user, "long_memory_summary", None):
             messages.append({"role": "user", "content": "[Teaching context]\n" + user.long_memory_summary})
-        rag_context, rag_sources = build_rag_context(
+        rag_context, rag_sources, rag_top_score = build_rag_context(
             db,
             request.message,
             viewer_user_id=user.id,
@@ -113,7 +113,9 @@ def chat_endpoint(
         reply_text = generate_response(messages, system_instruction=TEACHER_SYSTEM)
         if not (reply_text or "").strip():
             reply_text = "AI 服务暂不可用，请检查后端 LLM 环境变量配置后重试。"
-        if rag_sources:
+        # 仅当 AI 实际引用知识库时才显示参考资料，避免"未命中却显示参考资料"的矛盾
+        _kb_miss_markers = ("知识库未命中", "通用回答", "未命中")
+        if rag_sources and not any(m in reply_text for m in _kb_miss_markers):
             reply_text = reply_text + "\n\n参考资料: " + "; ".join(rag_sources[:5])
         TeacherChatMessageCRUD.create(
             db, TeacherChatMessageCreate(session_id=session.id, role="assistant", content=reply_text)
@@ -174,7 +176,7 @@ def student_chat_endpoint(
         messages = []
         if getattr(student, "long_memory_summary", None):
             messages.append({"role": "user", "content": "[Learner profile]\n" + student.long_memory_summary})
-        rag_context, rag_sources = build_rag_context(
+        rag_context, rag_sources, rag_top_score = build_rag_context(
             db,
             request.message,
             viewer_user_id=student.user_id,
@@ -186,7 +188,9 @@ def student_chat_endpoint(
         reply_text = generate_response(messages, system_instruction=STUDENT_SYSTEM)
         if not (reply_text or "").strip():
             reply_text = "Entschuldigung, der KI-Dienst ist derzeit nicht verfugbar. (抱歉，AI 服务暂不可用。)"
-        if rag_sources:
+        # 仅当 AI 实际引用知识库时才显示参考资料，避免"未命中却显示参考资料"的矛盾
+        _kb_miss_markers = ("知识库未命中", "通用回答", "未命中")
+        if rag_sources and not any(m in reply_text for m in _kb_miss_markers):
             reply_text = reply_text + "\n\n参考资料: " + "; ".join(rag_sources[:5])
         ChatMessageCRUD.create(
             db,
