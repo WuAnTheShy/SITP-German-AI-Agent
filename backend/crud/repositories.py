@@ -181,11 +181,11 @@ class ClassroomCRUD:
             .where(ClassStudentRelation.student_id == student_id)
             .order_by(Classroom.id)
         ).all()
-        if not rows:
-            student = StudentCRUD.get_by_id(db, student_id)
-            if student and student.class_id is not None:
-                legacy_class = ClassroomCRUD.get_by_id(db, student.class_id)
-                return [legacy_class] if legacy_class else []
+        # if not rows:
+        #     student = StudentCRUD.get_by_id(db, student_id)
+        #     if student and student.class_id is not None:
+        #         legacy_class = ClassroomCRUD.get_by_id(db, student.class_id)
+        #         return [legacy_class] if legacy_class else []
         seen: set[int] = set()
         out: list[Classroom] = []
         for row in rows:
@@ -250,8 +250,8 @@ class StudentCRUD:
         db.add(obj)
         db.commit()
         db.refresh(obj)
-        if obj.class_id is not None:
-            StudentCRUD.set_classes(db, obj, [obj.class_id])
+        # if obj.class_id is not None:
+        #     StudentCRUD.set_classes(db, obj, [obj.class_id])
         return obj
 
     @staticmethod
@@ -259,16 +259,12 @@ class StudentCRUD:
         return db.scalar(select(Student).where(Student.uid == uid))
 
     @staticmethod
+    @staticmethod
     def list_by_class(db: Session, class_id: int) -> list[Student]:
         rows = db.scalars(
             select(Student)
-            .outerjoin(ClassStudentRelation, ClassStudentRelation.student_id == Student.id)
-            .where(
-                or_(
-                    ClassStudentRelation.class_id == class_id,
-                    Student.class_id == class_id,
-                )
-            )
+            .join(ClassStudentRelation, ClassStudentRelation.student_id == Student.id)
+            .where(ClassStudentRelation.class_id == class_id)
             .order_by(Student.id)
         ).all()
         seen: set[int] = set()
@@ -289,10 +285,7 @@ class StudentCRUD:
                 .order_by(ClassStudentRelation.class_id)
             )
         )
-        if rows:
-            return rows
-        student = StudentCRUD.get_by_id(db, student_id)
-        return [student.class_id] if student and student.class_id is not None else []
+        return rows
 
     @staticmethod
     def set_classes(db: Session, student: Student, class_ids: list[int]) -> None:
@@ -300,7 +293,6 @@ class StudentCRUD:
         db.execute(delete(ClassStudentRelation).where(ClassStudentRelation.student_id == student.id))
         for class_id in dedup_ids:
             db.add(ClassStudentRelation(class_id=class_id, student_id=student.id))
-        student.class_id = dedup_ids[0] if dedup_ids else None
         db.commit()
         db.refresh(student)
 
@@ -335,24 +327,14 @@ class StudentCRUD:
             .where(ClassTeacherRelation.teacher_user_id == teacher_user_id, Student.status == "pending")
             .order_by(Student.created_at.desc())
         ).all()
-        if rows:
-            seen: set[int] = set()
-            out: list[Student] = []
-            for row in rows:
-                if row.id in seen:
-                    continue
-                seen.add(row.id)
-                out.append(row)
-            return out
-
-        return list(
-            db.scalars(
-                select(Student)
-                .join(Classroom, Student.class_id == Classroom.id)
-                .where(Classroom.teacher_user_id == teacher_user_id, Student.status == "pending")
-                .order_by(Student.created_at.desc())
-            )
-        )
+        seen: set[int] = set()
+        out: list[Student] = []
+        for row in rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            out.append(row)
+        return out
 
     @staticmethod
     def update_status(db: Session, student_id: int, status: str) -> None:

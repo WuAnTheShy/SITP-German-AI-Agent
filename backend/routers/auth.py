@@ -293,13 +293,15 @@ def student_register(req: RegisterRequest, db: Session = Depends(get_db)):
             StudentCreate(
                 uid=req.username,
                 user_id=user.id,
-                class_id=class_id_val,
                 name=req.display_name,
                 status=status_val,
                 active_score=0,
                 overall_score=0,
             ),
         )
+        # 新生注册时若提供了班级邀请码,写入中间表
+        if class_id_val:
+            StudentCRUD.set_classes(db, student, [class_id_val])
 
         StudentAbilityCRUD.upsert(
             db,
