@@ -639,14 +639,27 @@ class ChatSessionCRUD:
         db: Session,
         student_id: int,
         scene_id: int | None,
-        scene_name: str | None,
+        scene_name: str | list[str] | None,
         limit: int = 30,
     ) -> list[ChatSession]:
+        """按情景查会话列表。
+        
+        scene_name 支持:
+            - str: 单个情景(向后兼容)
+            - list[str]: 多个情景(用 IN 查询,例如同时返回大厅+Agent 会话)
+            - None: 不限情景
+        """
         q = select(ChatSession).where(ChatSession.student_id == student_id)
         if scene_id is not None:
             q = q.where(ChatSession.scene_id == scene_id)
         else:
-            q = q.where(ChatSession.scene_id.is_(None), ChatSession.scene_name == scene_name)
+            # scene_id is None 表示是大厅类会话
+            q = q.where(ChatSession.scene_id.is_(None))
+            if isinstance(scene_name, str):
+                q = q.where(ChatSession.scene_name == scene_name)
+            elif isinstance(scene_name, (list, tuple)) and scene_name:
+                q = q.where(ChatSession.scene_name.in_(scene_name))
+            # scene_name is None 时不过滤,返回所有大厅类
         q = q.order_by(ChatSession.updated_at.desc()).limit(limit)
         return list(db.scalars(q))
 
