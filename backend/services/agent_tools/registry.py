@@ -9,9 +9,9 @@
 """
 
 from typing import Any, Callable
-
 from . import handlers
-
+import logging
+logger = logging.getLogger(__name__)
 
 class ToolRegistry:
     """简单的工具注册中心，按名字登记 schema + handler。"""
@@ -53,7 +53,7 @@ class ToolRegistry:
             handler = self._tools[name]["handler"]
             return handler(args, context)
         except Exception as e:
-            print(f"[AGENT-TOOL] {name} failed: {type(e).__name__}: {e}", flush=True)
+            logger.error(f"工具 {name} 执行失败: {type(e).__name__}: {e}")
             return {"error": f"{type(e).__name__}: {e}"}
 
 
@@ -73,4 +73,71 @@ registry.register(
         "required": [],
     },
     handler=handlers.query_my_profile,
+)
+
+
+
+registry.register(
+    name="query_my_abilities",
+    description=(
+        "查询当前学生的德语四维能力评估(听/说/读/写,各 0-100 分)、"
+        "AI 学情诊断、最薄弱和最强项。"
+        "当用户询问'我哪里弱'、'我的能力如何'、'我的成绩怎么样'等问题时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+    handler=handlers.query_my_abilities,
+)
+
+
+registry.register(
+    name="query_my_recent_activity",
+    description=(
+        "查询当前学生最近 N 天(默认 7 天)的学习活动统计:"
+        "总学习时长、各模块(语法练习/词汇学习/智能对话/综合测验等)的活动次数和时长、"
+        "最活跃的模块。"
+        "当用户询问'我最近学了什么'、'我练习多久了'、'我最近在忙什么'等问题时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "days": {
+                "type": "integer",
+                "description": "查询的天数范围,默认 7 天,最大 30 天",
+                "default": 7,
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.query_my_recent_activity,
+)
+
+
+registry.register(
+    name="query_my_homeworks",
+    description=(
+        "查询当前学生的作业列表,包括标题、状态、得分、提交时间、AI 评语摘要。"
+        "支持按状态筛选(已完成/未提交/进行中/待订正/逾期补交)。"
+        "当用户询问'我有哪些作业'、'我的作业成绩'、'我还有什么没做'等问题时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "limit": {
+                "type": "integer",
+                "description": "返回最近多少条作业,默认 10,最大 30",
+                "default": 10,
+            },
+            "status": {
+                "type": "string",
+                "description": "按状态筛选作业,留空则返回所有状态",
+                "enum": ["已完成", "未提交", "进行中", "待订正", "逾期补交"],
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.query_my_homeworks,
 )
