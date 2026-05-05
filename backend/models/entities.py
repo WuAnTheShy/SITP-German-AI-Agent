@@ -12,6 +12,9 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    user_no: Mapped[str | None] = mapped_column(String(8), unique=True, nullable=True, index=True,
+    comment="对外业务编号：学生学号7位/教师工号5位/管理员0000000；统一身份"
+    )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     display_name: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -80,7 +83,6 @@ class Student(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     uid: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    class_id: Mapped[int | None] = mapped_column(ForeignKey("classes.id", ondelete="RESTRICT"), nullable=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="approved", nullable=False)
     active_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -95,6 +97,19 @@ class Student(Base):
         CheckConstraint("active_score BETWEEN 0 AND 100", name="ck_students_active_score"),
         CheckConstraint("overall_score BETWEEN 0 AND 100", name="ck_students_overall_score"),
     )
+
+class Teacher(Base):
+    """教师扩展信息表。
+    
+    与 Student 表平行，存储教师角色专属字段。
+    暂时只含最小字段，未来可扩展任教学科、职称等。
+    """
+    __tablename__ = "teachers"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"),unique=True, nullable=False,)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()) 
 
 
 class StudentAbility(Base):

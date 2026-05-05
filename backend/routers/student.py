@@ -78,11 +78,18 @@ def get_student_detail(id: str, request: Request = None, db: Session = Depends(g
                     "assignedAt": ea.assigned_at.strftime("%Y-%m-%d"),
                     "content": ea.personalized_content if exam.strategy == "personalized" else exam.content,
                 })
+        # 动态查询学生真实班级
+        class_ids = StudentCRUD.list_class_ids(db, student.id)
+        class_name = "未分配"
+        if class_ids:
+            cls = ClassroomCRUD.get_by_id(db, class_ids[0])
+            if cls:
+                class_name = cls.class_name
         data = {
             "info": {
                 "name": student.name,
                 "uid": student.uid,
-                "class": "软件工程",
+                "class": class_name,
                 "active": refreshed["active_score"],
                 "score": refreshed["overall_score"],
             },
