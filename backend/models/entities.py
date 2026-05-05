@@ -1,6 +1,5 @@
 from datetime import datetime
-
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func, BigInteger
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -144,7 +143,7 @@ class Homework(Base):
     file_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
     file_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    file_size: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    file_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     ai_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     exam_assignment_id: Mapped[int | None] = mapped_column(ForeignKey("exam_assignments.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

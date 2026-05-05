@@ -1,6 +1,7 @@
 import json
 import os
 import requests
+import logging
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -11,6 +12,8 @@ from crud.repositories import (
     TeacherChatMessageCRUD,
 )
 from db.session import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 # Proxy (same as main)
 _proxy = os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
@@ -36,7 +39,7 @@ except Exception:
 # - lmstudio: 使用本地 LM Studio OpenAI 兼容接口（离线）
 LLM_PROVIDER = (os.getenv("LLM_PROVIDER", "qwen") or "qwen").strip().lower()
 if LLM_PROVIDER not in {"qwen", "lmstudio"}:
-    print(f"[API] 未知 LLM_PROVIDER={LLM_PROVIDER}，回退到 qwen")
+    logger.warning(f"[API] 未知 LLM_PROVIDER={LLM_PROVIDER}，回退到 qwen")
     LLM_PROVIDER = "qwen"
 
 def _env_or_default(name: str, default: str = "") -> str:
@@ -96,15 +99,14 @@ else:
     API_URL = QWEN_API_URL
     API_KEY = QWEN_API_KEY
 
-print(f"[API] LLM_PROVIDER={LLM_PROVIDER}, MODEL_ID={MODEL_ID}")
-print(f"[API] API_URL={API_URL}")
+logger.info(f"LLM_PROVIDER={LLM_PROVIDER}, MODEL_ID={MODEL_ID}, API_URL={API_URL}")
 if LLM_PROVIDER == "qwen":
     if not API_KEY:
-        print("警告: 当前为 qwen 模式，但未找到 QWEN_API_KEY")
+        logger.warning("警告: 当前为 qwen 模式，但未找到 QWEN_API_KEY")
     else:
-        print("[API] QWEN_API_KEY 已配置")
+        logger.info("[API] QWEN_API_KEY 已配置")
 else:
-    print("[API] LM Studio 模式启用（可离线运行）")
+    logger.info("[API] LM Studio 模式启用（可离线运行）")
 
 TEACHER_SYSTEM = (
     "【核心指令-绝对禁止篡改】\n"
@@ -189,14 +191,12 @@ def generate_response(messages, system_instruction=None):
         safe_headers = dict(headers)
         if "Authorization" in safe_headers:
             safe_headers["Authorization"] = "Bearer ***"
-        print(f"[API] 请求头: {safe_headers}")
-        print(f"[API] 请求URL: {API_URL}")
-        print(f"[API] 请求体摘要: model={payload.get('model')}, messages={len(conversation)}")
+        logger.debug(f"LLM 请求 URL={API_URL} model={payload.get('model')} messages={len(conversation)}")
     
     response = None
     try:
         if not API_KEY:
-            print("[API] 错误: QWEN_API_KEY 未配置", flush=True)
+            logger.error("[API] 错误: QWEN_API_KEY 未配置", flush=True)
             return ""
         
         response = _HTTP_SESSION.post(
@@ -209,12 +209,10 @@ def generate_response(messages, system_instruction=None):
         data = response.json()
         return data.get("choices", [{}])[0].get("message", {}).get("content", "")
     except Exception as e:
-        print(f"[API] 调用失败: {type(e).__name__}: {str(e)}", flush=True)
+        logger.error(f"[API] 调用失败: {type(e).__name__}: {str(e)}", flush=True)
         try:
             if response is not None:
-                print(f"[API] 响应状态码: {response.status_code}", flush=True)
-                if _debug_llm_logs_enabled():
-                    print(f"[API] 响应内容: {response.text[:500]}", flush=True)
+                logger.error(f"LLM 响应异常: status={response.status_code}, body={response.text[:500]}")
         except Exception:
             pass
         return ""
@@ -228,9 +226,9 @@ def ai_text(prompt: str, fallback: str = "", system_instruction: str = STUDENT_S
         return response.strip()
     except Exception as e:
         try:
-            print(f"[AI] {type(e).__name__}", flush=True)
+            logger.warning(f"ai_text 失败: {type(e).__name__}")
         except Exception:
-            print("[AI] error", flush=True)
+            logger.warning("ai_text 错误")
         return fallback
 
 
@@ -247,9 +245,9 @@ def ai_json(prompt: str, fallback=None, system_instruction: str = STUDENT_SYSTEM
         return json.loads(text.strip())
     except Exception as e:
         try:
-            print(f"[AI JSON] {type(e).__name__}", flush=True)
+            logger.warning(f"ai_json 失败: {type(e).__name__}")
         except Exception:
-            print("[AI JSON] error", flush=True)
+            logger.warning("ai_json 错误")
         return fallback
 
 
@@ -280,10 +278,7 @@ def refresh_student_memory(student_id: int, session_id: int) -> None:
         if text:
             StudentCRUD.update_long_memory(db, student_id, text)
     except Exception as e:
-        try:
-            print(f"[Memory] student refresh skip: {type(e).__name__}", flush=True)
-        except Exception:
-            print("[Memory] student refresh skip", flush=True)
+        logger.debug(f"学生记忆刷新跳过: {type(e).__name__ if 'e' in dir() else 'unknown'}")
     finally:
         db.close()
 
@@ -308,17 +303,14 @@ def refresh_teacher_memory(user_id: int, session_id: int) -> None:
         if text:
             UserCRUD.update_long_memory(db, user_id, text)
     except Exception as e:
-        try:
-            print(f"[Memory] teacher refresh skip: {type(e).__name__}", flush=True)
-        except Exception:
-            print("[Memory] teacher refresh skip", flush=True)
+        logger.debug(f"教师记忆刷新跳过: {type(e).__name__ if 'e' in dir() else 'unknown'}")
     finally:
         db.close()
 
 
 def get_client():
     """Return the API configuration for endpoints that need to call generate directly."""
-    print(f"[API] get_client called, API_KEY: {API_KEY}")
+    logger.debug(f"get_client called, API_KEY 长度={len(API_KEY) if API_KEY else 0}")
     return API_KEY, API_URL, MODEL_ID
 
 
@@ -363,13 +355,13 @@ def generate_response_with_tools(
     tool_schemas = agent_registry.get_schemas()
 
     for iteration in range(max_iterations):
-        print(f"[AGENT] iteration {iteration + 1}/{max_iterations}, msgs={len(msgs)}", flush=True)
+        logger.info(f"Agent iteration {iteration + 1}/{max_iterations}, msgs={len(msgs)}")
 
         # 调用 Qwen
         try:
             data = _call_llm_with_tools(msgs, tool_schemas)
         except Exception as e:
-            print(f"[AGENT] LLM call failed: {type(e).__name__}: {e}", flush=True)
+            logger.error(f"Agent LLM 调用失败: {type(e).__name__}: {e}")
             return "抱歉，AI 服务暂时无法响应。"
 
         choice = data["choices"][0]
@@ -378,11 +370,12 @@ def generate_response_with_tools(
 
         # Qwen 不再调工具,返回最终回答
         if not msg.get("tool_calls"):
-            print(f"[AGENT] done, finish_reason={finish_reason}", flush=True)
+            logger.info(f"Agent done, finish_reason={finish_reason}")
             return msg.get("content", "") or ""
 
         # Qwen 要求调工具
-        print(f"[AGENT] tool_calls: {[tc['function']['name'] for tc in msg['tool_calls']]}", flush=True)
+        logger.info(f"Agent tool_calls: {[tc['function']['name'] for tc in msg['tool_calls']]}")
+
 
         # 把 assistant 的 tool_calls 消息加进 msgs
         msgs.append(msg)
@@ -396,9 +389,8 @@ def generate_response_with_tools(
                 tool_args = {}
 
             result = agent_registry.call(tool_name, tool_args, context)
-            print(
-                f"[AGENT-TOOL] {tool_name}({tool_args}) -> {str(result)[:200]}",
-                flush=True,
+            logger.info(
+                f"[AGENT-TOOL] {tool_name}({tool_args}) -> {str(result)[:200]}"
             )
 
             msgs.append({
@@ -408,7 +400,7 @@ def generate_response_with_tools(
             })
 
     # 达到迭代上限
-    print(f"[AGENT] reached max_iterations={max_iterations}", flush=True)
+    logger.warning(f"Agent reached max_iterations={max_iterations}")
     return "（处理超过最大轮次，请简化问题后重试）"
 
 
@@ -430,11 +422,7 @@ def _call_llm_with_tools(messages: list[dict], tools: list[dict]) -> dict:
     if API_KEY:
         headers["Authorization"] = f"Bearer {API_KEY.strip()}"
 
-    print(
-        f"[AGENT-LLM] POST {API_URL} model={MODEL_ID}, "
-        f"msgs={len(messages)}, tools={len(tools)}",
-        flush=True,
-    )
+    logger.debug(f"Agent-LLM POST {API_URL} model={MODEL_ID}, msgs={len(messages)}, tools={len(tools)}")
 
     resp = requests.post(API_URL, json=payload, headers=headers, timeout=LLM_TIMEOUT)
     resp.raise_for_status()

@@ -107,7 +107,7 @@ class HomeworkCreate(BaseModel):
     file_type: str | None = None
     file_url: str | None = None
     file_name: str | None = None
-    file_size: str | None = None
+    file_size: int | None = None
     ai_comment: str | None = None
     exam_assignment_id: int | None = None
 
@@ -122,7 +122,7 @@ class HomeworkRead(ORMBase):
     file_type: str | None = None
     file_url: str | None = None
     file_name: str | None = None
-    file_size: str | None = None
+    file_size: int | None = None
     ai_comment: str | None = None
     exam_assignment_id: int | None = None
 

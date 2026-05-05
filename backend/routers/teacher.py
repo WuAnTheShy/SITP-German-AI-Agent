@@ -29,6 +29,9 @@ from core.deps import require_teacher, get_current_teacher_and_classrooms
 from services.llm import generate_response
 from services.metrics import compute_student_interaction_minutes, refresh_student_metrics
 
+import logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -223,7 +226,7 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
 
 请确保生成 {grammar_count} 道语法题和 {writing_count} 道写作题。"""
 
-            print(f"[试卷生成] 正在调用 AI 生成 {grammar_count} 道语法题 + {writing_count} 道写作题...", flush=True)
+            logger.info(f"试卷生成: 调用 AI 生成 {grammar_count} 道语法题 + {writing_count} 道写作题")
             ai_questions = None
             try:
                 messages = [{"role": "user", "content": prompt}]
@@ -235,15 +238,12 @@ def generate_exam(request: ExamGenerateRequest, req: Request = None, db: Session
                 elif "```" in text:
                     text = text.split("```")[1].split("```")[0]
                 ai_questions = json.loads(text.strip())
-                print(f"[试卷生成] AI 成功生成 {len(ai_questions)} 道题目", flush=True)
+                logger.info(f"试卷生成: AI 成功生成 {len(ai_questions)} 道题目")
             except Exception as e:
-                try:
-                    print(f"[试卷生成] AI 生成失败: {type(e).__name__}", flush=True)
-                except Exception:
-                    print("[试卷生成] AI 生成失败", flush=True)
+                logger.warning(f"试卷生成: AI 失败 {type(e).__name__}")
 
             if not ai_questions or not isinstance(ai_questions, list):
-                print("[试卷生成] 使用 fallback 基础题目", flush=True)
+                logger.info("试卷生成: 使用 fallback 基础题目")
                 ai_questions = []
                 grammar_topics = [
                     ("动词变位", "Ich ___ gestern ins Kino gegangen.", ["A. bin", "B. habe", "C. war", "D. wurde"], "A"),
