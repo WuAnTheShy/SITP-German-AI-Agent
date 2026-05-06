@@ -8,12 +8,17 @@
 """
 import logging
 from datetime import datetime, timedelta
+from typing import Any
+
 from sqlalchemy import select, func, desc
+from sqlalchemy.orm import Session
+
 from models.entities import (
     Student, ClassStudentRelation, Classroom,
     StudentAbility, LearningSession, Homework,
+    ChatSession, ChatMessage,                      # 工具 5 用
+    GrammarCategory, GrammarExercise,              # 工具 6 用
 )
-from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -208,4 +213,224 @@ def query_my_homeworks(args: dict[str, Any], context: dict[str, Any]) -> dict[st
             + (f",平均分 {avg_score}" if avg_score is not None else "")
             + (f",有 {len(pending)} 份待完成" if pending else "")
         ),
+    }
+
+
+
+def query_my_recent_chats(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """查询当前学生最近 N 个对话会话的标题和首问。
+    
+    args:
+        limit: int, 返回最近几个会话,默认 5,最大 20
+    """
+    db: Session = context["db"]
+    student_id = context["student_id"]
+    
+    limit = max(1, min(int(args.get("limit", 5)), 20))
+    
+    # 取最近 N 个会话(按 updated_at 倒序)
+    sessions = list(db.scalars(
+        select(ChatSession)
+        .where(ChatSession.student_id == student_id)
+        .order_by(desc(ChatSession.updated_at))
+        .limit(limit)
+    ))
+    
+    if not sessions:
+        return {
+            "total_recent_sessions": 0,
+            "items": [],
+            "summary": "暂无对话历史",
+        }
+    
+    items = []
+    for s in sessions:
+        # 找该会话的第一条 user 消息(展现学生意图)
+        first_user_msg = db.scalar(
+            select(ChatMessage)
+            .where(ChatMessage.session_id == s.id, ChatMessage.role == "user")
+            .order_by(ChatMessage.created_at.asc())
+            .limit(1)
+        )
+        # 该会话总消息数
+        msg_count = db.scalar(
+            select(func.count(ChatMessage.id))
+            .where(ChatMessage.session_id == s.id)
+        ) or 0
+        
+        items.append({
+            "session_id": s.id,
+            "title": (s.title or "").strip() or "未命名对话",
+            "scene_name": s.scene_name,
+            "first_question": (first_user_msg.content[:80] + "...") 
+                              if first_user_msg and len(first_user_msg.content) > 80 
+                              else (first_user_msg.content if first_user_msg else ""),
+            "message_count": int(msg_count),
+            "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        })
+    
+    # 简单总结主题(取前 3 个标题)
+    titles = [i["title"] for i in items[:3] if i["title"] != "未命名对话"]
+    summary = (
+        f"最近 {len(items)} 次对话,主要话题:" + "、".join(titles)
+        if titles 
+        else f"最近 {len(items)} 次对话"
+    )
+    
+    return {
+        "total_recent_sessions": len(items),
+        "items": items,
+        "summary": summary,
+    }
+
+
+def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """根据学生薄弱点(或指定分类)推荐语法练习题。
+    
+    args:
+        count: int, 推荐题目数量,默认 5,最大 10
+        category_name: str | None, 指定语法分类(如"被动语态"、"虚拟式"等),
+                       不指定则按学生薄弱点自动选
+    """
+    db: Session = context["db"]
+    student_id = context["student_id"]
+    
+    count = max(1, min(int(args.get("count", 5)), 10))
+    requested_category = args.get("category_name")
+    
+    # 决策推荐分类
+    target_category = None
+    reason = ""
+    
+    if requested_category:
+        # 用户指定了分类
+        target_category = db.scalar(
+            select(GrammarCategory).where(GrammarCategory.name == requested_category)
+        )
+        if not target_category:
+            return {
+                "error": f"未找到分类'{requested_category}'",
+                "available_categories": [
+                    c.name for c in db.scalars(select(GrammarCategory)).all()
+                ],
+            }
+        reason = f"按你的指定分类「{target_category.name}」推荐"
+    else:
+        # 按学生 weak_point 推
+        student = db.scalar(select(Student).where(Student.id == student_id))
+        weak_point = student.weak_point if student else None
+        if weak_point:
+            target_category = db.scalar(
+                select(GrammarCategory).where(GrammarCategory.name == weak_point)
+            )
+            if target_category:
+                reason = f"基于你的薄弱点「{weak_point}」推荐针对性练习"
+        
+        # 没有 weak_point 或匹配不到分类:用题目数量最多的分类
+        if not target_category:
+            target_category = db.scalar(
+                select(GrammarCategory)
+                .join(GrammarExercise, GrammarExercise.category_id == GrammarCategory.id)
+                .group_by(GrammarCategory.id)
+                .order_by(desc(func.count(GrammarExercise.id)))
+                .limit(1)
+            )
+            reason = f"未识别明确的薄弱点,推荐题库最丰富的分类「{target_category.name if target_category else '未知'}」"
+    
+    if not target_category:
+        return {"error": "题库为空,无法推荐"}
+    
+    # 取该分类下的题
+    exercises = list(db.scalars(
+        select(GrammarExercise)
+        .where(GrammarExercise.category_id == target_category.id)
+        .order_by(func.random())
+        .limit(count)
+    ))
+    
+    # 如果该分类题不够,从其他分类补
+    if len(exercises) < count:
+        exclude_ids = [e.id for e in exercises]
+        more = list(db.scalars(
+            select(GrammarExercise)
+            .where(
+                GrammarExercise.category_id != target_category.id,
+                ~GrammarExercise.id.in_(exclude_ids) if exclude_ids else True,
+            )
+            .order_by(func.random())
+            .limit(count - len(exercises))
+        ))
+        exercises.extend(more)
+        if more:
+            reason += f"(该分类题目不足,从其他分类补 {len(more)} 题)"
+    
+    items = [
+        {
+            "id": ex.id,
+            "category_id": ex.category_id,
+            "question": ex.question,
+            "correct_answer": ex.correct_answer,
+        }
+        for ex in exercises
+    ]
+    
+    return {
+        "recommended_category": target_category.name,
+        "reason": reason,
+        "count": len(items),
+        "exercises": items,
+        "summary": f"为你推荐 {len(items)} 道{target_category.name}练习题",
+    }
+
+
+def search_knowledge_base(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """检索德语学习知识库,返回最相关的内容片段。
+    
+    包装 services.rag.search_knowledge,做两阶段检索(embedding 召回 + rerank 精排)。
+    
+    args:
+        query: str, 必填,检索查询(德语语法/词汇/文化等问题)
+        top_k: int, 返回多少个相关片段,默认 3,最大 5(实际由 rag.py 阈值控制)
+    """
+    db: Session = context["db"]
+    
+    query = (args.get("query") or "").strip()
+    if not query:
+        return {"error": "query 参数不能为空"}
+    
+    try:
+        from services.rag import search_knowledge
+        rows = search_knowledge(db, query, viewer_user_id=None, viewer_session_key=None)
+    except Exception as e:
+        logger.warning(f"RAG 检索失败: {type(e).__name__}: {e}")
+        return {"error": "知识库暂时不可用,请稍后再试"}
+    
+    if not rows:
+        return {
+            "query": query,
+            "results": [],
+            "summary": "知识库中未找到相关内容",
+            "advice_to_llm": (
+                "知识库未命中,不要重试不同的查询关键词。"
+                "请直接基于你已有的知识回答用户问题,并在回答开头说明'未在知识库中找到相关内容,以下是通用知识'。"
+            ),
+        }
+    
+    # 取前 top_k(虽然 rag.py 已经控制了 RAG_RERANK_TOP_N,这里再裁一刀)
+    top_k = max(1, min(int(args.get("top_k", 3)), 5))
+    rows = rows[:top_k]
+    
+    return {
+        "query": query,
+        "results": [
+            {
+                "title": r.get("title") or "未命名片段",
+                "chunk_index": r.get("chunk_index", 0),
+                "content": (r.get("content") or "")[:400],  # 限制 400 字避免 LLM 上下文爆炸
+                "score": round(float(r.get("score", 0)), 3),
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+        "summary": f"从知识库检索到 {len(rows)} 个相关片段(top_score={round(float(rows[0].get('score', 0)), 3)})",
     }

@@ -1,5 +1,12 @@
 """测试 generate_response_with_tools 跑通各种工具调用。"""
 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+
 import sys
 import io
 
@@ -48,27 +55,49 @@ def run_test(name: str, user_msg: str, student_id: int = 1):
 if __name__ == "__main__":
     # P0 三个工具的端到端测试
     
+    # run_test(
+    #     "1. 查档案(query_my_profile)",
+    #     "你好,我是谁?帮我查一下我的档案信息。",
+    # )
+    
+    # run_test(
+    #     "2. 查能力(query_my_abilities)",
+    #     "我现在德语水平怎么样?哪里比较弱?",
+    # )
+    
+    # run_test(
+    #     "3. 查最近活动(query_my_recent_activity)",
+    #     "我最近一周都学了些什么?练习了多久?",
+    # )
+    
+    # run_test(
+    #     "4. 查作业(query_my_homeworks)",
+    #     "我有哪些作业?完成了多少?",
+    # )
+    
+    # run_test(
+    #     "5. 复合查询(可能调多个工具)",
+    #     "总结一下我最近的学习状态,告诉我应该重点改进哪方面。",
+    # )
+
+    # # P1 三个工具测试
+    
+    # run_test(
+    #     "6. 查最近对话(query_my_recent_chats)",
+    #     "我之前都问过些什么问题?帮我回顾一下。",
+    # )
+    
+    # run_test(
+    #     "7. 推荐练习题(recommend_grammar_exercises)",
+    #     "给我推荐几道适合我的语法练习题吧。",
+    # )
+    
     run_test(
-        "1. 查档案(query_my_profile)",
-        "你好,我是谁?帮我查一下我的档案信息。",
+        "8. 搜知识库(search_knowledge_base)",
+        "Konjunktiv II 是什么?该怎么用?",
     )
     
     run_test(
-        "2. 查能力(query_my_abilities)",
-        "我现在德语水平怎么样?哪里比较弱?",
-    )
-    
-    run_test(
-        "3. 查最近活动(query_my_recent_activity)",
-        "我最近一周都学了些什么?练习了多久?",
-    )
-    
-    run_test(
-        "4. 查作业(query_my_homeworks)",
-        "我有哪些作业?完成了多少?",
-    )
-    
-    run_test(
-        "5. 复合查询(可能调多个工具)",
-        "总结一下我最近的学习状态,告诉我应该重点改进哪方面。",
+        "9. 复合查询(P0 + P1 工具组合)",
+        "结合我的薄弱点,推荐几道适合的练习题,然后告诉我相关语法规则。",
     )

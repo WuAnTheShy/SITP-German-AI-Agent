@@ -141,3 +141,80 @@ registry.register(
     },
     handler=handlers.query_my_homeworks,
 )
+
+
+
+registry.register(
+    name="query_my_recent_chats",
+    description=(
+        "查询当前学生最近的对话会话列表(标题、首问、消息数等),不返回完整对话原文。"
+        "当用户询问'我之前都问过什么'、'最近聊了什么'、'我经常问哪类问题'时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "limit": {
+                "type": "integer",
+                "description": "返回最近多少个会话,默认 5,最大 20",
+                "default": 5,
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.query_my_recent_chats,
+)
+
+
+registry.register(
+    name="recommend_grammar_exercises",
+    description=(
+        "为当前学生推荐语法练习题。"
+        "默认按学生薄弱点(weak_point)推荐;若指定 category_name 则按指定分类推。"
+        "可选分类:动词变位、名词格变化、完成时、被动语态、虚拟式、介词搭配、句序。"
+        "当用户询问'给我推荐几道题'、'我想练 xx 语法'、'有什么练习'时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "count": {
+                "type": "integer",
+                "description": "推荐多少道题,默认 5,最大 10",
+                "default": 5,
+            },
+            "category_name": {
+                "type": "string",
+                "description": "可选语法分类名(中文),不指定则按薄弱点自动选",
+                "enum": ["动词变位", "名词格变化", "完成时", "被动语态", "虚拟式", "介词搭配", "句序"],
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.recommend_grammar_exercises,
+)
+
+
+registry.register(
+    name="search_knowledge_base",
+    description=(
+        "检索德语学习知识库(教材、词典),返回与查询最相关的内容片段。"
+        "适用于:德语词汇查询、语法规则查询、固定搭配、文化知识等开放性问题。"
+        "当用户询问的问题需要查阅教材资料才能准确回答时使用。"
+        "注意:个人学情问题(我的成绩/作业/能力)不要用此工具,用 query_my_* 系列工具。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "检索查询,通常是用户问题的关键提取(如'Konjunktiv II 用法'、'apple 德语怎么说')",
+            },
+            "top_k": {
+                "type": "integer",
+                "description": "返回最相关的 N 个片段,默认 3,最大 5",
+                "default": 3,
+            },
+        },
+        "required": ["query"],
+    },
+    handler=handlers.search_knowledge_base,
+)
