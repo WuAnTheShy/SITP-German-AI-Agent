@@ -10,14 +10,17 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, and_
 from sqlalchemy.orm import Session
 
 from models.entities import (
     Student, ClassStudentRelation, Classroom,
     StudentAbility, LearningSession, Homework,
-    ChatSession, ChatMessage,                      # 工具 5 用
-    GrammarCategory, GrammarExercise,              # 工具 6 用
+    ChatSession, ChatMessage,
+    GrammarCategory, GrammarExercise,
+    ClassTeacherRelation,           # 教师工具用
+    ErrorBookEntry,                 # 教师工具用
+    User,                           # 教师工具用
 )
 
 
@@ -433,4 +436,380 @@ def search_knowledge_base(args: dict[str, Any], context: dict[str, Any]) -> dict
         ],
         "count": len(rows),
         "summary": f"从知识库检索到 {len(rows)} 个相关片段(top_score={round(float(rows[0].get('score', 0)), 3)})",
+    }
+
+
+
+
+# ────────────────────────────────────────────────────
+# 教师端工具公共辅助:获取该教师能管的班级 ID 列表
+# ────────────────────────────────────────────────────
+
+def _teacher_class_ids(db: Session, teacher_user_id: int) -> list[int]:
+    """返回该教师任教的所有班级 id 列表。"""
+    return list(db.scalars(
+        select(ClassTeacherRelation.class_id).where(
+            ClassTeacherRelation.teacher_user_id == teacher_user_id
+        )
+    ))
+
+
+def query_class_overview(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """查询教师所教全部班级的总览(均分、活跃度、学生数、薄弱点分布)。
+    
+    args:
+        class_code: str | None, 可选,只查指定班级(如 'SE-2026-4'),不指定则查所有
+    """
+    db: Session = context["db"]
+    teacher_user_id = context["teacher_user_id"]
+    
+    class_ids = _teacher_class_ids(db, teacher_user_id)
+    if not class_ids:
+        return {"error": "你没有任教的班级"}
+    
+    # 可选过滤指定班级
+    target_code = args.get("class_code")
+    classes_query = select(Classroom).where(Classroom.id.in_(class_ids))
+    if target_code:
+        classes_query = classes_query.where(Classroom.class_code == target_code)
+    classes = list(db.scalars(classes_query))
+    
+    if not classes:
+        return {
+            "error": f"未找到指定班级'{target_code}'" if target_code else "无班级数据"
+        }
+    
+    overview = []
+    for cls in classes:
+        # 班级所有学生
+        students = list(db.scalars(
+            select(Student)
+            .join(ClassStudentRelation, ClassStudentRelation.student_id == Student.id)
+            .where(ClassStudentRelation.class_id == cls.id)
+        ))
+        
+        if not students:
+            overview.append({
+                "class_id": cls.id,
+                "class_name": cls.class_name,
+                "class_code": cls.class_code,
+                "student_count": 0,
+                "summary": "暂无学生",
+            })
+            continue
+        
+        # 取该班所有学生的能力数据
+        student_ids = [s.id for s in students]
+        abilities = list(db.scalars(
+            select(StudentAbility).where(StudentAbility.student_id.in_(student_ids))
+        ))
+        
+        # 聚合四维平均
+        if abilities:
+            avg_listening = sum(a.listening for a in abilities) / len(abilities)
+            avg_speaking = sum(a.speaking for a in abilities) / len(abilities)
+            avg_reading = sum(a.reading for a in abilities) / len(abilities)
+            avg_writing = sum(a.writing for a in abilities) / len(abilities)
+            avg_four_dims = (avg_listening + avg_speaking + avg_reading + avg_writing) / 4
+        else:
+            avg_listening = avg_speaking = avg_reading = avg_writing = avg_four_dims = 0
+        
+        # 薄弱点分布(weak_point 频次统计)
+        weak_distribution: dict[str, int] = {}
+        for s in students:
+            wp = s.weak_point or "未识别"
+            weak_distribution[wp] = weak_distribution.get(wp, 0) + 1
+        
+        # 活跃度:近 7 天有学习记录的学生数
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        active_count = db.scalar(
+            select(func.count(func.distinct(LearningSession.student_id)))
+            .where(
+                LearningSession.student_id.in_(student_ids),
+                LearningSession.created_at >= seven_days_ago,
+            )
+        ) or 0
+        
+        overview.append({
+            "class_id": cls.id,
+            "class_name": cls.class_name,
+            "class_code": cls.class_code,
+            "student_count": len(students),
+            "active_students_7d": int(active_count),
+            "active_rate": round(active_count / len(students) * 100, 1) if students else 0,
+            "avg_listening": round(avg_listening, 1),
+            "avg_speaking": round(avg_speaking, 1),
+            "avg_reading": round(avg_reading, 1),
+            "avg_writing": round(avg_writing, 1),
+            "avg_four_dims": round(avg_four_dims, 1),
+            "weak_point_distribution": weak_distribution,
+        })
+    
+    return {
+        "total_classes": len(overview),
+        "classes": overview,
+        "summary": (
+            f"共 {len(overview)} 个班级,"
+            + f"总人数 {sum(c['student_count'] for c in overview)} 人"
+        ),
+    }
+
+
+def query_student_by_uid(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """教师按学号查指定学生学情。
+    
+    args:
+        uid: str, 必填,学生学号(如 '2452001')
+    """
+    db: Session = context["db"]
+    teacher_user_id = context["teacher_user_id"]
+    
+    uid = (args.get("uid") or "").strip()
+    if not uid:
+        return {"error": "uid 参数不能为空"}
+    
+    student = db.scalar(select(Student).where(Student.uid == uid))
+    if not student:
+        return {"error": f"未找到学号 {uid} 对应的学生"}
+    
+    # 鉴权:确保该教师能管这个学生
+    teacher_class_ids = _teacher_class_ids(db, teacher_user_id)
+    student_class_ids = list(db.scalars(
+        select(ClassStudentRelation.class_id).where(
+            ClassStudentRelation.student_id == student.id
+        )
+    ))
+    common_class_ids = set(teacher_class_ids) & set(student_class_ids)
+    if not common_class_ids:
+        return {"error": f"你无权查看该学生(学号 {uid} 不在你任教的班级)"}
+    
+    # 取班级名(取第一个共同班)
+    cls = db.scalar(select(Classroom).where(Classroom.id == next(iter(common_class_ids))))
+    class_name = cls.class_name if cls else None
+    
+    # 能力数据
+    ability = db.scalar(
+        select(StudentAbility).where(StudentAbility.student_id == student.id)
+    )
+    
+    # 最近作业
+    recent_homeworks = list(db.scalars(
+        select(Homework)
+        .where(Homework.student_id == student.id)
+        .order_by(desc(Homework.submitted_at).nullsfirst())
+        .limit(5)
+    ))
+    
+    # 错题数(未掌握)
+    unmastered_errors = db.scalar(
+        select(func.count(ErrorBookEntry.id)).where(
+            ErrorBookEntry.student_id == student.id,
+            ErrorBookEntry.is_mastered == False,
+        )
+    ) or 0
+    
+    return {
+        "student_id": student.id,
+        "name": student.name,
+        "uid": student.uid,
+        "class_name": class_name,
+        "weak_point": student.weak_point,
+        "overall_score": float(student.overall_score) if student.overall_score is not None else None,
+        "active_score": student.active_score,
+        "abilities": (
+            {
+                "listening": ability.listening,
+                "speaking": ability.speaking,
+                "reading": ability.reading,
+                "writing": ability.writing,
+                "ai_diagnosis": ability.ai_diagnosis,
+            } if ability else None
+        ),
+        "recent_homeworks_count": len(recent_homeworks),
+        "completed_homeworks_count": sum(1 for h in recent_homeworks if h.status == "已完成"),
+        "unmastered_errors": int(unmastered_errors),
+        "recent_homeworks": [
+            {
+                "title": h.title,
+                "status": h.status,
+                "score": float(h.score) if h.score is not None else None,
+            } for h in recent_homeworks
+        ],
+    }
+
+
+def find_struggling_students(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """找出薄弱学生:按指定维度或总分,返回低于阈值的学生列表。
+    
+    args:
+        dimension: str | None, 可选,具体维度('listening'/'speaking'/'reading'/'writing'/'overall'),
+                   默认 'overall'(综合判断)
+        threshold: int, 默认 60,低于此分数算薄弱
+        limit: int, 默认 20,返回最多多少人
+    """
+    db: Session = context["db"]
+    teacher_user_id = context["teacher_user_id"]
+    
+    dimension = args.get("dimension", "overall")
+    threshold = int(args.get("threshold", 60))
+    limit = max(1, min(int(args.get("limit", 20)), 50))
+    
+    if dimension not in ("listening", "speaking", "reading", "writing", "overall"):
+        return {"error": f"无效维度: {dimension}"}
+    
+    # 拿到教师管的所有班级里的所有学生
+    class_ids = _teacher_class_ids(db, teacher_user_id)
+    if not class_ids:
+        return {"error": "你没有任教的班级"}
+    
+    student_ids = list(db.scalars(
+        select(ClassStudentRelation.student_id).where(
+            ClassStudentRelation.class_id.in_(class_ids)
+        )
+    ))
+    if not student_ids:
+        return {
+            "dimension": dimension,
+            "threshold": threshold,
+            "struggling_count": 0,
+            "students": [],
+            "summary": "你任教的班级暂无学生",
+        }
+    
+    # 取所有学生 + 能力
+    rows = list(db.execute(
+        select(Student, StudentAbility)
+        .outerjoin(StudentAbility, StudentAbility.student_id == Student.id)
+        .where(Student.id.in_(student_ids))
+    ).all())
+    
+    # 按维度筛选低于阈值的
+    struggling = []
+    for student, ability in rows:
+        if dimension == "overall":
+            # 用四维平均(overall_score 字段已知有 bug,这里直接算)
+            if not ability:
+                continue
+            score = (ability.listening + ability.speaking + ability.reading + ability.writing) / 4
+        else:
+            if not ability:
+                continue
+            score = getattr(ability, dimension)
+        
+        if score < threshold:
+            struggling.append({
+                "student_id": student.id,
+                "uid": student.uid,
+                "name": student.name,
+                "score_in_dimension": round(float(score), 1),
+                "weak_point": student.weak_point,
+                "abilities": {
+                    "listening": ability.listening,
+                    "speaking": ability.speaking,
+                    "reading": ability.reading,
+                    "writing": ability.writing,
+                },
+            })
+    
+    # 按分数升序(最薄弱的在前)
+    struggling.sort(key=lambda x: x["score_in_dimension"])
+    struggling = struggling[:limit]
+    
+    return {
+        "dimension": dimension,
+        "threshold": threshold,
+        "struggling_count": len(struggling),
+        "students": struggling,
+        "summary": (
+            f"在「{dimension}」维度低于 {threshold} 分的学生共 {len(struggling)} 人"
+            + (f",最薄弱的是 {struggling[0]['name']}({struggling[0]['score_in_dimension']} 分)"
+               if struggling else "")
+        ),
+    }
+
+
+def recommend_exam_focus(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """基于学生错题热点,推荐试卷应该重点考察的语法点。
+    
+    args:
+        class_code: str | None, 可选,指定班级(默认综合所有任教班级)
+        top_n: int, 默认 3,返回前 N 个最高频错题分类
+    """
+    db: Session = context["db"]
+    teacher_user_id = context["teacher_user_id"]
+    
+    top_n = max(1, min(int(args.get("top_n", 3)), 10))
+    target_code = args.get("class_code")
+    
+    # 确定要分析的班级
+    class_ids = _teacher_class_ids(db, teacher_user_id)
+    if not class_ids:
+        return {"error": "你没有任教的班级"}
+    
+    if target_code:
+        cls = db.scalar(
+            select(Classroom).where(
+                Classroom.class_code == target_code,
+                Classroom.id.in_(class_ids)
+            )
+        )
+        if not cls:
+            return {"error": f"未找到班级 '{target_code}' 或你无权访问"}
+        analyze_class_ids = [cls.id]
+    else:
+        analyze_class_ids = class_ids
+    
+    # 拿到这些班的学生
+    student_ids = list(db.scalars(
+        select(ClassStudentRelation.student_id).where(
+            ClassStudentRelation.class_id.in_(analyze_class_ids)
+        )
+    ))
+    if not student_ids:
+        return {
+            "analyzed_class_count": len(analyze_class_ids),
+            "top_error_sources": [],
+            "summary": "班级暂无学生",
+        }
+    
+    # 按 source 聚合错题数
+    rows = db.execute(
+        select(
+            ErrorBookEntry.source,
+            func.count(ErrorBookEntry.id).label("error_count"),
+            func.count(func.distinct(ErrorBookEntry.student_id)).label("affected_students"),
+        )
+        .where(ErrorBookEntry.student_id.in_(student_ids))
+        .group_by(ErrorBookEntry.source)
+        .order_by(desc("error_count"))
+        .limit(top_n)
+    ).all()
+    
+    if not rows:
+        return {
+            "analyzed_class_count": len(analyze_class_ids),
+            "analyzed_student_count": len(student_ids),
+            "top_error_sources": [],
+            "summary": "暂无错题数据,无法推荐考点",
+        }
+    
+    sources = [
+        {
+            "source": source,
+            "error_count": int(error_count),
+            "affected_students": int(affected_students),
+            "affected_rate": round(affected_students / len(student_ids) * 100, 1),
+        }
+        for source, error_count, affected_students in rows
+    ]
+    
+    return {
+        "analyzed_class_count": len(analyze_class_ids),
+        "analyzed_student_count": len(student_ids),
+        "top_error_sources": sources,
+        "summary": (
+            f"分析 {len(student_ids)} 名学生的错题分布,"
+            f"建议试卷重点考察方向(按错题频次排):"
+            + ", ".join(f"{s['source']}({s['error_count']} 题)" for s in sources)
+        ),
     }

@@ -26,16 +26,25 @@ SYSTEM_PROMPT = (
 )
 
 
-def run_test(name: str, user_msg: str, student_id: int = 1):
-    """跑一次工具调用测试。"""
+def run_test(name: str, user_msg: str, *, student_id: int | None = None, teacher_user_id: int | None = None):
+    """跑一次工具调用测试。
+    
+    必须传 student_id 或 teacher_user_id 之一。
+    """
     db = SessionLocal()
     try:
-        context = {"db": db, "student_id": student_id}
+        if teacher_user_id is not None:
+            context = {"db": db, "teacher_user_id": teacher_user_id}
+            role_label = f"教师 user_id={teacher_user_id}"
+        else:
+            context = {"db": db, "student_id": student_id}
+            role_label = f"学生 student_id={student_id}"
+        
         messages = [{"role": "user", "content": user_msg}]
 
         print("\n" + "=" * 70)
         print(f"测试: {name}")
-        print(f"学生 ID: {student_id}")
+        print(f"角色: {role_label}")
         print(f"用户问: {user_msg}")
         print("=" * 70)
 
@@ -92,12 +101,45 @@ if __name__ == "__main__":
     #     "给我推荐几道适合我的语法练习题吧。",
     # )
     
+    # run_test(
+    #     "8. 搜知识库(search_knowledge_base)",
+    #     "Konjunktiv II 是什么?该怎么用?",
+    # )
+    
+    # run_test(
+    #     "9. 复合查询(P0 + P1 工具组合)",
+    #     "结合我的薄弱点,推荐几道适合的练习题,然后告诉我相关语法规则。",
+    # )
+
+
+    # ─── 教师端 P0 工具测试(teacher_user_id=2 是张老师) ───
+    
     run_test(
-        "8. 搜知识库(search_knowledge_base)",
-        "Konjunktiv II 是什么?该怎么用?",
+        "10. 班级总览(query_class_overview)",
+        "我教的班整体情况怎么样?学生水平如何?",
+        teacher_user_id=2,
     )
     
     run_test(
-        "9. 复合查询(P0 + P1 工具组合)",
-        "结合我的薄弱点,推荐几道适合的练习题,然后告诉我相关语法规则。",
+        "11. 查指定学生(query_student_by_uid)",
+        "学号 2452001 的同学最近怎么样?给我看看她的学情。",
+        teacher_user_id=2,
+    )
+    
+    run_test(
+        "12. 找薄弱学生(find_struggling_students)",
+        "我班里听力最弱的同学是谁?",
+        teacher_user_id=2,
+    )
+    
+    run_test(
+        "13. 推荐考点(recommend_exam_focus)",
+        "下次考试我应该重点考什么内容?",
+        teacher_user_id=2,
+    )
+    
+    run_test(
+        "14. 教师复合查询",
+        "总结一下我班整体情况,并告诉我哪几个学生需要特别关注,以及下次考试应该考什么。",
+        teacher_user_id=2,
     )

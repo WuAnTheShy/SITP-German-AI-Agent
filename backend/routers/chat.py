@@ -340,7 +340,7 @@ def student_agent_chat(
         
         # 9. 长期记忆刷新(后台任务)
         n = len(history) + 2
-        if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
+        if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0: #每隔固定轮数，就异步更新一次长期记忆摘要
             bg.add_task(refresh_student_memory, student.id, session.id)
         
         return {"reply": reply_text, "session_id": session.id}

@@ -19,7 +19,7 @@ class ToolRegistry:
     def __init__(self):
         self._tools: dict[str, dict[str, Any]] = {}
 
-    def register(
+    def register( # 把每个工具同时登记成 schema 和 handler
         self,
         name: str,
         description: str,
@@ -43,7 +43,7 @@ class ToolRegistry:
         return [t["schema"] for t in self._tools.values()]
 
     def call(self, name: str, args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
-        """执行工具。
+        """执行工具。根据工具名找到对应 handler
 
         context 里包含调用方信息（如 student_id、db session），handler 自己解构使用。
         """
@@ -64,7 +64,7 @@ registry = ToolRegistry()
 registry.register(
     name="query_my_profile",
     description=(
-        "查询当前学生的基本档案信息，包括姓名、班级、学号。"
+        "查询当前学生的基本档案信息，包括姓名、班级、学号等等。"
         "当用户询问'我是谁'、'我属于哪个班'等身份相关问题时使用。"
     ),
     parameters={
@@ -217,4 +217,106 @@ registry.register(
         "required": ["query"],
     },
     handler=handlers.search_knowledge_base,
+)
+
+
+
+registry.register(
+    name="query_class_overview",
+    description=(
+        "查询教师所教班级的总览数据:学生数、活跃度、四维能力均分、薄弱点分布等。"
+        "可指定 class_code 只看某一个班,默认查所有任教班级。"
+        "当教师询问'班里整体水平'、'各班对比'、'班级活跃度'等问题时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "class_code": {
+                "type": "string",
+                "description": "可选,指定班级编码(如 'SE-2026-4'),不指定则返回所有任教班级",
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.query_class_overview,
+)
+
+
+registry.register(
+    name="query_student_by_uid",
+    description=(
+        "按学号查询指定学生的完整学情:能力四维分、薄弱点、最近作业、错题数等。"
+        "工具会做权限校验,只能查询教师任教班级里的学生。"
+        "当教师询问'XXX 同学怎么样'、'学号 XXXXX 的情况'时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "uid": {
+                "type": "string",
+                "description": "学生学号(7 位数字,例如 '2452001')",
+            },
+        },
+        "required": ["uid"],
+    },
+    handler=handlers.query_student_by_uid,
+)
+
+
+registry.register(
+    name="find_struggling_students",
+    description=(
+        "找出薄弱学生:按指定维度('listening'/'speaking'/'reading'/'writing'/'overall')"
+        "或综合分数,返回低于阈值的学生列表(按分数从低到高排)。"
+        "当教师询问'谁需要重点关注'、'听力差的学生有哪些'、'班里最薄弱的几个'时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "dimension": {
+                "type": "string",
+                "description": "评估维度,默认 'overall'(综合)",
+                "enum": ["listening", "speaking", "reading", "writing", "overall"],
+                "default": "overall",
+            },
+            "threshold": {
+                "type": "integer",
+                "description": "薄弱阈值(低于此分数算薄弱),默认 60",
+                "default": 60,
+            },
+            "limit": {
+                "type": "integer",
+                "description": "最多返回多少人,默认 20",
+                "default": 20,
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.find_struggling_students,
+)
+
+
+registry.register(
+    name="recommend_exam_focus",
+    description=(
+        "基于学生错题热点,推荐试卷应该重点考察的方向。"
+        "返回错题最多的 N 个来源(语法练习/试卷测验等)及覆盖学生数。"
+        "当教师询问'下次考试该考什么'、'学生哪类题错最多'、'考试重点'时使用。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "class_code": {
+                "type": "string",
+                "description": "可选,只分析某个班级(如 'SE-2026-4'),不指定则综合所有任教班级",
+            },
+            "top_n": {
+                "type": "integer",
+                "description": "返回前 N 个错题热点,默认 3",
+                "default": 3,
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.recommend_exam_focus,
 )
