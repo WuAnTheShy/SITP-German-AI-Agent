@@ -19,13 +19,27 @@ class ToolRegistry:
     def __init__(self):
         self._tools: dict[str, dict[str, Any]] = {}
 
-    def register( # 把每个工具同时登记成 schema 和 handler
+    def register(
         self,
         name: str,
         description: str,
-        parameters: dict[str, Any],
-        handler: Callable[..., Any],
+        parameters: dict,
+        handler: Callable,
+        toolsets: list[str] | None = None,
     ):
+        """注册一个工具。
+        
+        Args:
+            name: 工具名(技术标识)
+            description: 给 LLM 看的描述
+            parameters: JSON Schema 定义参数
+            handler: 实际执行函数 (args, context) -> dict
+            toolsets: 这个工具属于哪些工具集,可多选。
+                     可选值: "student" / "teacher" / "common"
+                     默认 ["student"](向后兼容)
+        """
+        if toolsets is None:
+            toolsets = ["student"]
         self._tools[name] = {
             "schema": {
                 "type": "function",
@@ -36,11 +50,27 @@ class ToolRegistry:
                 },
             },
             "handler": handler,
+            "toolsets": toolsets,
         }
 
     def get_schemas(self) -> list[dict[str, Any]]:
         """返回所有工具的 schema（用于发给 Qwen 的 tools 参数）。"""
         return [t["schema"] for t in self._tools.values()]
+    
+    def get_schemas_by_toolset(self, toolset: str) -> list[dict]:
+        """返回某个工具集下所有工具的 schema(给 LLM 看)。
+        
+        Args:
+            toolset: "student" / "teacher" / "common"
+        
+        Returns:
+            该工具集下所有工具的 OpenAI 格式 schema 列表
+        """
+        return [
+            tool["schema"]
+            for tool in self._tools.values()
+            if toolset in tool["toolsets"]
+        ]
 
     def call(self, name: str, args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
         """执行工具。根据工具名找到对应 handler
@@ -73,6 +103,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.query_my_profile,
+    toolsets=["student"],
 )
 
 
@@ -90,6 +121,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.query_my_abilities,
+    toolsets=["student"],
 )
 
 
@@ -113,6 +145,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.query_my_recent_activity,
+    toolsets=["student"],
 )
 
 
@@ -140,6 +173,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.query_my_homeworks,
+    toolsets=["student"],
 )
 
 
@@ -162,6 +196,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.query_my_recent_chats,
+    toolsets=["student"],
 )
 
 
@@ -190,6 +225,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.recommend_grammar_exercises,
+    toolsets=["student"],
 )
 
 
@@ -217,6 +253,7 @@ registry.register(
         "required": ["query"],
     },
     handler=handlers.search_knowledge_base,
+    toolsets=["student","teacher"],
 )
 
 
@@ -239,6 +276,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.query_class_overview,
+    toolsets=["teacher"],
 )
 
 
@@ -260,6 +298,7 @@ registry.register(
         "required": ["uid"],
     },
     handler=handlers.query_student_by_uid,
+    toolsets=["teacher"],
 )
 
 
@@ -293,6 +332,7 @@ registry.register(
         "required": [],
     },
     handler=handlers.find_struggling_students,
+    toolsets=["teacher"],
 )
 
 
@@ -319,4 +359,5 @@ registry.register(
         "required": [],
     },
     handler=handlers.recommend_exam_focus,
+    toolsets=["teacher"],
 )

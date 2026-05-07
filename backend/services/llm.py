@@ -320,16 +320,32 @@ import json as _json_for_agent
 
 from services.agent_tools.registry import registry as agent_registry
 
+# 工具显示名映射(用户可见的中文名)
+TOOL_DISPLAY_NAMES = {
+    "query_my_profile": "查询档案",
+    "query_my_abilities": "查询四维能力",
+    "query_my_recent_activity": "查询学习活动",
+    "query_my_homeworks": "查询作业列表",
+    "query_my_recent_chats": "查询最近对话",
+    "recommend_grammar_exercises": "推荐语法练习",
+    "search_knowledge_base": "检索知识库",
+    "query_class_overview": "查询班级总览",
+    "query_student_by_uid": "按学号查学生",
+    "find_struggling_students": "查找薄弱学生",
+    "recommend_exam_focus": "推荐考点",
+}
+
 
 def generate_response_with_tools(
     messages: list[dict],
     system_instruction: str | None = None,
     context: dict | None = None,
     max_iterations: int = 5,
-) -> str:
-    """带工具调用的多轮 LLM 调用循环（Agent 主流程）。
+    toolset: str | None = None,    # ← 新增
+) -> tuple[str, list[dict]]:
+    """带工具调用的多轮 LLM 调用循环(Agent 主流程)。
 
-    工作流程：
+    工作流程:
       1. 把 messages + tools schema 发给 Qwen
       2. 如果 Qwen 返回 tool_calls,执行工具,把结果作为 tool message 加进 messages
       3. 重新发送给 Qwen,继续直到 Qwen 不再调工具或达到 max_iterations
@@ -339,9 +355,14 @@ def generate_response_with_tools(
         system_instruction: 可选的系统提示
         context: 给工具用的上下文 {db, student_id, ...}
         max_iterations: 最多调几轮工具(防止无限循环)
+        toolset: 限定工具集,可选 "student" / "teacher" / "common"
+                 不指定则暴露所有工具(向后兼容)
 
     Returns:
-        最终的 assistant 回答文本
+        (reply_text, tool_calls_used) 二元组:
+          - reply_text: 最终的 assistant 回答文本
+          - tool_calls_used: 本次对话中使用过的工具列表,
+            每项 {name, args, iteration},供前端展示工具调用轨迹
     """
     if context is None:
         context = {}
@@ -352,7 +373,11 @@ def generate_response_with_tools(
         msgs.append({"role": "system", "content": system_instruction})
     msgs.extend(messages)
 
-    tool_schemas = agent_registry.get_schemas()
+    if toolset:
+        tool_schemas = agent_registry.get_schemas_by_toolset(toolset)
+    else:
+        tool_schemas = agent_registry.get_schemas()
+    tool_calls_used: list[dict] = []  # 记录工具调用轨迹
 
     for iteration in range(max_iterations):
         logger.info(f"Agent iteration {iteration + 1}/{max_iterations}, msgs={len(msgs)}")
@@ -362,7 +387,7 @@ def generate_response_with_tools(
             data = _call_llm_with_tools(msgs, tool_schemas)
         except Exception as e:
             logger.error(f"Agent LLM 调用失败: {type(e).__name__}: {e}")
-            return "抱歉，AI 服务暂时无法响应。"
+            return "抱歉,AI 服务暂时无法响应。", tool_calls_used
 
         choice = data["choices"][0]
         msg = choice["message"]
@@ -371,11 +396,10 @@ def generate_response_with_tools(
         # Qwen 不再调工具,返回最终回答
         if not msg.get("tool_calls"):
             logger.info(f"Agent done, finish_reason={finish_reason}")
-            return msg.get("content", "") or ""
+            return (msg.get("content", "") or ""), tool_calls_used
 
         # Qwen 要求调工具
         logger.info(f"Agent tool_calls: {[tc['function']['name'] for tc in msg['tool_calls']]}")
-
 
         # 把 assistant 的 tool_calls 消息加进 msgs
         msgs.append(msg)
@@ -388,10 +412,16 @@ def generate_response_with_tools(
             except Exception:
                 tool_args = {}
 
+            # 记录工具调用轨迹(给前端展示用)
+            tool_calls_used.append({
+                "name": tool_name,
+                "display_name": TOOL_DISPLAY_NAMES.get(tool_name, tool_name),
+                "args": tool_args,
+                "iteration": iteration + 1,
+            })
+
             result = agent_registry.call(tool_name, tool_args, context)
-            logger.info(
-                f"[AGENT-TOOL] {tool_name}({tool_args}) -> {str(result)[:200]}"
-            )
+            logger.info(f"[AGENT-TOOL] {tool_name}({tool_args}) -> {str(result)[:200]}")
 
             msgs.append({
                 "role": "tool",
@@ -401,7 +431,7 @@ def generate_response_with_tools(
 
     # 达到迭代上限
     logger.warning(f"Agent reached max_iterations={max_iterations}")
-    return "（处理超过最大轮次，请简化问题后重试）"
+    return "(处理超过最大轮次,请简化问题后重试)", tool_calls_used
 
 
 def _call_llm_with_tools(messages: list[dict], tools: list[dict]) -> dict:

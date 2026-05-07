@@ -48,7 +48,7 @@ def run_test(name: str, user_msg: str, *, student_id: int | None = None, teacher
         print(f"用户问: {user_msg}")
         print("=" * 70)
 
-        reply = generate_response_with_tools(
+        reply, tool_calls_used = generate_response_with_tools(
             messages=messages,
             system_instruction=SYSTEM_PROMPT,
             context=context,
@@ -56,6 +56,10 @@ def run_test(name: str, user_msg: str, *, student_id: int | None = None, teacher
 
         print("\n--- Agent 回答 ---")
         print(reply)
+        if tool_calls_used:
+            print("\n--- 调用的工具 ---")
+            for tc in tool_calls_used:
+                print(f"  [iter {tc['iteration']}] {tc['display_name']} ({tc['name']}) {tc['args']}")
         print("=" * 70)
     finally:
         db.close()

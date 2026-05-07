@@ -1,0 +1,418 @@
+{
+  "run_at": "2026-05-07T17:10:26.546498",
+  "version": "baseline_v1_pre_refactor",
+  "system_prompt": "你是德语学习助教小智。可调用工具查询学生真实数据。当用户询问个人学情时主动调用 query_my_*;查词典或语法时调用 search_knowledge_base;推荐题目时调用 recommend_grammar_exercises。不需要工具时直接回答,不要硬塞工具调用。",
+  "metrics": {
+    "total": 20,
+    "success_count": 20,
+    "success_rate": 1.0,
+    "overall_recall": 0.975,
+    "overall_precision": 1.0,
+    "avg_iterations_per_query": 0.75,
+    "avg_tool_calls_per_query": 0.95,
+    "avg_elapsed_sec": 17.69,
+    "by_category": {
+      "profile_query": {
+        "count": 4,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 43.01
+      },
+      "knowledge_query": {
+        "count": 4,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 9.43
+      },
+      "composite": {
+        "count": 4,
+        "avg_recall": 0.875,
+        "avg_precision": 1.0,
+        "avg_elapsed": 18.35
+      },
+      "general_chat": {
+        "count": 4,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 5.92
+      },
+      "edge_case": {
+        "count": 4,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 11.75
+      }
+    }
+  },
+  "details": [
+    {
+      "id": "S01",
+      "category": "profile_query",
+      "query": "我是谁?帮我看看档案",
+      "expected_tools": [
+        "query_my_profile"
+      ],
+      "actual_tools": [
+        "query_my_profile"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 138.0,
+      "success": true,
+      "error": null,
+      "reply_preview": "你好，李娜同学！👋 这是你的个人档案信息：\n\n| 项目 | 信息 |\n|------|------|\n| **姓名** | 李娜 |\n| **学号** | 2452001 |\n| **班级** | 软件工程(四)班 |\n| **班级编码**"
+    },
+    {
+      "id": "S02",
+      "category": "profile_query",
+      "query": "我现在德语水平怎么样?哪里比较弱?",
+      "expected_tools": [
+        "query_my_abilities"
+      ],
+      "actual_tools": [
+        "query_my_abilities"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 8.9,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你的德语能力评估，目前情况如下：\n\n## 📊 能力四维得分\n| 维度 | 得分 | 状态 |\n|------|------|------|\n| 🎧 听力 | 0分 | ⚠️ 最薄弱 |\n| 🗣️ 口语 | 20分 | 需加强 |\n| 📖"
+    },
+    {
+      "id": "S03",
+      "category": "profile_query",
+      "query": "我最近一周都学了什么?练习了多久?",
+      "expected_tools": [
+        "query_my_recent_activity"
+      ],
+      "actual_tools": [
+        "query_my_recent_activity"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 11.97,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你最近 7 天的学习记录，我来帮你总结一下：\n\n## 📊 学习概览\n- **总学习时长**：158 分钟（约 2 小时 38 分钟）\n- **总活动次数**：88 次\n- **最活跃模块**：情景对话\n\n## 📚 各模块学习详情\n\n| "
+    },
+    {
+      "id": "S04",
+      "category": "profile_query",
+      "query": "我有哪些作业?完成了多少?平均分多少?",
+      "expected_tools": [
+        "query_my_homeworks"
+      ],
+      "actual_tools": [
+        "query_my_homeworks"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 13.18,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你的作业情况，以下是详细信息：\n\n## 作业概况\n- **总作业数**：3 份\n- **已完成**：3 份 ✅\n- **未完成**：0 份\n- **平均分**：31.83 分\n\n## 具体作业列表\n\n| 作业标题 | 状态 | 得分 |"
+    },
+    {
+      "id": "S05",
+      "category": "knowledge_query",
+      "query": "Apfel 在德语里什么意思?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 8.63,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n**Apfel** 在德语里的意思是 **苹果**。\n\n基本信息：\n- **词性**：阳性名词 (der Apfel)\n- **复数形式**：Äpfel\n- **例句**：Ich esse ei"
+    },
+    {
+      "id": "S06",
+      "category": "knowledge_query",
+      "query": "der Schraubenzieher 怎么翻译?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 8.49,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n**der Schraubenzieher** 的中文翻译是：**螺丝刀** 或 **改锥**\n\n这是一个阳性名词（der），由以下部分构成：\n- Schraube = 螺丝\n- ziehen "
+    },
+    {
+      "id": "S07",
+      "category": "knowledge_query",
+      "query": "德语里和'颜色'相关的词有哪些?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 10.86,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n## 德语常见颜色词汇\n\n### 基本颜色\n| 中文 | 德语 | 发音提示 |\n|------|------|----------|\n| 红色 | rot | 罗特 |\n| 蓝色 | blau"
+    },
+    {
+      "id": "S08",
+      "category": "knowledge_query",
+      "query": "怎么用德语说'你好'?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 9.72,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n德语中\"你好\"有几种常见表达方式：\n\n1. **Hallo** - 最常用的非正式问候，适用于朋友、同学、熟人之间\n   - 发音：[ˈhalo]\n\n2. **Guten Tag** - 正式场"
+    },
+    {
+      "id": "S09",
+      "category": "composite",
+      "query": "结合我的薄弱点给我推荐几道题",
+      "expected_tools": [
+        "query_my_abilities",
+        "recommend_grammar_exercises"
+      ],
+      "actual_tools": [
+        "recommend_grammar_exercises"
+      ],
+      "recall": 0.5,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 14.33,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你的学习情况，我为你推荐了 **5 道被动语态练习题**。系统检测到这是题库最丰富的分类，适合巩固练习。\n\n---\n\n### 📝 被动语态练习题\n\n**1.** Die Tür ______ (öffnen) von der Mutte"
+    },
+    {
+      "id": "S10",
+      "category": "composite",
+      "query": "总结我最近的学习状态,告诉我应该改进哪方面",
+      "expected_tools": [
+        "query_my_abilities",
+        "query_my_recent_activity"
+      ],
+      "actual_tools": [
+        "query_my_abilities",
+        "query_my_recent_activity"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 2,
+      "elapsed_sec": 22.02,
+      "success": true,
+      "error": null,
+      "reply_preview": "## 📊 你的最近学习状态总结\n\n### 学习行为分析（近7天）\n| 指标 | 数据 |\n|------|------|\n| 总学习时长 | 158分钟 |\n| 活动次数 | 88次 |\n| 平均每次 | 约1.8分钟 |\n| 最活跃模块 "
+    },
+    {
+      "id": "S11",
+      "category": "composite",
+      "query": "我的作业怎么样?哪些方面要继续练?",
+      "expected_tools": [
+        "query_my_abilities",
+        "query_my_homeworks"
+      ],
+      "actual_tools": [
+        "query_my_abilities",
+        "query_my_homeworks"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 2,
+      "elapsed_sec": 14.27,
+      "success": true,
+      "error": null,
+      "reply_preview": "## 📊 你的作业情况\n\n| 作业 | 状态 | 得分 | 主要问题 |\n|------|------|------|----------|\n| 随堂测验 (5月5日) | 已完成 | 0分 | 语法题错误较多（动词变位、情态动词） |\n|"
+    },
+    {
+      "id": "S12",
+      "category": "composite",
+      "query": "我之前问过哪些类型的问题,反映了什么学习偏好?",
+      "expected_tools": [
+        "query_my_recent_chats"
+      ],
+      "actual_tools": [
+        "query_my_recent_chats"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 22.78,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你最近的20次对话记录，我来分析一下你的问题类型和学习偏好：\n\n## 📊 问题类型分布\n\n| 类型 | 典型问题 | 占比 |\n|------|----------|------|\n| **学情评估** | \"我哪里弱？\"、\"建议我今天"
+    },
+    {
+      "id": "S13",
+      "category": "general_chat",
+      "query": "你好,你是谁?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 3.71,
+      "success": true,
+      "error": null,
+      "reply_preview": "你好！我是德语学习助教小智，专门帮助你学习德语。我可以帮你：\n\n- 查询你的学习档案和能力评估\n- 查看作业情况和学习活动统计\n- 推荐语法练习题\n- 解答德语词汇、语法等问题\n- 提供学习建议\n\n有什么问题或需要帮助的地方，随时告诉我！😊"
+    },
+    {
+      "id": "S14",
+      "category": "general_chat",
+      "query": "学德语有什么好的方法?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 9.28,
+      "success": true,
+      "error": null,
+      "reply_preview": "学习德语是一个循序渐进的过程，这里有一些实用的方法建议：\n\n## 📚 基础学习方法\n\n**1. 听说读写四维并重**\n- **听**：多听德语播客、新闻、音乐，培养语感\n- **说**：大胆开口，可以跟我进行智能对话练习\n- **读**：从"
+    },
+    {
+      "id": "S15",
+      "category": "general_chat",
+      "query": "谢谢你,再见",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 2.3,
+      "success": true,
+      "error": null,
+      "reply_preview": "不客气！祝你德语学习顺利，有任何问题随时来找我。再见！👋"
+    },
+    {
+      "id": "S16",
+      "category": "general_chat",
+      "query": "你能帮我做什么?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 8.38,
+      "success": true,
+      "error": null,
+      "reply_preview": "你好！我是德语学习助教小智，可以帮你做这些事情：\n\n**📚 个人学情查询**\n- 查看你的基本档案（姓名、班级、学号等）\n- 查询德语四维能力评估（听/说/读/写分数、强弱项分析）\n- 查看最近学习活动统计（学习时长、各模块练习情况）\n- "
+    },
+    {
+      "id": "S17",
+      "category": "edge_case",
+      "query": "推荐一些虚拟式的题目",
+      "expected_tools": [
+        "recommend_grammar_exercises"
+      ],
+      "actual_tools": [
+        "recommend_grammar_exercises"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 11.47,
+      "success": true,
+      "error": null,
+      "reply_preview": "为你准备了 5 道语法练习题！不过要说明一下：虚拟式分类的题目目前较少，系统从其他分类补充了 4 题，其中第 1 题是真正的虚拟式练习，其余是被动语态和动词变位题目，也可以一起练习哦～\n\n---\n\n**📝 练习题**\n\n1️⃣ **虚拟式*"
+    },
+    {
+      "id": "S18",
+      "category": "edge_case",
+      "query": "Konjunktiv II 怎么用?有相关练习吗?",
+      "expected_tools": [
+        "recommend_grammar_exercises",
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "recommend_grammar_exercises",
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 2,
+      "elapsed_sec": 18.47,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容,以下是通用知识:\n\n## Konjunktiv II(虚拟式)用法\n\n**Konjunktiv II** 主要用于表达**非现实、假设、愿望或礼貌**的情况:\n\n### 1. 基本构成\n- **规则动词**:词干 "
+    },
+    {
+      "id": "S19",
+      "category": "edge_case",
+      "query": "测试123",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 3.8,
+      "success": true,
+      "error": null,
+      "reply_preview": "你好！我是德语学习助教小智 👋\n\n看起来你在测试系统？我随时准备帮助你学习德语！我可以帮你：\n\n- 📊 查询你的学习档案和能力评估\n- 📝 查看作业情况和成绩\n- 📚 推荐语法练习题\n- 🔍 查询德语词汇、语法规则\n- 📈 分析你的学习活动"
+    },
+    {
+      "id": "S20",
+      "category": "edge_case",
+      "query": "我哪里弱呢?另外Konjunktiv II 是什么?",
+      "expected_tools": [
+        "query_my_abilities",
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "query_my_abilities",
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 2,
+      "elapsed_sec": 13.26,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你的能力评估结果：\n\n**你的薄弱点分析：**\n- 🎯 **最薄弱项：听力理解（0分）** - 这是你需要重点关注的领域\n- 📊 各项能力得分：\n  - 听力：0分 ⚠️\n  - 口语：20分\n  - 阅读：22分 ✅（最强项）\n  -"
+    }
+  ]
+}
