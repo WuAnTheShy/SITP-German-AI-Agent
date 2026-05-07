@@ -1,161 +1,223 @@
-"""学生端 Agent 评测集 v1。
+"""学生 + 教师 Agent 评测集 v2。
 
-每个 case 包含:
-  - id: 唯一标识
-  - category: 5 大类型(profile/knowledge/composite/general/edge)
-  - query: 用户问题
-  - expected_tools: 期望被调用的工具集(用 set 比较顺序无关)
-  - notes: 标注理由,方便 review
+设计原则:
+1. query 用真实师生口语表达,不用实验室技术语言
+2. knowledge_query 只用词典确实有的词(SQL 验证过)
+3. 教师场景覆盖班务/备课/学情/咨询
+4. expected_tools 用 set 比较顺序无关
 """
 
-EVAL_CASES = [
-    # ─── 类型 1: 学情查询(纯学情,不需要 KB) ───
+# ════════════════ 学生端评测集 ════════════════
+
+STUDENT_EVAL_CASES = [
+    # ─── 学情类(5个): 真实学生口语 ───
     {
-        "id": "S01",
+        "id": "ST01",
         "category": "profile_query",
-        "query": "我是谁?帮我看看档案",
-        "expected_tools": {"query_my_profile"},
-        "notes": "经典个人信息查询",
-    },
-    {
-        "id": "S02",
-        "category": "profile_query",
-        "query": "我现在德语水平怎么样?哪里比较弱?",
+        "query": "我哪里学得不好啊?",
         "expected_tools": {"query_my_abilities"},
-        "notes": "明确指向能力评估",
     },
     {
-        "id": "S03",
+        "id": "ST02",
         "category": "profile_query",
-        "query": "我最近一周都学了什么?练习了多久?",
+        "query": "我这周学了多久?都干嘛了?",
         "expected_tools": {"query_my_recent_activity"},
-        "notes": "时间范围 + 学习活动",
     },
     {
-        "id": "S04",
+        "id": "ST03",
         "category": "profile_query",
-        "query": "我有哪些作业?完成了多少?平均分多少?",
+        "query": "我作业完成情况怎么样,平均分多少?",
         "expected_tools": {"query_my_homeworks"},
-        "notes": "作业统计",
-    },
-
-    # ─── 类型 2: 知识检索(应该走 KB) ───
-    {
-        "id": "S05",
-        "category": "knowledge_query",
-        "query": "Apfel 在德语里什么意思?",
-        "expected_tools": {"search_knowledge_base"},
-        "notes": "词典查询,KB 应该有",
     },
     {
-        "id": "S06",
-        "category": "knowledge_query",
-        "query": "der Schraubenzieher 怎么翻译?",
-        "expected_tools": {"search_knowledge_base"},
-        "notes": "专有名词词典查询",
-    },
-    {
-        "id": "S07",
-        "category": "knowledge_query",
-        "query": "德语里和'颜色'相关的词有哪些?",
-        "expected_tools": {"search_knowledge_base"},
-        "notes": "词汇范畴查询",
-    },
-    {
-        "id": "S08",
-        "category": "knowledge_query",
-        "query": "怎么用德语说'你好'?",
-        "expected_tools": {"search_knowledge_base"},
-        "notes": "基础翻译,KB 可能有可能没,但应该尝试",
-    },
-
-    # ─── 类型 3: 复合查询(多工具) ───
-    {
-        "id": "S09",
-        "category": "composite",
-        "query": "结合我的薄弱点给我推荐几道题",
-        "expected_tools": {"query_my_abilities", "recommend_grammar_exercises"},
-        "notes": "先查能力 → 再推荐",
-    },
-    {
-        "id": "S10",
-        "category": "composite",
-        "query": "总结我最近的学习状态,告诉我应该改进哪方面",
-        "expected_tools": {"query_my_abilities", "query_my_recent_activity"},
-        "notes": "需要双数据源整合",
-    },
-    {
-        "id": "S11",
-        "category": "composite",
-        "query": "我的作业怎么样?哪些方面要继续练?",
-        "expected_tools": {"query_my_homeworks", "query_my_abilities"},
-        "notes": "作业 + 能力分析",
-    },
-    {
-        "id": "S12",
-        "category": "composite",
-        "query": "我之前问过哪些类型的问题,反映了什么学习偏好?",
+        "id": "ST04",
+        "category": "profile_query",
+        "query": "我之前都问过些什么问题?",
         "expected_tools": {"query_my_recent_chats"},
-        "notes": "对话历史分析",
-    },
-
-    # ─── 类型 4: 通用对话(不应调工具) ───
-    {
-        "id": "S13",
-        "category": "general_chat",
-        "query": "你好,你是谁?",
-        "expected_tools": set(),
-        "notes": "Agent 自我介绍,不需要工具",
     },
     {
-        "id": "S14",
-        "category": "general_chat",
-        "query": "学德语有什么好的方法?",
-        "expected_tools": set(),
-        "notes": "开放性建议,通用知识就够",
+        "id": "ST05",
+        "category": "profile_query",
+        "query": "我叫什么来着?哪个班的?",
+        "expected_tools": {"query_my_profile"},
+    },
+    
+    # ─── 知识类(4个): 词典里真有的词 ───
+    {
+        "id": "ST06",
+        "category": "knowledge_query",
+        "query": "Lehrer 在德语里啥意思?",
+        "expected_tools": {"search_knowledge_base"},
     },
     {
-        "id": "S15",
-        "category": "general_chat",
-        "query": "谢谢你,再见",
-        "expected_tools": set(),
-        "notes": "礼貌告别,绝对不该调工具",
+        "id": "ST07",
+        "category": "knowledge_query",
+        "query": "Computer 这个词德语怎么说,有变形吗?",
+        "expected_tools": {"search_knowledge_base"},
     },
     {
-        "id": "S16",
-        "category": "general_chat",
-        "query": "你能帮我做什么?",
-        "expected_tools": set(),
-        "notes": "能力介绍,不需要查数据",
+        "id": "ST08",
+        "category": "knowledge_query",
+        "query": "Freund 跟 Freundin 什么区别?",
+        "expected_tools": {"search_knowledge_base"},
     },
-
-    # ─── 类型 5: 边界场景 ───
     {
-        "id": "S17",
-        "category": "edge_case",
-        "query": "推荐一些虚拟式的题目",
+        "id": "ST09",
+        "category": "knowledge_query",
+        "query": "我想查一下 Familie 这个词",
+        "expected_tools": {"search_knowledge_base"},
+    },
+    
+    # ─── 综合任务(3个): 多工具协作 ───
+    {
+        "id": "ST10",
+        "category": "composite",
+        "query": "根据我的薄弱点,帮我推荐几道练习题",
         "expected_tools": {"recommend_grammar_exercises"},
-        "notes": "明确分类指定,直接推荐",
+        "notes": "工具内部已查 weak_point,LLM 跳过冗余调用是正确行为",
     },
     {
-        "id": "S18",
-        "category": "edge_case",
-        "query": "Konjunktiv II 怎么用?有相关练习吗?",
-        "expected_tools": {"search_knowledge_base", "recommend_grammar_exercises"},
-        "notes": "知识 + 推题混合,可能调 1 或 2 个",
+        "id": "ST11",
+        "category": "composite",
+        "query": "总结一下我最近的学习状态,给点建议",
+        "expected_tools": {"query_my_abilities", "query_my_recent_activity"},
     },
     {
-        "id": "S19",
-        "category": "edge_case",
-        "query": "测试123",
+        "id": "ST12",
+        "category": "composite",
+        "query": "我哪里弱?推荐几道针对性的练习",
+        "expected_tools": {"query_my_abilities", "recommend_grammar_exercises"},
+    },
+    
+    # ─── 开放对话(3个): 不应调工具 ───
+    {
+        "id": "ST13",
+        "category": "general_chat",
+        "query": "你好,你是谁啊?",
         "expected_tools": set(),
-        "notes": "无意义输入,Agent 应礼貌引导",
     },
     {
-        "id": "S20",
-        "category": "edge_case",
-        "query": "我哪里弱呢?另外Konjunktiv II 是什么?",
-        "expected_tools": {"query_my_abilities", "search_knowledge_base"},
-        "notes": "学情 + 知识双类型,必须并行调",
+        "id": "ST14",
+        "category": "general_chat",
+        "query": "学德语有什么好方法吗?",
+        "expected_tools": set(),
+    },
+    {
+        "id": "ST15",
+        "category": "general_chat",
+        "query": "谢啦,先这样",
+        "expected_tools": set(),
     },
 ]
+
+
+# ════════════════ 教师端评测集 ════════════════
+
+TEACHER_EVAL_CASES = [
+    # ─── 班务洞察(4个) ───
+    {
+        "id": "TE01",
+        "category": "class_insight",
+        "query": "我班学生整体水平怎么样?",
+        "expected_tools": {"query_class_overview"},
+    },
+    {
+        "id": "TE02",
+        "category": "class_insight",
+        "query": "哪几个学生需要重点关注?",
+        "expected_tools": {"find_struggling_students"},
+    },
+    {
+        "id": "TE03",
+        "category": "class_insight",
+        "query": "我班里听力最差的是谁?",
+        "expected_tools": {"find_struggling_students"},
+    },
+    {
+        "id": "TE04",
+        "category": "class_insight",
+        "query": "学生 2452002 王强这孩子学得怎么样?",
+        "expected_tools": {"query_student_by_uid"},
+    },
+    
+    # ─── 学情分析(3个) ───
+    {
+        "id": "TE05",
+        "category": "student_analysis",
+        "query": "李娜最近作业做得怎样?",
+        "expected_tools": {"query_student_by_uid"},
+    },
+    {
+        "id": "TE06",
+        "category": "student_analysis",
+        "query": "下次考试我应该重点考什么?",
+        "expected_tools": {"recommend_exam_focus"},
+    },
+    {
+        "id": "TE07",
+        "category": "student_analysis",
+        "query": "总结一下我班的情况,告诉我哪几个要重点抓,然后建议下次考啥",
+        "expected_tools": {"query_class_overview", "find_struggling_students", "recommend_exam_focus"},
+    },
+    
+    # ─── 教研咨询(3个,知识类) ───
+    {
+        "id": "TE08",
+        "category": "knowledge_query",
+        "query": "Lehrer 这个词怎么变复数?有什么需要注意的?",
+        "expected_tools": {"search_knowledge_base"},
+    },
+    {
+        "id": "TE09",
+        "category": "knowledge_query",
+        "query": "Computer 在德语里是阳性还是中性?",
+        "expected_tools": {"search_knowledge_base"},
+    },
+    {
+        "id": "TE10",
+        "category": "knowledge_query",
+        "query": "查一下 Auto 在词典里的释义",
+        "expected_tools": {"search_knowledge_base"},
+    },
+    
+    # ─── 开放对话(3个,不应调工具) ───
+    {
+        "id": "TE11",
+        "category": "general_chat",
+        "query": "你好,你能帮我做什么?",
+        "expected_tools": set(),
+    },
+    {
+        "id": "TE12",
+        "category": "general_chat",
+        "query": "怎么给学生讲虚拟式比较容易理解?",
+        "expected_tools": set(),
+        "notes": "教学法咨询,通用知识就够,不该调工具",
+    },
+    {
+        "id": "TE13",
+        "category": "general_chat",
+        "query": "如何提升学生的学习兴趣?",
+        "expected_tools": set(),
+    },
+    
+    # ─── 边界场景(2个) ───
+    {
+        "id": "TE14",
+        "category": "edge_case",
+        "query": "学号 9999999 是哪个同学?",
+        "expected_tools": {"query_student_by_uid"},
+        "notes": "工具会返回'未找到',测试 Agent 处理空结果",
+    },
+    {
+        "id": "TE15",
+        "category": "edge_case",
+        "query": "看看班里情况和重点学生,然后查 Lehrer 这词",
+        "expected_tools": {"query_class_overview", "find_struggling_students", "search_knowledge_base"},
+        "notes": "学情 + 知识混合场景",
+    },
+]
+
+
+# 兼容旧脚本(默认导出学生端集合)
+EVAL_CASES = STUDENT_EVAL_CASES

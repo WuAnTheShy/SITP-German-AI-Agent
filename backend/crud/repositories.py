@@ -1391,6 +1391,59 @@ class KnowledgeBaseCRUD:
             },
         ).mappings().all()
         return [dict(r) for r in rows]
+    
+    @staticmethod
+    def search_chunks_by_keyword(
+        db: Session,
+        query: str,
+        top_k: int = 20,
+        score_threshold: float = 0.01,
+        viewer_user_id: int | None = None,
+        viewer_session_key: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """基于 PostgreSQL 全文检索的关键词召回(BM25 风格)。
+        
+        与 search_chunks_by_embedding 互补:
+        - 向量检索擅长语义相似度(同义词/概念)
+        - 关键词检索擅长专有名词(Konjunktiv/Apfel/Schraubenzieher)
+        
+        使用 ts_rank_cd 排序,score 越高越相关。返回字段格式与
+        search_chunks_by_embedding 对齐,便于上层融合。
+        """
+        KnowledgeBaseCRUD._ensure_temp_columns(db)
+        rows = db.execute(
+            text(
+                "SELECT c.id, c.document_id, c.chunk_index, c.content, c.metadata, "
+                "d.title, d.source_name, d.owner_user_id, "
+                "ts_rank_cd("
+                "  to_tsvector('simple', c.content), "
+                "  websearch_to_tsquery('simple', :query)"
+                ") AS score "
+                "FROM kb_chunks c "
+                "JOIN kb_documents d ON d.id = c.document_id "
+                "WHERE d.status='ready' AND d.is_active=TRUE "
+                "AND ("
+                "d.scope='public' "
+                "OR (d.scope='private' AND d.owner_user_id=:viewer_user_id "
+                "    AND (COALESCE(d.is_temporary, FALSE)=FALSE OR d.session_key=:viewer_session_key))"
+                ") "
+                "AND to_tsvector('simple', c.content) @@ websearch_to_tsquery('simple', :query) "
+                "AND ts_rank_cd("
+                "  to_tsvector('simple', c.content), "
+                "  websearch_to_tsquery('simple', :query)"
+                ") >= :score_threshold "
+                "ORDER BY score DESC "
+                "LIMIT :top_k"
+            ),
+            {
+                "query": query,
+                "top_k": top_k,
+                "score_threshold": score_threshold,
+                "viewer_user_id": viewer_user_id,
+                "viewer_session_key": viewer_session_key,
+            },
+        ).mappings().all()
+        return [dict(r) for r in rows]
 
     @staticmethod
     def delete_document(db: Session, doc_id: int) -> bool:

@@ -361,3 +361,112 @@ registry.register(
     handler=handlers.recommend_exam_focus,
     toolsets=["teacher"],
 )
+
+
+
+registry.register(
+    name="generate_grammar_exercises_with_ai",
+    description=(
+        "用 AI 实时生成德语语法练习题(教师备课用)。"
+        "与 recommend_grammar_exercises 不同:recommend 从已有题库抽,"
+        "generate 用 LLM 实时创作新题,题库没有也能出。"
+        "支持指定分类、难度、数量,可选直接入库。"
+        "适用场景:'帮我出 5 道虚拟式中等难度题'、'生成被动语态练习题'。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "category": {
+                "type": "string",
+                "description": "语法分类(中文),例如:动词变位/名词格变化/完成时/被动语态/虚拟式/介词搭配/句序",
+            },
+            "count": {
+                "type": "integer",
+                "description": "生成题目数量,默认 5,最大 10",
+                "default": 5,
+            },
+            "difficulty": {
+                "type": "string",
+                "description": "难度等级",
+                "enum": ["easy", "medium", "hard"],
+                "default": "medium",
+            },
+            "save_to_db": {
+                "type": "boolean",
+                "description": "是否将生成的题目保存到题库,默认 False(只生成不入库)",
+                "default": False,
+            },
+        },
+        "required": ["category"],
+    },
+    handler=handlers.generate_grammar_exercises_with_ai,
+    toolsets=["teacher"],
+)
+
+
+
+registry.register(
+    name="generate_writing_topic",
+    description=(
+        "用 AI 生成德语写作题(教师备课/学生练习用)。"
+        "支持指定主题方向、难度等级、题目数量。"
+        "适用场景:'帮我出 3 个 B1 级别的家庭主题写作题'、'生成关于环保的作文题'。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "theme": {
+                "type": "string",
+                "description": "写作主题方向(中文),例如'校园生活'/'家庭'/'环保'/'未来计划'",
+            },
+            "level": {
+                "type": "string",
+                "description": "难度等级",
+                "enum": ["A1", "A2", "B1", "B2", "C1"],
+                "default": "B1",
+            },
+            "count": {
+                "type": "integer",
+                "description": "生成题目数量,默认 3,最大 5",
+                "default": 3,
+            },
+        },
+        "required": ["theme"],
+    },
+    handler=handlers.generate_writing_topic,
+    toolsets=["teacher"],
+)
+
+
+registry.register(
+    name="generate_exam_paper",
+    description=(
+        "用 AI 生成完整的德语考试卷(教师出卷工具)。"
+        "支持指定重点考察内容、总分、题型分布。返回完整试卷结构(含语法/词汇/翻译/写作多个 section)。"
+        "适用场景:'帮我出一份周测,重点考虚拟式'、'生成期中考试卷,100 分'。"
+        "若教师只说'重点考什么',先用 recommend_exam_focus 工具拿到错题热点,再调本工具。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "focus_topics": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "重点考察的语法/主题列表,例如 ['虚拟式','被动语态']",
+            },
+            "total_score": {
+                "type": "integer",
+                "description": "试卷总分,默认 100",
+                "default": 100,
+            },
+            "sections_count": {
+                "type": "integer",
+                "description": "试卷分多少 section,默认 3,范围 2-5",
+                "default": 3,
+            },
+        },
+        "required": ["focus_topics"],
+    },
+    handler=handlers.generate_exam_paper,
+    toolsets=["teacher"],
+)

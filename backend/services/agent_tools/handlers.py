@@ -7,6 +7,8 @@
 返回值会被 JSON 序列化后发回给 Qwen。
 """
 import logging
+import json
+from services.llm import ai_json
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -26,6 +28,42 @@ from models.entities import (
 
 logger = logging.getLogger(__name__)
 
+
+def _generate_via_llm_json(
+    prompt: str,
+    expected_key: str,
+    min_items: int = 1,
+) -> tuple[list[dict] | None, str | None]:
+    """通用工具:用 LLM 生成 JSON 数组并校验。
+    
+    被 AI 生成类工具(题/作文题/试卷)复用。
+    
+    Args:
+        prompt: 给 LLM 的指令(必须要求 JSON 输出)
+        expected_key: 期望返回 JSON 的顶层 key(如 'exercises'/'topics'/'questions')
+        min_items: 最少需要多少项,少于此数视为失败
+    
+    Returns:
+        (items, error_msg) 二元组:
+          - 成功: (items_list, None)
+          - 失败: (None, error_msg)
+    """
+    from services.llm import ai_json
+    
+    try:
+        result = ai_json(prompt)
+    except Exception as e:
+        logger.error(f"_generate_via_llm_json LLM 调用失败: {type(e).__name__}: {e}")
+        return None, "AI 服务暂时不可用,请稍后重试"
+    
+    if not result or not isinstance(result, dict):
+        return None, "AI 返回格式异常(非 dict)"
+    
+    items = result.get(expected_key)
+    if not isinstance(items, list) or len(items) < min_items:
+        return None, f"AI 未生成有效 {expected_key}(返回 {len(items) if isinstance(items, list) else 0} 项)"
+    
+    return items, None
 
 def query_my_profile(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     """查询当前学生的基本档案（姓名、学号、班级）。"""
@@ -811,5 +849,348 @@ def recommend_exam_focus(args: dict[str, Any], context: dict[str, Any]) -> dict[
             f"分析 {len(student_ids)} 名学生的错题分布,"
             f"建议试卷重点考察方向(按错题频次排):"
             + ", ".join(f"{s['source']}({s['error_count']} 题)" for s in sources)
+        ),
+    }
+
+
+def generate_grammar_exercises_with_ai(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """AI 生成语法练习题(教师备课工具)。
+    
+    与 recommend_grammar_exercises 区别:
+    - recommend: 从已有题库随机抽题
+    - generate: 用 LLM 实时生成新题(题库没有也能出)
+    
+    args:
+        category: str 必填,语法分类("虚拟式"/"被动语态"等)
+        count: int 默认 5,最大 10
+        difficulty: str "easy"/"medium"/"hard",默认 "medium"
+        save_to_db: bool 默认 False,True 则入库到 grammar_exercises 表
+    """
+    
+    
+    db: Session = context["db"]
+    
+    category = (args.get("category") or "").strip()
+    if not category:
+        return {"error": "category 参数不能为空,例如'虚拟式'/'被动语态'"}
+    
+    count = max(1, min(int(args.get("count", 5)), 10))
+    difficulty = args.get("difficulty", "medium")
+    if difficulty not in ("easy", "medium", "hard"):
+        difficulty = "medium"
+    save_to_db = bool(args.get("save_to_db", False))
+    
+    # 校验分类是否存在(如果 save_to_db 则必须存在)
+    cat_obj = db.scalar(
+        select(GrammarCategory).where(GrammarCategory.name == category)
+    )
+    if save_to_db and not cat_obj:
+        available = [c.name for c in db.scalars(select(GrammarCategory)).all()]
+        return {
+            "error": f"分类'{category}'不存在,无法入库",
+            "available_categories": available,
+        }
+    
+    # 难度提示
+    difficulty_hint = {
+        "easy": "基础水平,A1-A2,词汇简单,语法点单一",
+        "medium": "中等水平,B1,词汇常见,可能涉及多个语法点",
+        "hard": "进阶水平,B2-C1,词汇较复杂,语法点综合",
+    }[difficulty]
+    
+    # Prompt 设计
+    from services.prompts import render_prompt
+    prompt = render_prompt(
+        "gen_grammar_exercises",
+        category=category,
+        count=count,
+        difficulty_hint=difficulty_hint,
+    )
+#     prompt = f"""你是德语教师助手,需要生成 {count} 道高质量的德语语法练习题。
+
+# 要求:
+# - 语法分类: {category}
+# - 难度: {difficulty_hint}
+# - 题目形式: 填空题(用 ___ 表示填空位置)
+# - 每题必须包含中文翻译辅助理解
+
+# 输出严格的 JSON 格式(不要任何额外文本):
+# {{
+#   "exercises": [
+#     {{
+#       "question": "Wenn ich Zeit ___ (haben), würde ich ins Kino gehen.",
+#       "translation": "如果我有时间,我会去看电影。",
+#       "correct_answer": "hätte",
+#       "analysis": "虚拟式 II,与现在事实相反的假设,haben 的虚拟式形式是 hätte。"
+#     }}
+#   ]
+# }}
+
+# 注意:
+# - correct_answer 只填空白处的答案,不重复整句
+# - analysis 必须是中文,讲清考点
+# - 确保所有题目都属于"{category}"分类,不要混入其他语法点
+# - 题目难度尽量分散,不要全是同样的句式
+# """
+    items, error = _generate_via_llm_json(
+        prompt=prompt,
+        expected_key="exercises",
+        min_items=1,
+    )
+    if error:
+        return {"error": error}
+    
+    # 校验每题字段
+    valid_exercises = []
+    for ex in items:
+        if not isinstance(ex, dict):
+            continue
+        if not ex.get("question") or not ex.get("correct_answer"):
+            continue
+        valid_exercises.append({
+            "question": str(ex.get("question", "")).strip(),
+            "translation": str(ex.get("translation", "")).strip(),
+            "correct_answer": str(ex.get("correct_answer", "")).strip(),
+            "analysis": str(ex.get("analysis", "")).strip(),
+        })
+    
+    if not valid_exercises:
+        return {"error": "AI 生成的题目格式无效"}
+    
+    # 可选入库
+    saved_ids = []
+    if save_to_db and cat_obj:
+        for ex in valid_exercises:
+            new_ex = GrammarExercise(
+                category_id=cat_obj.id,
+                question=ex["question"],
+                correct_answer=ex["correct_answer"],
+                analysis=ex["analysis"] or ex.get("translation", ""),
+            )
+            db.add(new_ex)
+        db.commit()
+        # 重新查最近入库的题取 ID(简化处理)
+        saved = list(db.scalars(
+            select(GrammarExercise)
+            .where(GrammarExercise.category_id == cat_obj.id)
+            .order_by(desc(GrammarExercise.id))
+            .limit(len(valid_exercises))
+        ))
+        saved_ids = [e.id for e in saved]
+    
+    return {
+        "category": category,
+        "difficulty": difficulty,
+        "count": len(valid_exercises),
+        "exercises": valid_exercises,
+        "saved_to_db": save_to_db,
+        "saved_ids": saved_ids,
+        "summary": f"AI 已生成 {len(valid_exercises)} 道{category}({difficulty})题"
+                   + (f",已入库 ID: {saved_ids}" if save_to_db else ""),
+    }
+
+
+def generate_writing_topic(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """AI 生成德语写作题(教师备课/学生练习)。
+    
+    args:
+        theme: str 必填,主题方向("校园生活"/"家庭"/"环保"等)
+        level: str A1/A2/B1/B2,默认 B1
+        count: int 默认 3,最大 5
+    """
+    theme = (args.get("theme") or "").strip()
+    if not theme:
+        return {"error": "theme 参数不能为空,例如'校园生活'/'环保'/'未来计划'"}
+    
+    level = args.get("level", "B1")
+    if level not in ("A1", "A2", "B1", "B2", "C1"):
+        level = "B1"
+    count = max(1, min(int(args.get("count", 3)), 5))
+
+    from services.prompts import render_prompt
+    prompt = render_prompt(
+        "gen_writing_topic",
+        theme=theme,
+        level=level,
+        count=count,
+    )
+    
+#     prompt = f"""你是德语写作教学助手,需要生成 {count} 个德语写作题。
+
+# 要求:
+# - 主题方向: {theme}
+# - 难度等级: {level}
+# - 每题包含明确的写作要求(字数、人称、要点提示等)
+
+# 输出严格的 JSON(不要任何额外文本):
+# {{
+#   "topics": [
+#     {{
+#       "title": "题目标题(德语)",
+#       "title_zh": "题目中文翻译",
+#       "requirements": "写作要求(中文,清晰说明字数、要点等)",
+#       "key_vocabulary": ["示例词1", "示例词2", "示例词3"],
+#       "outline_hint": "建议结构提示(中文)"
+#     }}
+#   ]
+# }}
+
+# 注意:
+# - 题目应该真实、贴近{theme}主题
+# - 字数要求按 {level} 等级合理设定(A1: 30-50 词, B1: 100-150 词, B2: 200-300 词)
+# - key_vocabulary 给 5-8 个相关核心词汇
+# """
+    
+    items, error = _generate_via_llm_json(
+        prompt=prompt,
+        expected_key="topics",
+        min_items=1,
+    )
+    if error:
+        return {"error": error}
+    
+    valid_topics = []
+    for t in items:
+        if not isinstance(t, dict) or not t.get("title"):
+            continue
+        valid_topics.append({
+            "title": str(t.get("title", "")).strip(),
+            "title_zh": str(t.get("title_zh", "")).strip(),
+            "requirements": str(t.get("requirements", "")).strip(),
+            "key_vocabulary": t.get("key_vocabulary", [])[:10] if isinstance(t.get("key_vocabulary"), list) else [],
+            "outline_hint": str(t.get("outline_hint", "")).strip(),
+        })
+        
+    
+    if not valid_topics:
+        return {"error": "AI 生成的题目格式无效"}
+    
+    return {
+        "theme": theme,
+        "level": level,
+        "count": len(valid_topics),
+        "topics": valid_topics,
+        "summary": f"AI 已生成 {len(valid_topics)} 个'{theme}'主题的{level}级写作题",
+    }
+
+
+def generate_exam_paper(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """AI 生成完整的德语考试卷(教师出卷工具)。
+    
+    args:
+        focus_topics: list[str] 必填,重点考察的内容
+        total_score: int 默认 100
+        sections_count: int 默认 3,最多 5(简化:不再细分题型分布,LLM 自定)
+    """
+    focus_topics = args.get("focus_topics") or []
+    if not isinstance(focus_topics, list) or not focus_topics:
+        return {"error": "focus_topics 参数必须是非空列表,例如 ['虚拟式','被动语态']"}
+    
+    total_score = int(args.get("total_score", 100))
+    sections_count = max(2, min(int(args.get("sections_count", 3)), 5))
+    
+    topics_str = "、".join(focus_topics[:5])
+    
+    # 简化的 prompt:减少嵌套层,强调 JSON 结构
+    from services.prompts import render_prompt
+    prompt = render_prompt(
+        "gen_exam_paper",
+        topics_str=topics_str,
+        total_score=total_score,
+        sections_count=sections_count,
+    )
+#     prompt = f"""生成一份德语考试卷。重点考察: {topics_str}。总分: {total_score}。
+
+# 要求 {sections_count} 个 section,每 section 含 2-3 道题(不要太多)。
+# 每题包含: 题型(grammar/vocabulary/translation/writing)、题干(德语)、答案、分值、解析。
+# 所有 section 分值之和必须等于 {total_score}。
+
+# 只输出 JSON,不要任何解释文字、不要 markdown 代码块标记。直接以 {{ 开头,以 }} 结尾。
+
+# JSON 格式示例:
+# {{
+#   "title": "德语周测 - 虚拟式与被动语态",
+#   "total_score": {total_score},
+#   "duration_minutes": 60,
+#   "sections": [
+#     {{
+#       "section_name": "一、语法填空",
+#       "instruction": "在空格处填入正确的形式",
+#       "subtotal_score": 30,
+#       "questions": [
+#         {{"type": "grammar", "question": "Wenn ich Zeit ___ (haben), ginge ich.", "answer": "hätte", "score": 6, "analysis": "虚拟式 II"}}
+#       ]
+#     }}
+#   ]
+# }}
+# """
+    
+    # 重试机制:LLM 偶尔输出非严格 JSON,重试 2 次
+    last_error = None
+    for attempt in range(3):
+        try:
+            result = ai_json(prompt, max_tokens=4000)
+            if result and isinstance(result, dict) and result.get("sections"):
+                break
+            last_error = "AI 返回格式不符合预期(缺 sections)"
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {e}"
+            logger.warning(f"generate_exam_paper attempt {attempt + 1}/3 失败: {last_error}")
+            result = None
+    
+    if not result or not isinstance(result, dict):
+        return {"error": f"AI 生成失败(已重试 3 次): {last_error}"}
+    
+    sections = result.get("sections")
+    if not isinstance(sections, list) or not sections:
+        return {"error": "AI 未生成有效试卷结构(无 sections)"}
+    
+    # 校验 + 清洗
+    valid_sections = []
+    for sec in sections:
+        if not isinstance(sec, dict):
+            continue
+        questions = sec.get("questions", [])
+        if not isinstance(questions, list):
+            continue
+        valid_questions = [
+            {
+                "type": q.get("type", "grammar"),
+                "question": str(q.get("question", "")).strip(),
+                "answer": str(q.get("answer", "")).strip(),
+                "score": int(q.get("score", 0)) if str(q.get("score", "")).replace(".", "").isdigit() else 0,
+                "analysis": str(q.get("analysis", "")).strip(),
+            }
+            for q in questions
+            if isinstance(q, dict) and q.get("question")
+        ]
+        if not valid_questions:
+            continue
+        valid_sections.append({
+            "section_name": str(sec.get("section_name", "")).strip(),
+            "instruction": str(sec.get("instruction", "")).strip(),
+            "subtotal_score": int(sec.get("subtotal_score", 0)) if str(sec.get("subtotal_score", "")).replace(".", "").isdigit() else 0,
+            "questions": valid_questions,
+        })
+    
+    if not valid_sections:
+        return {"error": "AI 生成的试卷所有 section 均无效"}
+    
+    total_questions = sum(len(s["questions"]) for s in valid_sections)
+    actual_score = sum(s["subtotal_score"] for s in valid_sections)
+    
+    return {
+        "focus_topics": focus_topics,
+        "title": str(result.get("title", "德语考试卷")).strip(),
+        "total_score": int(result.get("total_score", total_score)),
+        "actual_score_sum": actual_score,
+        "duration_minutes": int(result.get("duration_minutes", 60)),
+        "sections": valid_sections,
+        "section_count": len(valid_sections),
+        "total_questions": total_questions,
+        "summary": (
+            f"已生成《{result.get('title', '德语考试卷')}》:"
+            f"{len(valid_sections)} 个 section,共 {total_questions} 道题,标称总分 {total_score}"
+            + (f"(实际分值之和 {actual_score} 与标称不符,建议人工核对)" if actual_score != total_score else "")
         ),
     }

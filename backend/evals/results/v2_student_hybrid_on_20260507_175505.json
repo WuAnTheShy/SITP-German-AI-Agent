@@ -1,0 +1,322 @@
+{
+  "role": "student",
+  "run_at": "2026-05-07T17:55:05.041071",
+  "version": "v2_hybrid_on",
+  "system_prompt": "你是德语学习助教小智。可调用工具查询学生真实数据。当用户询问个人学情时主动调用 query_my_*;查词典或语法时调用 search_knowledge_base;推荐题目时调用 recommend_grammar_exercises。不需要工具时直接回答,不要硬塞工具调用。",
+  "metrics": {
+    "total": 15,
+    "success_count": 15,
+    "success_rate": 1.0,
+    "overall_recall": 1.0,
+    "overall_precision": 0.967,
+    "avg_iterations_per_query": 0.93,
+    "avg_tool_calls_per_query": 1.0,
+    "avg_elapsed_sec": 18.84,
+    "by_category": {
+      "profile_query": {
+        "count": 5,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 35.64
+      },
+      "knowledge_query": {
+        "count": 4,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 10.19
+      },
+      "composite": {
+        "count": 3,
+        "avg_recall": 1.0,
+        "avg_precision": 0.833,
+        "avg_elapsed": 16.66
+      },
+      "general_chat": {
+        "count": 3,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 4.57
+      }
+    }
+  },
+  "details": [
+    {
+      "id": "ST01",
+      "category": "profile_query",
+      "query": "我哪里学得不好啊?",
+      "expected_tools": [
+        "query_my_abilities"
+      ],
+      "actual_tools": [
+        "query_my_abilities"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 138.94,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据系统评估，你的德语学习情况如下：\n\n**四维能力得分：**\n- 🎧 听力：0分 ⚠️（最薄弱）\n- 🗣️ 口语：20分\n- 📖 阅读：22分 ✅（最强项）\n- ✍️ 写作：15分\n- **总体平均分：14.2分**\n\n**主要问题：**"
+    },
+    {
+      "id": "ST02",
+      "category": "profile_query",
+      "query": "我这周学了多久?都干嘛了?",
+      "expected_tools": [
+        "query_my_recent_activity"
+      ],
+      "actual_tools": [
+        "query_my_recent_activity"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 10.06,
+      "success": true,
+      "error": null,
+      "reply_preview": "你这周（最近 7 天）的学习情况如下：\n\n📊 **总体统计**\n- 总学习时长：**158 分钟**（约 2.6 小时）\n- 总活动次数：**88 次**\n\n📚 **各模块学习分布**\n| 模块 | 活动次数 | 学习时长 |\n|-----"
+    },
+    {
+      "id": "ST03",
+      "category": "profile_query",
+      "query": "我作业完成情况怎么样,平均分多少?",
+      "expected_tools": [
+        "query_my_homeworks"
+      ],
+      "actual_tools": [
+        "query_my_homeworks"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 14.15,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你的作业记录，情况如下：\n\n## 📊 作业完成概况\n- **总作业数**：3 份\n- **已完成**：3 份 ✅\n- **待完成**：0 份\n- **完成率**：100%\n\n## 📈 成绩统计\n- **平均分**：31.83 分\n\n##"
+    },
+    {
+      "id": "ST04",
+      "category": "profile_query",
+      "query": "我之前都问过些什么问题?",
+      "expected_tools": [
+        "query_my_recent_chats"
+      ],
+      "actual_tools": [
+        "query_my_recent_chats"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 10.0,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据查询结果，您最近的 5 次对话会话如下：\n\n| 时间 | 首问问题 | 消息数 |\n|------|----------|--------|\n| 2026-05-07 | 我哪里弱？给我推荐几道练习题 | 2 条 |\n| 2026-05"
+    },
+    {
+      "id": "ST05",
+      "category": "profile_query",
+      "query": "我叫什么来着?哪个班的?",
+      "expected_tools": [
+        "query_my_profile"
+      ],
+      "actual_tools": [
+        "query_my_profile"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 5.05,
+      "success": true,
+      "error": null,
+      "reply_preview": "你叫**李娜**，属于**软件工程 (四)班**（班级代码：SE-2026-4）。\n\n你的学号是 2452001，目前整体德语学习得分 14.2 分，活跃度 98 分，薄弱点是听力理解。需要我帮你分析一下如何提升听力吗？"
+    },
+    {
+      "id": "ST06",
+      "category": "knowledge_query",
+      "query": "Lehrer 在德语里啥意思?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 7.67,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n**Lehrer** 是德语单词，意思是 **老师**（男性）。\n\n- 词性：名词，阳性 (der Lehrer)\n- 复数形式：die Lehrer\n- 女性形式：die Lehrerin（女"
+    },
+    {
+      "id": "ST07",
+      "category": "knowledge_query",
+      "query": "Computer 这个词德语怎么说,有变形吗?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 11.9,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n**Computer 的德语表达：**\n\n德语中\"Computer\"就是 **der Computer**（阳性名词），直接从英语借用。\n\n**词形变化（变格）：**\n\n| 格 | 单数 | 复"
+    },
+    {
+      "id": "ST08",
+      "category": "knowledge_query",
+      "query": "Freund 跟 Freundin 什么区别?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 11.42,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n**Freund** 和 **Freundin** 的区别主要在于**性别**：\n\n| 词汇 | 性别 | 含义 |\n|------|------|------|\n| **Freund** | "
+    },
+    {
+      "id": "ST09",
+      "category": "knowledge_query",
+      "query": "我想查一下 Familie 这个词",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 9.75,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n**Familie** 是德语中的基础词汇，基本信息如下：\n\n| 项目 | 内容 |\n|------|------|\n| **词性** | 阴性名词 (die Familie) |\n| **中文"
+    },
+    {
+      "id": "ST10",
+      "category": "composite",
+      "query": "根据我的薄弱点,帮我推荐几道练习题",
+      "expected_tools": [
+        "recommend_grammar_exercises"
+      ],
+      "actual_tools": [
+        "query_my_abilities",
+        "recommend_grammar_exercises"
+      ],
+      "recall": 1.0,
+      "precision": 0.5,
+      "iterations_used": 2,
+      "tool_call_count": 2,
+      "elapsed_sec": 13.79,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你的能力评估，系统显示你的薄弱点是**听力理解**（0分）。由于语法练习主要针对不同语法点，我为你推荐了题库最丰富的**被动语态**分类，共5道练习题：\n\n---\n\n### 📝 被动语态练习题\n\n**1.** Die Tür _____"
+    },
+    {
+      "id": "ST11",
+      "category": "composite",
+      "query": "总结一下我最近的学习状态,给点建议",
+      "expected_tools": [
+        "query_my_abilities",
+        "query_my_recent_activity"
+      ],
+      "actual_tools": [
+        "query_my_abilities",
+        "query_my_recent_activity"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 2,
+      "elapsed_sec": 20.77,
+      "success": true,
+      "error": null,
+      "reply_preview": "## 📊 你的近期学习状态总结\n\n### 学习数据（最近7天）\n| 指标 | 数据 |\n|------|------|\n| 总学习时长 | 158分钟 |\n| 活动次数 | 88次 |\n| 平均每次 | 约1.8分钟 |\n| 最活跃模块 |"
+    },
+    {
+      "id": "ST12",
+      "category": "composite",
+      "query": "我哪里弱?推荐几道针对性的练习",
+      "expected_tools": [
+        "query_my_abilities",
+        "recommend_grammar_exercises"
+      ],
+      "actual_tools": [
+        "query_my_abilities",
+        "recommend_grammar_exercises"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 2,
+      "tool_call_count": 2,
+      "elapsed_sec": 15.41,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据你的能力评估，**听力理解**是你目前最薄弱的环节（0分），需要优先加强训练。\n\n### 📊 你的德语四维能力概览\n| 维度 | 得分 |\n|------|------|\n| 听力 | 0 ⚠️ |\n| 写作 | 15 |\n| 口语 |"
+    },
+    {
+      "id": "ST13",
+      "category": "general_chat",
+      "query": "你好,你是谁啊?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 2.74,
+      "success": true,
+      "error": null,
+      "reply_preview": "你好！我是德语学习助教小智，专门帮助你学习德语。我可以帮你：\n\n- 查询你的学习档案、能力评估和作业情况\n- 推荐适合的语法练习题\n- 解答德语词汇、语法、文化等问题\n- 查看你的学习活动和历史记录\n\n有什么问题或需要帮助的地方，随时告诉我"
+    },
+    {
+      "id": "ST14",
+      "category": "general_chat",
+      "query": "学德语有什么好方法吗?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 8.35,
+      "success": true,
+      "error": null,
+      "reply_preview": "学习德语确实有一些行之有效的方法，我来给你分享一些建议：\n\n## 📚 基础学习方法\n\n**1. 听说读写均衡发展**\n- **听**：多听德语播客、新闻(如DW)、德语歌曲，培养语感\n- **说**：大胆开口，可以跟我进行智能对话练习，不要"
+    },
+    {
+      "id": "ST15",
+      "category": "general_chat",
+      "query": "谢啦,先这样",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 2.62,
+      "success": true,
+      "error": null,
+      "reply_preview": "不客气！随时欢迎回来学习德语。如果有任何问题或需要练习，随时找我哦～祝你学习愉快！🇩🇪📚"
+    }
+  ]
+}

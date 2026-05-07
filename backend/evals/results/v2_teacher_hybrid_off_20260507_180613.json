@@ -1,0 +1,329 @@
+{
+  "role": "teacher",
+  "run_at": "2026-05-07T18:06:13.294505",
+  "version": "v2_hybrid_off",
+  "system_prompt": "你是德语教研助手小研。可调用工具查询所教班级和学生数据辅助教学决策。班务问题用 query_class_overview/find_struggling_students,学生分析用 query_student_by_uid,考试规划用 recommend_exam_focus,查词典用 search_knowledge_base。教学法/教研咨询不需要工具,直接给建议。",
+  "metrics": {
+    "total": 15,
+    "success_count": 15,
+    "success_rate": 1.0,
+    "overall_recall": 0.933,
+    "overall_precision": 0.933,
+    "avg_iterations_per_query": 0.73,
+    "avg_tool_calls_per_query": 1.0,
+    "avg_elapsed_sec": 12.21,
+    "by_category": {
+      "class_insight": {
+        "count": 4,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 14.2
+      },
+      "student_analysis": {
+        "count": 3,
+        "avg_recall": 0.667,
+        "avg_precision": 0.667,
+        "avg_elapsed": 12.49
+      },
+      "knowledge_query": {
+        "count": 3,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 9.63
+      },
+      "general_chat": {
+        "count": 3,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 11.03
+      },
+      "edge_case": {
+        "count": 2,
+        "avg_recall": 1.0,
+        "avg_precision": 1.0,
+        "avg_elapsed": 13.48
+      }
+    }
+  },
+  "details": [
+    {
+      "id": "TE01",
+      "category": "class_insight",
+      "query": "我班学生整体水平怎么样?",
+      "expected_tools": [
+        "query_class_overview"
+      ],
+      "actual_tools": [
+        "query_class_overview"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 13.63,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据查询结果，您任教的**软件工程(四)班 (SE-2026-4)** 整体情况如下：\n\n## 📊 班级概况\n- **学生人数**：2人\n- **7天活跃率**：50%（1人活跃）\n\n## 📈 四维能力均分\n| 维度 | 均分 | 水平评估"
+    },
+    {
+      "id": "TE02",
+      "category": "class_insight",
+      "query": "哪几个学生需要重点关注?",
+      "expected_tools": [
+        "find_struggling_students"
+      ],
+      "actual_tools": [
+        "find_struggling_students"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 13.13,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据综合评估，**需要重点关注学生共 1 人**：\n\n| 姓名 | 学号 | 综合分数 | 薄弱点 | 能力分布 |\n|------|------|----------|--------|----------|\n| 李娜 | 2452001"
+    },
+    {
+      "id": "TE03",
+      "category": "class_insight",
+      "query": "我班里听力最差的是谁?",
+      "expected_tools": [
+        "find_struggling_students"
+      ],
+      "actual_tools": [
+        "find_struggling_students"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 12.63,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据查询结果，您班里**听力最差的学生是李娜（学号：2452001）**。\n\n📊 李娜的能力四维分数：\n- **听力：0 分** ⚠️（严重薄弱）\n- 口语：20 分\n- 阅读：22 分\n- 写作：15 分\n\n💡 **教学建议：**\n1. "
+    },
+    {
+      "id": "TE04",
+      "category": "class_insight",
+      "query": "学生 2452002 王强这孩子学得怎么样?",
+      "expected_tools": [
+        "query_student_by_uid"
+      ],
+      "actual_tools": [
+        "query_student_by_uid"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 17.4,
+      "success": true,
+      "error": null,
+      "reply_preview": "王强同学（学号 2452002）的学情分析如下：\n\n## 📊 整体情况\n- **班级**：软件工程 (四) 班\n- **综合分数**：60.0 分（刚达及格线，需重点关注）\n- **活跃度**：0 分（课堂/平台活跃度偏低）\n\n## 🎯 能"
+    },
+    {
+      "id": "TE05",
+      "category": "student_analysis",
+      "query": "李娜最近作业做得怎样?",
+      "expected_tools": [
+        "query_student_by_uid"
+      ],
+      "actual_tools": [],
+      "recall": 0.0,
+      "precision": 0.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 4.83,
+      "success": true,
+      "error": null,
+      "reply_preview": "您好！要查询李娜同学的作业情况，我需要她的学号(7 位数字)才能准确调取学情数据。\n\n请问您知道李娜的学号吗？如果方便提供，我可以帮您查看她的:\n- 最近作业完成情况\n- 错题数量\n- 能力四维分数\n- 薄弱点分析\n\n或者您也可以告诉我她所"
+    },
+    {
+      "id": "TE06",
+      "category": "student_analysis",
+      "query": "下次考试我应该重点考什么?",
+      "expected_tools": [
+        "recommend_exam_focus"
+      ],
+      "actual_tools": [
+        "recommend_exam_focus"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 14.15,
+      "success": true,
+      "error": null,
+      "reply_preview": "根据学生错题热点分析，建议您下次考试重点考察以下方向：\n\n## 📊 错题分析结果\n- **分析范围**：1 个班级，2 名学生\n- **错题最多的来源**（按频次排序）：\n\n| 来源 | 错题数 | 影响学生数 | 影响率 |\n|-----"
+    },
+    {
+      "id": "TE07",
+      "category": "student_analysis",
+      "query": "总结一下我班的情况,告诉我哪几个要重点抓,然后建议下次考啥",
+      "expected_tools": [
+        "find_struggling_students",
+        "query_class_overview",
+        "recommend_exam_focus"
+      ],
+      "actual_tools": [
+        "find_struggling_students",
+        "query_class_overview",
+        "recommend_exam_focus"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 3,
+      "elapsed_sec": 18.5,
+      "success": true,
+      "error": null,
+      "reply_preview": "## 📊 班级情况总结\n\n**软件工程(四)班 (SE-2026-4)**\n| 指标 | 数据 |\n|------|------|\n| 学生人数 | 2人 |\n| 7天活跃度 | 1人 (50%) |\n| 听力均分 | 30.0 |\n| 口"
+    },
+    {
+      "id": "TE08",
+      "category": "knowledge_query",
+      "query": "Lehrer 这个词怎么变复数?有什么需要注意的?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 11.03,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n## Lehrer 的复数形式\n\n**Lehrer** 的复数形式是 **Lehrer**（单复数同形）\n\n### 变化规则\n\n| 格 | 单数 | 复数 |\n|---|---|---|\n| N"
+    },
+    {
+      "id": "TE09",
+      "category": "knowledge_query",
+      "query": "Computer 在德语里是阳性还是中性?",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 8.66,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容,以下是通用知识:\n\n**Computer 在德语中是阳性名词 (Maskulinum)**\n\n- 定冠词:**der Computer**\n- 不定冠词: **ein Computer**\n- 复数形式: **di"
+    },
+    {
+      "id": "TE10",
+      "category": "knowledge_query",
+      "query": "查一下 Auto 在词典里的释义",
+      "expected_tools": [
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 9.2,
+      "success": true,
+      "error": null,
+      "reply_preview": "未在知识库中找到相关内容，以下是通用知识：\n\n**Auto** [das Auto, -s]\n\n**词性：** 中性名词 (das)\n\n**释义：** 汽车，轿车\n\n**复数形式：** Autos\n\n**例句：**\n- Ich fahre "
+    },
+    {
+      "id": "TE11",
+      "category": "general_chat",
+      "query": "你好,你能帮我做什么?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 9.54,
+      "success": true,
+      "error": null,
+      "reply_preview": "你好！我是德语教研助手小研，可以帮你处理以下教学相关事务：\n\n## 📊 班级数据分析\n- 查询所教班级的整体情况（学生数、活跃度、能力均分、薄弱点分布等）\n- 对比不同班级的水平\n- 找出需要重点关注的薄弱学生（可按听力/口语/阅读/写作/"
+    },
+    {
+      "id": "TE12",
+      "category": "general_chat",
+      "query": "怎么给学生讲虚拟式比较容易理解?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 13.63,
+      "success": true,
+      "error": null,
+      "reply_preview": "虚拟式（Konjunktiv）确实是德语语法中的难点，我分享一些实用的教学策略：\n\n## 📚 分阶段教学\n\n**先讲 Konjunktiv II（第二虚拟式）**\n- 学生更容易理解，因为日常使用频率高\n- 核心功能：表达\"非现实\"、\"假设"
+    },
+    {
+      "id": "TE13",
+      "category": "general_chat",
+      "query": "如何提升学生的学习兴趣?",
+      "expected_tools": [],
+      "actual_tools": [],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 0,
+      "tool_call_count": 0,
+      "elapsed_sec": 9.91,
+      "success": true,
+      "error": null,
+      "reply_preview": "提升学生学习兴趣是教学中的核心挑战，以下是一些实用建议：\n\n## 🎯 教学内容方面\n\n1. **贴近生活实际**\n   - 将德语学习与学生的兴趣爱好结合（如音乐、电影、足球等）\n   - 引入德国文化元素：节日、美食、旅游等话题\n   -"
+    },
+    {
+      "id": "TE14",
+      "category": "edge_case",
+      "query": "学号 9999999 是哪个同学?",
+      "expected_tools": [
+        "query_student_by_uid"
+      ],
+      "actual_tools": [
+        "query_student_by_uid"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 1,
+      "elapsed_sec": 7.31,
+      "success": true,
+      "error": null,
+      "reply_preview": "抱歉，系统中未找到学号 **9999999** 对应的学生信息。\n\n可能的原因有：\n1. 该学号不存在或输入有误\n2. 该学生不在您任教的班级中（系统仅支持查询任教班级内的学生）\n\n建议您：\n- 核对学号是否正确（应为 7 位数字）\n- 确"
+    },
+    {
+      "id": "TE15",
+      "category": "edge_case",
+      "query": "看看班里情况和重点学生,然后查 Lehrer 这词",
+      "expected_tools": [
+        "find_struggling_students",
+        "query_class_overview",
+        "search_knowledge_base"
+      ],
+      "actual_tools": [
+        "find_struggling_students",
+        "query_class_overview",
+        "search_knowledge_base"
+      ],
+      "recall": 1.0,
+      "precision": 1.0,
+      "iterations_used": 1,
+      "tool_call_count": 3,
+      "elapsed_sec": 19.65,
+      "success": true,
+      "error": null,
+      "reply_preview": "## 📊 班级情况总览\n\n**软件工程(四)班 (SE-2026-4)**\n| 指标 | 数据 |\n|------|------|\n| 学生总数 | 2 人 |\n| 7 天活跃度 | 1 人 (50%) |\n| 听力均分 | 30.0 |\n"
+    }
+  ]
+}
