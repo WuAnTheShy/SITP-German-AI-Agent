@@ -83,7 +83,11 @@ class ToolRegistry:
             handler = self._tools[name]["handler"]
             return handler(args, context)
         except Exception as e:
-            logger.error(f"工具 {name} 执行失败: {type(e).__name__}: {e}")
+            from pydantic import ValidationError
+            if isinstance(e, ValidationError):
+                logger.error(f"工具 {name} 输出 schema 校验失败: {e}")
+                return {"error": "工具数据契约异常,请联系管理员", "_internal_error": str(e)[:200]}
+            logger.error(f"工具 {name} 执行失败: {type(e).__name__}: {e}", exc_info=True)
             return {"error": f"{type(e).__name__}: {e}"}
 
 
@@ -283,19 +287,27 @@ registry.register(
 registry.register(
     name="query_student_by_uid",
     description=(
-        "按学号查询指定学生的完整学情:能力四维分、薄弱点、最近作业、错题数等。"
-        "工具会做权限校验,只能查询教师任教班级里的学生。"
-        "当教师询问'XXX 同学怎么样'、'学号 XXXXX 的情况'时使用。"
+        "教师查询指定学生的完整学情(能力四维分、薄弱点、最近作业、错题数等)。"
+        "支持两种查询方式:1) 按学号 uid(精确,如 '2452001');"
+        "2) 按姓名 name(模糊匹配,如 '李娜' / '李')。"
+        "uid 和 name 至少提供一个,优先使用 uid。"
+        "若姓名匹配多人,会返回候选列表(ambiguous=true),你需要向教师追问具体是哪一位。"
+        "工具会自动校验权限,只能查询教师任教班级里的学生。"
+        "适用场景:'XXX 同学怎么样'、'学号 XXXXX 的情况'、'李娜最近作业咋样'。"
     ),
     parameters={
         "type": "object",
         "properties": {
             "uid": {
                 "type": "string",
-                "description": "学生学号(7 位数字,例如 '2452001')",
+                "description": "学生学号(7 位数字,如 '2452001')。当教师明确给出学号时使用。",
+            },
+            "name": {
+                "type": "string",
+                "description": "学生姓名(支持模糊匹配)。当教师只提到学生名字时使用。",
             },
         },
-        "required": ["uid"],
+        "required": [],  # uid 和 name 至少一个,在工具内部校验
     },
     handler=handlers.query_student_by_uid,
     toolsets=["teacher"],
@@ -469,4 +481,38 @@ registry.register(
     },
     handler=handlers.generate_exam_paper,
     toolsets=["teacher"],
+)
+
+
+
+registry.register(
+    name="evaluate_student_writing",
+    description=(
+        "对学生德语作文进行 AI 多维评估,输出语法/词汇/结构/切题四维分数 + 错误标注 + "
+        "用词建议 + 改写示范 + 鼓励语。"
+        "适用场景:学生说'帮我看看我的作文'、'帮我改作文'、'评估我这篇文章'。"
+        "学生需要将作文文本作为 text 参数提供。如有题目可附 topic 参数,LLM 会判断是否切题。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "text": {
+                "type": "string",
+                "description": "学生作文原文(德语,30-3000 字符)",
+            },
+            "level": {
+                "type": "string",
+                "description": "学生当前德语等级",
+                "enum": ["A1", "A2", "B1", "B2", "C1"],
+                "default": "B1",
+            },
+            "topic": {
+                "type": "string",
+                "description": "可选,写作题目(用于判断作文是否切题)",
+            },
+        },
+        "required": ["text"],
+    },
+    handler=handlers.evaluate_student_writing,
+    toolsets=["student"],
 )

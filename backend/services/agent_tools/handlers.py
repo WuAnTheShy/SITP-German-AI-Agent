@@ -25,6 +25,20 @@ from models.entities import (
     User,                           # 教师工具用
 )
 
+from services.agent_tools.schemas import (
+    StudentProfileResult,
+    AbilityResult,
+    HomeworksResult,
+    HomeworkItem,
+    ClassOverviewResult,
+    ClassOverviewItem,
+    StudentByUidResult,
+    WritingEvaluationResult,
+    WritingScores,
+    GrammarError,
+    VocabularySuggestion,
+    RewriteDemo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,16 +102,15 @@ def query_my_profile(args: dict[str, Any], context: dict[str, Any]) -> dict[str,
             class_name = cls.class_name
             class_code = cls.class_code
 
-    return {
-        "student_id": student.id,
-        "name": student.name,
-        "uid": student.uid,                           # 学号
-        "class_name": class_name,
-        "class_code": class_code,
-        "overall_score": float(student.overall_score) if student.overall_score is not None else 0.0,
-        "active_score": student.active_score,
-        "weak_point": student.weak_point,             # 薄弱点
-    }
+    return StudentProfileResult(
+        student_id=student.id,
+        name=student.name,
+        uid=student.uid,
+        class_name=class_name,
+        weak_point=student.weak_point,
+        overall_score=float(student.overall_score) if student.overall_score is not None else None,
+        active_score=student.active_score,
+    ).model_dump()
 
 
 def query_my_abilities(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
@@ -123,19 +136,32 @@ def query_my_abilities(args: dict[str, Any], context: dict[str, Any]) -> dict[st
     weakest = min(scores, key=scores.get)
     strongest = max(scores, key=scores.get)
 
-    return {
-        "listening": ability.listening,
-        "speaking": ability.speaking,
-        "reading": ability.reading,
-        "writing": ability.writing,
-        "weakest_dimension": weakest,
-        "weakest_score": scores[weakest],
-        "strongest_dimension": strongest,
-        "strongest_score": scores[strongest],
-        "weak_point": student.weak_point if student else None,  # 学生表里的薄弱点描述
-        "ai_diagnosis": ability.ai_diagnosis or "暂无 AI 诊断",
-        "overall_score": float(student.overall_score) if student and student.overall_score is not None else None,
-    }
+    return AbilityResult(
+        listening=ability.listening,
+        speaking=ability.speaking,
+        reading=ability.reading,
+        writing=ability.writing,
+        weakest_dimension=weakest,
+        weakest_score=scores[weakest],
+        strongest_dimension=strongest,
+        strongest_score=scores[strongest],
+        weak_point=student.weak_point if student else None,
+        ai_diagnosis=ability.ai_diagnosis,
+    ).model_dump()
+
+    # return {
+    #     "listening": ability.listening,
+    #     "speaking": ability.speaking,
+    #     "reading": ability.reading,
+    #     "writing": ability.writing,
+    #     "weakest_dimension": weakest,
+    #     "weakest_score": scores[weakest],
+    #     "strongest_dimension": strongest,
+    #     "strongest_score": scores[strongest],
+    #     "weak_point": student.weak_point if student else None,  # 学生表里的薄弱点描述
+    #     "ai_diagnosis": ability.ai_diagnosis or "暂无 AI 诊断",
+    #     "overall_score": float(student.overall_score) if student and student.overall_score is not None else None,
+    # }
 
 
 def query_my_recent_activity(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
@@ -231,30 +257,50 @@ def query_my_homeworks(args: dict[str, Any], context: dict[str, Any]) -> dict[st
     if scored:
         avg_score = round(sum(scored) / len(scored), 2)
 
-    items = [
-        {
-            "id": h.id,
-            "title": h.title,
-            "status": h.status,
-            "score": float(h.score) if h.score is not None else None,
-            "submitted_at": h.submitted_at.isoformat() if h.submitted_at else None,
-            "ai_comment": (h.ai_comment[:100] + "...") if h.ai_comment and len(h.ai_comment) > 100 else h.ai_comment,
-        }
+    homework_items = [
+        HomeworkItem(
+            id=h.id,
+            title=h.title or "",
+            status=h.status or "未知",
+            score=float(h.score) if h.score is not None else None,
+            submitted_at=h.submitted_at.isoformat() if h.submitted_at else None,
+            feedback=getattr(h, "ai_feedback", None) or getattr(h, "feedback", None),
+        )
         for h in homeworks
     ]
+    
+    return HomeworksResult(
+        total_count=len(homeworks),
+        completed_count=len(completed),
+        pending_count=len(pending),
+        average_score=avg_score if avg_score else None,
+        homeworks=homework_items,
+    ).model_dump()
 
-    return {
-        "total_count": len(homeworks),
-        "completed_count": len(completed),
-        "pending_count": len(pending),
-        "average_score": avg_score,
-        "items": items,
-        "summary": (
-            f"共 {len(homeworks)} 份作业,已完成 {len(completed)} 份"
-            + (f",平均分 {avg_score}" if avg_score is not None else "")
-            + (f",有 {len(pending)} 份待完成" if pending else "")
-        ),
-    }
+    # items = [
+    #     {
+    #         "id": h.id,
+    #         "title": h.title,
+    #         "status": h.status,
+    #         "score": float(h.score) if h.score is not None else None,
+    #         "submitted_at": h.submitted_at.isoformat() if h.submitted_at else None,
+    #         "ai_comment": (h.ai_comment[:100] + "...") if h.ai_comment and len(h.ai_comment) > 100 else h.ai_comment,
+    #     }
+    #     for h in homeworks
+    # ]
+
+    # return {
+    #     "total_count": len(homeworks),
+    #     "completed_count": len(completed),
+    #     "pending_count": len(pending),
+    #     "average_score": avg_score,
+    #     "items": items,
+    #     "summary": (
+    #         f"共 {len(homeworks)} 份作业,已完成 {len(completed)} 份"
+    #         + (f",平均分 {avg_score}" if avg_score is not None else "")
+    #         + (f",有 {len(pending)} 份待完成" if pending else "")
+    #     ),
+    # }
 
 
 
@@ -582,36 +628,96 @@ def query_class_overview(args: dict[str, Any], context: dict[str, Any]) -> dict[
             "avg_four_dims": round(avg_four_dims, 1),
             "weak_point_distribution": weak_distribution,
         })
-    
-    return {
-        "total_classes": len(overview),
-        "classes": overview,
-        "summary": (
-            f"共 {len(overview)} 个班级,"
-            + f"总人数 {sum(c['student_count'] for c in overview)} 人"
+    class_items = [ClassOverviewItem(**c) for c in overview]
+    return ClassOverviewResult(
+        total_classes=len(class_items),
+        classes=class_items,
+        summary=(
+            f"共 {len(class_items)} 个班级,"
+            + f"总人数 {sum(c.student_count for c in class_items)} 人"
         ),
-    }
+    ).model_dump()
+
+    # return {
+    #     "total_classes": len(overview),
+    #     "classes": overview,
+    #     "summary": (
+    #         f"共 {len(overview)} 个班级,"
+    #         + f"总人数 {sum(c['student_count'] for c in overview)} 人"
+    #     ),
+    # }
 
 
 def query_student_by_uid(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
-    """教师按学号查指定学生学情。
+    """教师查询指定学生学情。支持按学号(uid)或姓名查找。
     
     args:
-        uid: str, 必填,学生学号(如 '2452001')
+        uid: str | None, 学生学号(如 '2452001')
+        name: str | None, 学生姓名(支持模糊匹配,如 '李娜' / '李')
+    
+    必须至少提供 uid 或 name 之一。如同时提供以 uid 为准。
+    
+    若按姓名查询且匹配多人,返回 disambiguation 列表(让 LLM 追问选哪个)。
     """
     db: Session = context["db"]
     teacher_user_id = context["teacher_user_id"]
     
     uid = (args.get("uid") or "").strip()
-    if not uid:
-        return {"error": "uid 参数不能为空"}
+    name = (args.get("name") or "").strip()
     
-    student = db.scalar(select(Student).where(Student.uid == uid))
-    if not student:
-        return {"error": f"未找到学号 {uid} 对应的学生"}
+    if not uid and not name:
+        return {"error": "请至少提供 uid(学号)或 name(姓名)之一"}
     
-    # 鉴权:确保该教师能管这个学生
+    # 先拿教师管的班级(后续鉴权用,姓名查找也要在这范围内)
     teacher_class_ids = _teacher_class_ids(db, teacher_user_id)
+    if not teacher_class_ids:
+        return {"error": "你没有任教的班级"}
+    
+    # ─── 解析学生 ───
+    if uid:
+        student = db.scalar(select(Student).where(Student.uid == uid))
+        if not student:
+            return {"error": f"未找到学号 {uid} 对应的学生"}
+    else:
+        # 按姓名模糊匹配,且只在教师能管的班级内查找
+        student_ids_in_classes = list(db.scalars(
+            select(ClassStudentRelation.student_id).where(
+                ClassStudentRelation.class_id.in_(teacher_class_ids)
+            )
+        ))
+        if not student_ids_in_classes:
+            return {"error": "你任教的班级暂无学生"}
+        
+        candidates = list(db.scalars(
+            select(Student)
+            .where(
+                Student.id.in_(student_ids_in_classes),
+                Student.name.like(f"%{name}%"),
+            )
+        ))
+        
+        if not candidates:
+            return {"error": f"在你任教的班级中未找到姓名包含「{name}」的学生"}
+        
+        if len(candidates) > 1:
+            # 重名情况:返回 disambiguation
+            return {
+                "ambiguous": True,
+                "matched_count": len(candidates),
+                "candidates": [
+                    {"name": c.name, "uid": c.uid, "student_id": c.id}
+                    for c in candidates
+                ],
+                "advice_to_llm": (
+                    f"姓名「{name}」匹配到 {len(candidates)} 个学生,"
+                    "请询问教师具体是哪一个(可让教师提供学号),"
+                    "或下次调用时传入具体的 uid。"
+                ),
+            }
+        
+        student = candidates[0]
+    
+    # ─── 鉴权:学生班级与教师班级要有交集 ───
     student_class_ids = list(db.scalars(
         select(ClassStudentRelation.class_id).where(
             ClassStudentRelation.student_id == student.id
@@ -619,26 +725,21 @@ def query_student_by_uid(args: dict[str, Any], context: dict[str, Any]) -> dict[
     ))
     common_class_ids = set(teacher_class_ids) & set(student_class_ids)
     if not common_class_ids:
-        return {"error": f"你无权查看该学生(学号 {uid} 不在你任教的班级)"}
+        return {"error": f"你无权查看学生 {student.name}(不在你任教的班级)"}
     
-    # 取班级名(取第一个共同班)
     cls = db.scalar(select(Classroom).where(Classroom.id == next(iter(common_class_ids))))
     class_name = cls.class_name if cls else None
     
-    # 能力数据
+    # ─── 取数据 ───
     ability = db.scalar(
         select(StudentAbility).where(StudentAbility.student_id == student.id)
     )
-    
-    # 最近作业
     recent_homeworks = list(db.scalars(
         select(Homework)
         .where(Homework.student_id == student.id)
         .order_by(desc(Homework.submitted_at).nullsfirst())
         .limit(5)
     ))
-    
-    # 错题数(未掌握)
     unmastered_errors = db.scalar(
         select(func.count(ErrorBookEntry.id)).where(
             ErrorBookEntry.student_id == student.id,
@@ -646,34 +747,65 @@ def query_student_by_uid(args: dict[str, Any], context: dict[str, Any]) -> dict[
         )
     ) or 0
     
-    return {
-        "student_id": student.id,
-        "name": student.name,
-        "uid": student.uid,
-        "class_name": class_name,
-        "weak_point": student.weak_point,
-        "overall_score": float(student.overall_score) if student.overall_score is not None else None,
-        "active_score": student.active_score,
-        "abilities": (
-            {
-                "listening": ability.listening,
-                "speaking": ability.speaking,
-                "reading": ability.reading,
-                "writing": ability.writing,
-                "ai_diagnosis": ability.ai_diagnosis,
-            } if ability else None
-        ),
-        "recent_homeworks_count": len(recent_homeworks),
-        "completed_homeworks_count": sum(1 for h in recent_homeworks if h.status == "已完成"),
-        "unmastered_errors": int(unmastered_errors),
-        "recent_homeworks": [
+    abilities_dict = (
+        {
+            "listening": ability.listening,
+            "speaking": ability.speaking,
+            "reading": ability.reading,
+            "writing": ability.writing,
+            "ai_diagnosis": ability.ai_diagnosis,
+        } if ability else None
+    )
+    
+    return StudentByUidResult(
+        student_id=student.id,
+        name=student.name,
+        uid=student.uid,
+        class_name=class_name,
+        weak_point=student.weak_point,
+        overall_score=float(student.overall_score) if student.overall_score is not None else None,
+        active_score=student.active_score,
+        abilities=abilities_dict,
+        recent_homeworks_count=len(recent_homeworks),
+        completed_homeworks_count=sum(1 for h in recent_homeworks if h.status == "已完成"),
+        unmastered_errors=int(unmastered_errors),
+        recent_homeworks=[
             {
                 "title": h.title,
                 "status": h.status,
                 "score": float(h.score) if h.score is not None else None,
             } for h in recent_homeworks
         ],
-    }
+    ).model_dump()
+
+    # return {
+    #     "student_id": student.id,
+    #     "name": student.name,
+    #     "uid": student.uid,
+    #     "class_name": class_name,
+    #     "weak_point": student.weak_point,
+    #     "overall_score": float(student.overall_score) if student.overall_score is not None else None,
+    #     "active_score": student.active_score,
+    #     "abilities": (
+    #         {
+    #             "listening": ability.listening,
+    #             "speaking": ability.speaking,
+    #             "reading": ability.reading,
+    #             "writing": ability.writing,
+    #             "ai_diagnosis": ability.ai_diagnosis,
+    #         } if ability else None
+    #     ),
+    #     "recent_homeworks_count": len(recent_homeworks),
+    #     "completed_homeworks_count": sum(1 for h in recent_homeworks if h.status == "已完成"),
+    #     "unmastered_errors": int(unmastered_errors),
+    #     "recent_homeworks": [
+    #         {
+    #             "title": h.title,
+    #             "status": h.status,
+    #             "score": float(h.score) if h.score is not None else None,
+    #         } for h in recent_homeworks
+    #     ],
+    # }
 
 
 def find_struggling_students(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
@@ -1060,7 +1192,7 @@ def generate_writing_topic(args: dict[str, Any], context: dict[str, Any]) -> dic
             "key_vocabulary": t.get("key_vocabulary", [])[:10] if isinstance(t.get("key_vocabulary"), list) else [],
             "outline_hint": str(t.get("outline_hint", "")).strip(),
         })
-        
+
     
     if not valid_topics:
         return {"error": "AI 生成的题目格式无效"}
@@ -1194,3 +1326,90 @@ def generate_exam_paper(args: dict[str, Any], context: dict[str, Any]) -> dict[s
             + (f"(实际分值之和 {actual_score} 与标称不符,建议人工核对)" if actual_score != total_score else "")
         ),
     }
+
+
+
+def evaluate_student_writing(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """对学生作文进行 AI 多维评估(语法/词汇/结构/切题)。
+    
+    args:
+        text: str 必填,学生作文原文
+        level: str A1/A2/B1/B2,默认 B1
+        topic: str | None 可选,写作题目(用于判断是否切题)
+    """
+    from services.prompts import render_prompt
+    
+    text = (args.get("text") or "").strip()
+    if not text:
+        return {"error": "text 参数不能为空,请提供学生作文原文"}
+    
+    if len(text) < 30:
+        return {"error": "作文过短(< 30 字符),无法做有意义的评估,请确认完整提交"}
+    
+    if len(text) > 3000:
+        return {"error": "作文过长(> 3000 字符),请截取核心段落"}
+    
+    level = args.get("level", "B1")
+    if level not in ("A1", "A2", "B1", "B2", "C1"):
+        level = "B1"
+    
+    topic = args.get("topic", "")
+    topic_hint = topic if topic else "未指定题目,请基于内容判断"
+    
+    prompt = render_prompt(
+        "evaluate_writing",
+        level=level,
+        topic_hint=topic_hint,
+        text=text,
+    )
+    
+    # 重试机制(LLM 多维输出偶尔格式跑偏)
+    last_error = None
+    result = None
+    for attempt in range(3):
+        try:
+            result = ai_json(prompt, max_tokens=3000)
+            if result and isinstance(result, dict) and "scores" in result and "overall_score" in result:
+                break
+            last_error = "AI 返回格式不符合预期(缺 scores/overall_score)"
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {e}"
+            logger.warning(f"evaluate_student_writing attempt {attempt + 1}/3 失败: {last_error}")
+            result = None
+    
+    if not result or not isinstance(result, dict):
+        return {"error": f"AI 评估失败(已重试 3 次): {last_error}"}
+    
+    # 用 Pydantic 校验输出
+    try:
+        validated = WritingEvaluationResult(
+            overall_score=float(result.get("overall_score", 0)),
+            scores=WritingScores(**result.get("scores", {})),
+            summary=str(result.get("summary", "")).strip(),
+            grammar_errors=[
+                GrammarError(**g) for g in result.get("grammar_errors", [])[:5]
+                if isinstance(g, dict) and g.get("original")
+            ],
+            vocabulary_suggestions=[
+                VocabularySuggestion(**v) for v in result.get("vocabulary_suggestions", [])[:5]
+                if isinstance(v, dict) and v.get("original")
+            ],
+            structure_feedback=str(result.get("structure_feedback", "")).strip(),
+            rewrite_demo=(
+                RewriteDemo(**result["rewrite_demo"])
+                if isinstance(result.get("rewrite_demo"), dict)
+                and result["rewrite_demo"].get("original")
+                else None
+            ),
+            encouragement=str(result.get("encouragement", "")).strip(),
+            text_length=len(text),
+            level=level,
+        )
+    except Exception as e:
+        logger.error(f"WritingEvaluationResult schema 校验失败: {e}")
+        return {
+            "error": "AI 评估结果格式异常",
+            "_internal": str(e)[:200],
+        }
+    
+    return validated.model_dump()

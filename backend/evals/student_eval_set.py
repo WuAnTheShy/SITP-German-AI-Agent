@@ -146,6 +146,7 @@ TEACHER_EVAL_CASES = [
         "category": "student_analysis",
         "query": "李娜最近作业做得怎样?",
         "expected_tools": {"query_student_by_uid"},
+        "notes": "测试按姓名查找,工具应支持 name 参数",
     },
     {
         "id": "TE06",
