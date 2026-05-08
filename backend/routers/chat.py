@@ -1,7 +1,7 @@
 import traceback
 import logging
 from pathlib import Path
-
+from fastapi.responses import StreamingResponse
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -35,9 +35,11 @@ from services.llm import (
 )
 from services.metrics import track_learning_activity, refresh_student_metrics
 from services.rag import build_rag_context
-from services.llm import generate_response_with_tools  # 关键:Agent 函数
+from services.llm import generate_response_with_tools, generate_response_with_tools_streaming # 关键:Agent 函数
 from services.prompts import load_prompt
 from services.observability import ExecutionTrace
+from services.sse import sse_format
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +273,216 @@ def chat_endpoint(
             "trace_id": trace.trace_id,
         }
 
+@router.post("/api/teacher/chat/stream")
+def teacher_chat_stream_endpoint(
+    bg: BackgroundTasks,
+    req: Request,
+    request: TeacherChatReq,
+    db: Session = Depends(get_db),
+):
+    """教师端流式对话 endpoint(SSE)。"""
+    user = require_teacher(req, db)
+    logger.info(f"[STREAM] 教师流式对话: user_id={user.id}, msg_len={len(request.message)}")
+    
+    trace = ExecutionTrace(
+        role="teacher",
+        user_id=user.id,
+        session_id=None,
+        user_message=request.message,
+    )
+    
+    def event_generator():
+        full_reply_text = ""
+        tool_calls_used: list = []
+        
+        try:
+            session, history = _prepare_teacher_chat_context(db, user, request)
+            trace.session_id = session.id
+            
+            yield sse_format("meta", {
+                "trace_id": trace.trace_id,
+                "session_id": session.id,
+                "role": "teacher",
+            })
+            
+            messages: list[dict] = []
+            
+            if getattr(user, "long_memory_summary", None):
+                messages.append({"role": "user", "content": "[Teaching context]\n" + user.long_memory_summary})
+            
+            yield sse_format("rag_start", {"query": request.message[:200]})
+            
+            rag_context, rag_sources, rag_top_score = build_rag_context(
+                db, request.message,
+                viewer_user_id=user.id,
+                viewer_session_key=f"teacher:{session.id}",
+                trace=trace,
+            )
+            
+            rag_used_strong = bool(rag_context and rag_top_score >= 0.4)
+            yield sse_format("rag_done", {
+                "used": rag_used_strong,
+                "top_score": round(rag_top_score, 3) if rag_top_score else 0,
+                "sources_count": len(rag_sources or []),
+            })
+            
+            if rag_used_strong:
+                messages.append({
+                    "role": "user",
+                    "content": "[Knowledge Base 预检索结果,可参考]\n" + rag_context,
+                })
+                trace.rag_used = True
+                trace.rag_top_score = rag_top_score
+            
+            messages.extend(history_to_messages(history, max_turns=14))
+            
+            context = {"db": db, "teacher_user_id": user.id}
+            
+            for event_dict in generate_response_with_tools_streaming(
+                messages=messages,
+                system_instruction=TEACHER_AGENT_SYSTEM_PROMPT,
+                context=context,
+                toolset="teacher",
+                trace=trace,
+            ):
+                etype = event_dict["event"]
+                
+                if etype == "token":
+                    full_reply_text += event_dict["delta"]
+                    yield sse_format("token", {"delta": event_dict["delta"]})
+                
+                elif etype == "tool_call_start":
+                    tool_calls_used.append({
+                        "name": event_dict["name"],
+                        "display_name": event_dict["display_name"],
+                        "args": event_dict["args"],
+                        "iteration": event_dict["iteration"],
+                    })
+                    yield sse_format("tool_call_start", {
+                        "name": event_dict["name"],
+                        "display_name": event_dict["display_name"],
+                        "args": event_dict["args"],
+                        "iteration": event_dict["iteration"],
+                    })
+                
+                elif etype == "tool_call_done":
+                    yield sse_format("tool_call_done", {
+                        "name": event_dict["name"],
+                        "success": event_dict["success"],
+                        "summary": event_dict["summary"],
+                    })
+                
+                elif etype == "done":
+                    if event_dict.get("reply"):
+                        full_reply_text = event_dict["reply"]
+                    break
+                
+                elif etype == "error":
+                    yield sse_format("error", {"message": event_dict["message"]})
+                    full_reply_text = event_dict["message"]
+                    break
+            
+            _kb_miss_markers = ("知识库未命中", "通用回答", "未命中")
+            if rag_sources and rag_top_score >= 0.4 and full_reply_text and not any(m in full_reply_text for m in _kb_miss_markers):
+                reference_line = "\n\n参考资料: " + "; ".join(rag_sources[:5])
+                for ch in reference_line:
+                    yield sse_format("token", {"delta": ch})
+                full_reply_text += reference_line
+            
+            TeacherChatMessageCRUD.create(
+                db,
+                TeacherChatMessageCreate(
+                    session_id=session.id, role="assistant", content=full_reply_text or "(空回复)"
+                ),
+            )
+            TeacherChatSessionCRUD.touch(db, session.id)
+            
+            n = len(history) + 2
+            if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
+                bg.add_task(refresh_teacher_memory, user.id, session.id)
+            
+            trace.finalize(reply_text=full_reply_text, success=True)
+            trace.persist(db)
+            
+            yield sse_format("done", {
+                "success": True,
+                "trace_id": trace.trace_id,
+                "session_id": session.id,
+                "tool_calls_count": len(tool_calls_used),
+                "total_duration_ms": trace.total_duration_ms,
+            })
+        
+        except Exception as e:
+            logger.error(f"[STREAM] 教师流式对话失败: {type(e).__name__}: {e}", exc_info=True)
+            trace.finalize(
+                reply_text=full_reply_text or None,
+                success=False,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            try:
+                trace.persist(db)
+            except Exception:
+                pass
+            
+            yield sse_format("error", {
+                "message": f"AI 调用失败: {type(e).__name__}",
+                "trace_id": trace.trace_id,
+            })
+            yield sse_format("done", {
+                "success": False,
+                "trace_id": trace.trace_id,
+            })
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )  
+
+
+
+
+def _prepare_student_chat_context(db, student, request):
+    """准备学生 chat 的上下文(session, history, RAG)。
+    
+    返回:(session, history_msgs, rag_context, rag_sources, rag_top_score)
+    """
+    session = resolve_student_session(
+        db, student.id, None, STUDENT_LOBBY_SCENE_NAME,
+        new_thread=request.new_thread,
+        session_id=request.session_id,
+    )
+    
+    ChatMessageCRUD.create(
+        db, ChatMessageCreate(session_id=session.id, role="user", content=request.message)
+    )
+    ChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
+    history = ChatMessageCRUD.list_by_session(db, session.id)
+    
+    return session, history
+
+
+def _prepare_teacher_chat_context(db, user, request):
+    """准备教师 chat 的上下文。"""
+    session = resolve_teacher_session(
+        db, user.id,
+        new_thread=request.new_thread,
+        session_id=request.session_id,
+    )
+    
+    TeacherChatMessageCRUD.create(
+        db, TeacherChatMessageCreate(session_id=session.id, role="user", content=request.message)
+    )
+    TeacherChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
+    history = TeacherChatMessageCRUD.list_by_session(db, session.id)
+    
+    return session, history
+
+
 
 @router.post("/api/student/chat")
 def student_chat_endpoint(
@@ -404,6 +616,221 @@ def student_chat_endpoint(
             "session_id": None,
             "trace_id": trace.trace_id,
         }
+
+
+@router.post("/api/student/chat/stream")
+def student_chat_stream_endpoint(
+    bg: BackgroundTasks,
+    req: Request,
+    request: StudentChatReq,
+    db: Session = Depends(get_db),
+):
+    """学生端流式对话 endpoint(SSE)。
+    
+    Server-Sent Events 协议:每条消息形如:
+        event: <type>
+        data: <json>
+        
+    事件类型:
+        meta              - 连接建立后立即推送 trace_id, session_id
+        rag_start         - 开始 RAG 检索
+        rag_done          - RAG 完成(含命中分数)
+        tool_call_start   - 工具开始调用
+        tool_call_done    - 工具完成
+        token             - LLM 输出 token
+        done              - 流结束(含完整 reply 备份)
+        error             - 错误
+    """
+    student = require_student(req, db)
+    logger.info(f"[STREAM] 学生流式对话: student_id={student.id}, msg_len={len(request.message)}")
+    
+    # trace 在 generator 外创建(便于失败时也能 finalize)
+    trace = ExecutionTrace(
+        role="student",
+        user_id=student.id,
+        session_id=None,
+        user_message=request.message,
+    )
+    
+    def event_generator():
+        """SSE 事件生成器(同步 generator)。"""
+        full_reply_text = ""  # 累积所有 token 用于持久化
+        tool_calls_used: list = []
+        
+        try:
+            # ─── 准备上下文 ───
+            session, history = _prepare_student_chat_context(db, student, request)
+            trace.session_id = session.id
+            
+            # 推送 meta 事件
+            yield sse_format("meta", {
+                "trace_id": trace.trace_id,
+                "session_id": session.id,
+                "role": "student",
+            })
+            
+            messages: list[dict] = []
+            
+            # 长期记忆
+            if getattr(student, "long_memory_summary", None):
+                messages.append({
+                    "role": "user",
+                    "content": "[Learner profile]\n" + student.long_memory_summary,
+                })
+            
+            # ─── RAG 检索 ───
+            yield sse_format("rag_start", {"query": request.message[:200]})
+            
+            rag_context, rag_sources, rag_top_score = build_rag_context(
+                db, request.message,
+                viewer_user_id=student.user_id,
+                viewer_session_key=f"student:{session.id}",
+                trace=trace,
+            )
+            
+            rag_used_strong = bool(rag_context and rag_top_score >= 0.4)
+            yield sse_format("rag_done", {
+                "used": rag_used_strong,
+                "top_score": round(rag_top_score, 3) if rag_top_score else 0,
+                "sources_count": len(rag_sources or []),
+            })
+            
+            if rag_used_strong:
+                messages.append({
+                    "role": "user",
+                    "content": "[Knowledge Base 预检索结果,可参考]\n" + rag_context,
+                })
+                trace.rag_used = True
+                trace.rag_top_score = rag_top_score
+            
+            messages.extend(history_to_messages(history, max_turns=14))
+            
+            # ─── Agent 流式循环 ───
+            context = {"db": db, "student_id": student.id}
+            
+            for event_dict in generate_response_with_tools_streaming(
+                messages=messages,
+                system_instruction=AGENT_SYSTEM_PROMPT,
+                context=context,
+                toolset="student",
+                trace=trace,
+            ):
+                etype = event_dict["event"]
+                
+                if etype == "token":
+                    full_reply_text += event_dict["delta"]
+                    yield sse_format("token", {"delta": event_dict["delta"]})
+                
+                elif etype == "tool_call_start":
+                    tool_calls_used.append({
+                        "name": event_dict["name"],
+                        "display_name": event_dict["display_name"],
+                        "args": event_dict["args"],
+                        "iteration": event_dict["iteration"],
+                    })
+                    yield sse_format("tool_call_start", {
+                        "name": event_dict["name"],
+                        "display_name": event_dict["display_name"],
+                        "args": event_dict["args"],
+                        "iteration": event_dict["iteration"],
+                    })
+                
+                elif etype == "tool_call_done":
+                    yield sse_format("tool_call_done", {
+                        "name": event_dict["name"],
+                        "success": event_dict["success"],
+                        "summary": event_dict["summary"],
+                    })
+                
+                elif etype == "done":
+                    # generator 内部的 done 事件:用 generator 给的 reply 兜底
+                    if event_dict.get("reply"):
+                        full_reply_text = event_dict["reply"]
+                    break
+                
+                elif etype == "error":
+                    yield sse_format("error", {"message": event_dict["message"]})
+                    full_reply_text = event_dict["message"]
+                    break
+            
+            # ─── 后处理:补 RAG 引用 ───
+            _kb_miss_markers = ("知识库未命中", "通用回答", "未命中")
+            if rag_sources and rag_top_score >= 0.4 and full_reply_text and not any(m in full_reply_text for m in _kb_miss_markers):
+                reference_line = "\n\n参考资料: " + "; ".join(rag_sources[:5])
+                # 推送给前端展示
+                for ch in reference_line:
+                    yield sse_format("token", {"delta": ch})
+                full_reply_text += reference_line
+            
+            # ─── 持久化对话记录 ───
+            ChatMessageCRUD.create(
+                db,
+                ChatMessageCreate(
+                    session_id=session.id,
+                    role="assistant",
+                    content=full_reply_text or "(空回复)",
+                    correction=None,
+                ),
+            )
+            
+            chat_minutes = max(1, min(8, len(request.message.strip()) // 60 + 1))
+            track_learning_activity(
+                db, student_id=student.id,
+                module="AI助教",
+                duration_minutes=chat_minutes,
+                content="统一对话",
+            )
+            refresh_student_metrics(db, student.id)
+            ChatSessionCRUD.touch(db, session.id)
+            
+            n = len(history) + 2
+            if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
+                bg.add_task(refresh_student_memory, student.id, session.id)
+            
+            # ─── trace 完成 + 持久化 ───
+            trace.finalize(reply_text=full_reply_text, success=True)
+            trace.persist(db)
+            
+            # ─── 推送 done 事件 ───
+            yield sse_format("done", {
+                "success": True,
+                "trace_id": trace.trace_id,
+                "session_id": session.id,
+                "tool_calls_count": len(tool_calls_used),
+                "total_duration_ms": trace.total_duration_ms,
+            })
+        
+        except Exception as e:
+            logger.error(f"[STREAM] 学生流式对话失败: {type(e).__name__}: {e}", exc_info=True)
+            trace.finalize(
+                reply_text=full_reply_text or None,
+                success=False,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            try:
+                trace.persist(db)
+            except Exception:
+                pass
+            
+            yield sse_format("error", {
+                "message": f"AI 调用失败: {type(e).__name__}",
+                "trace_id": trace.trace_id,
+            })
+            yield sse_format("done", {
+                "success": False,
+                "trace_id": trace.trace_id,
+            })
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # nginx 防缓冲
+        },
+    )
+
 
 
 @router.post("/api/student/chat/new-session")

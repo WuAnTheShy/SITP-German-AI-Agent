@@ -442,7 +442,7 @@ def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -
                 )
             else:
                 reason = f"未识别明确的薄弱点,推荐题库最丰富的分类「{target_category.name if target_category else '未知'}」"
-             fallback_used = True
+                fallback_used = True
     
     if not target_category:
         return {"error": "题库为空,无法推荐"}
@@ -480,7 +480,6 @@ def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -
                 "question": e.question,
                 "correct_answer": e.correct_answer,
                 "analysis": e.analysis,
-                "difficulty": e.difficulty,
             }
             for e in exercises
         ],
@@ -514,7 +513,7 @@ WEAK_POINT_KEYWORD_MAP = {
 }
 
 
-def _semantic_match_category(db: Session, weak_point: str):
+def  _semantic_match_category(db: Session, weak_point: str):
     """根据 weak_point 关键词匹配题库分类。
     
     Returns:

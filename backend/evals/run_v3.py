@@ -99,6 +99,7 @@ def run_one_case(case: dict, role: str, token: str) -> dict:
             query=case["query"],
             expected_outcome=case.get("expected_outcome", ""),
             reply=reply,
+            tool_calls_used=tool_calls_used,    # ← 新增
         )
         print(f" → 总分 {judge_result['overall_score']}/5")
         

@@ -10,7 +10,7 @@
 // 三种模式下前端代码完全一致，无需手动修改。
 // ---------------------------------------------------------------
 
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 // ---- 认证 ----
 export const API_LOGIN = `${API_BASE}/api/auth/login`;
@@ -20,19 +20,28 @@ export const API_ADMIN_TEACHERS = `${API_BASE}/api/admin/teachers`;
 export const API_ADMIN_CLASSES = `${API_BASE}/api/admin/classes`;
 export const API_ADMIN_SETTINGS = `${API_BASE}/api/admin/system/settings`;
 export const API_ADMIN_PENDING_TEACHERS = `${API_BASE}/api/admin/users/pending-teachers`;
-export const API_ADMIN_APPROVE_TEACHER = (id) => `${API_BASE}/api/admin/users/teachers/${id}/approve`;
-export const API_ADMIN_REJECT_TEACHER = (id) => `${API_BASE}/api/admin/users/teachers/${id}/reject`;
-export const API_ADMIN_DELETE_CLASS = (id) => `${API_BASE}/api/admin/classes/${id}`;
-export const API_ADMIN_UPDATE_TEACHER = (id) => `${API_BASE}/api/admin/teachers/${id}`;
-export const API_ADMIN_DELETE_TEACHER = (id) => `${API_BASE}/api/admin/teachers/${id}`;
+export const API_ADMIN_APPROVE_TEACHER = (id) =>
+  `${API_BASE}/api/admin/users/teachers/${id}/approve`;
+export const API_ADMIN_REJECT_TEACHER = (id) =>
+  `${API_BASE}/api/admin/users/teachers/${id}/reject`;
+export const API_ADMIN_DELETE_CLASS = (id) =>
+  `${API_BASE}/api/admin/classes/${id}`;
+export const API_ADMIN_UPDATE_TEACHER = (id) =>
+  `${API_BASE}/api/admin/teachers/${id}`;
+export const API_ADMIN_DELETE_TEACHER = (id) =>
+  `${API_BASE}/api/admin/teachers/${id}`;
 export const API_ADMIN_STUDENTS = `${API_BASE}/api/admin/students`;
-export const API_ADMIN_UPDATE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
-export const API_ADMIN_DELETE_STUDENT = (id) => `${API_BASE}/api/admin/students/${id}`;
-export const API_ADMIN_RESET_USER_PASSWORD = (id) => `${API_BASE}/api/admin/users/${id}/password`;
+export const API_ADMIN_UPDATE_STUDENT = (id) =>
+  `${API_BASE}/api/admin/students/${id}`;
+export const API_ADMIN_DELETE_STUDENT = (id) =>
+  `${API_BASE}/api/admin/students/${id}`;
+export const API_ADMIN_RESET_USER_PASSWORD = (id) =>
+  `${API_BASE}/api/admin/users/${id}/password`;
 export const API_ADMIN_KB_DOCS = `${API_BASE}/api/admin/kb/docs`;
 export const API_ADMIN_KB_UPLOAD = `${API_BASE}/api/admin/kb/upload`;
 export const API_ADMIN_KB_REINDEX = `${API_BASE}/api/admin/kb/reindex`;
-export const API_ADMIN_KB_DELETE_DOC = (id) => `${API_BASE}/api/admin/kb/docs/${id}`;
+export const API_ADMIN_KB_DELETE_DOC = (id) =>
+  `${API_BASE}/api/admin/kb/docs/${id}`;
 
 // ---- 注册 ----
 export const API_STUDENT_REGISTER = `${API_BASE}/api/auth/student-register`;
@@ -50,11 +59,15 @@ export const API_USER_KB_DELETE = `${API_BASE}/api/user/kb/docs`;
 // ---- 教师仪表盘 & 学生审批 ----
 export const API_DASHBOARD = `${API_BASE}/api/teacher/dashboard`;
 export const API_TEACHER_PENDING_STUDENTS = `${API_BASE}/api/teacher/pending-students`;
-export const API_TEACHER_APPROVE_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}/approve`;
-export const API_TEACHER_REJECT_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}/reject`;
+export const API_TEACHER_APPROVE_STUDENT = (id) =>
+  `${API_BASE}/api/teacher/students/${id}/approve`;
+export const API_TEACHER_REJECT_STUDENT = (id) =>
+  `${API_BASE}/api/teacher/students/${id}/reject`;
 export const API_TEACHER_STUDENTS = `${API_BASE}/api/teacher/students`;
-export const API_TEACHER_UPDATE_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}`;
-export const API_TEACHER_REMOVE_STUDENT = (id) => `${API_BASE}/api/teacher/students/${id}`;
+export const API_TEACHER_UPDATE_STUDENT = (id) =>
+  `${API_BASE}/api/teacher/students/${id}`;
+export const API_TEACHER_REMOVE_STUDENT = (id) =>
+  `${API_BASE}/api/teacher/students/${id}`;
 
 // ---- 情景任务 ----
 export const API_SCENARIO_PUBLISH = `${API_BASE}/api/scenario/publish`;
@@ -86,6 +99,9 @@ export const API_TEACHER_CHAT_NEW = `${API_BASE}/api/teacher/chat/new-session`;
 export const API_TEACHER_CHAT_SESSIONS = `${API_BASE}/api/teacher/chat/sessions`;
 export const API_TEACHER_CHAT_MESSAGES = `${API_BASE}/api/teacher/chat/messages`;
 export const API_TEACHER_CHAT_SESSION = `${API_BASE}/api/teacher/chat/session`;
+// ---- AI 对话 (SSE 流式) ----
+export const API_STUDENT_CHAT_STREAM = `${API_BASE}/api/student/chat/stream`;
+export const API_TEACHER_CHAT_STREAM = `${API_BASE}/api/teacher/chat/stream`;
 export const API_SCENE_CHAT = `${API_BASE}/api/student/scene-chat`;
 export const API_SCENE_CHAT_STATE = `${API_BASE}/api/student/scene-chat/state`;
 export const API_SCENE_CHAT_CLEAR = `${API_BASE}/api/student/scene-chat/clear`;

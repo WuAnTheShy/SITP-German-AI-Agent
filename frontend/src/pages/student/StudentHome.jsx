@@ -10,7 +10,10 @@ import {
   API_STUDENT_CHAT_SESSION,
   API_USER_KB_DOCS,
   API_USER_KB_UPLOAD_TEMP,
+  API_STUDENT_CHAT_STREAM,
 } from "../../api/config";
+import { streamChat } from "../../api/streamingChat";
+import AgentProgress from "../../components/AgentProgress";
 import {
   Send,
   Bot,
@@ -28,9 +31,7 @@ import MarkdownContent from "../../components/MarkdownContent";
 const WELCOME_AI =
   "Hallo! Ich bin dein KI-Tutor. Wie kann ich dir heute helfen? (你好！我是你的AI导师。今天我能为你做什么？)";
 
-const welcomeMessages = () => [
-  { id: "w1", sender: "ai", text: WELCOME_AI },
-];
+const welcomeMessages = () => [{ id: "w1", sender: "ai", text: WELCOME_AI }];
 
 const StudentHome = () => {
   const [messages, setMessages] = useState(() => welcomeMessages());
@@ -48,7 +49,9 @@ const StudentHome = () => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const userInfo = parseStoredUserInfo();
-  const myKbHref = userInfo.id ? `#/student/${userInfo.id}/my-kb` : "#/student/login";
+  const myKbHref = userInfo.id
+    ? `#/student/${userInfo.id}/my-kb`
+    : "#/student/login";
 
   const loadSessions = useCallback(() => {
     request
@@ -85,7 +88,14 @@ const StudentHome = () => {
         if (id) {
           setSessionId(id);
           setMessages(welcomeMessages());
-          setSessions([{ id, title: "进行中", closed: false, updated_at: new Date().toISOString() }]);
+          setSessions([
+            {
+              id,
+              title: "进行中",
+              closed: false,
+              updated_at: new Date().toISOString(),
+            },
+          ]);
         }
         return;
       }
@@ -103,7 +113,7 @@ const StudentHome = () => {
               id: m.id,
               sender: m.role === "user" ? "user" : "ai",
               text: m.content,
-            }))
+            })),
           );
         } else setMessages(welcomeMessages());
       }
@@ -137,7 +147,7 @@ const StudentHome = () => {
           id: m.id,
           sender: m.role === "user" ? "user" : "ai",
           text: m.content,
-        }))
+        })),
       );
     } catch {
       setMessages(welcomeMessages());
@@ -160,39 +170,199 @@ const StudentHome = () => {
     if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
+  // const handleSend = async () => {
+  //   if (!input.trim() || loading) return;
+  //   const userText = input;
+  //   setMessages((prev) => [
+  //     ...prev,
+  //     { id: `u-${Date.now()}`, sender: "user", text: userText },
+  //   ]);
+  //   setInput("");
+  //   setLoading(true);
+  //   try {
+  //     const response = await request.post(
+  //       API_STUDENT_CHAT,
+  //       {
+  //         message: userText,
+  //         session_id: sessionId || undefined,
+  //         new_thread: false,
+  //       },
+  //       { timeout: 90000 },
+  //     );
+  //     const data = response.data;
+  //     if (data.session_id) setSessionId(data.session_id);
+  //     setMessages((prev) => [
+  //       ...prev,
+  //       {
+  //         id: `a-${Date.now()}`,
+  //         sender: "ai",
+  //         text: data.reply || "（无回复）",
+  //       },
+  //     ]);
+  //     loadSessions();
+  //   } catch (error) {
+  //     console.error(error);
+  //     const isTimeout = error.code === "ECONNABORTED";
+  //     setMessages((prev) => [
+  //       ...prev,
+  //       {
+  //         id: `e-${Date.now()}`,
+  //         sender: "ai",
+  //         text: isTimeout
+  //           ? "⚠️ AI 响应超时，请稍后重试。"
+  //           : "⚠️ 连接失败，请确认后端已启动并已登录。",
+  //       },
+  //     ]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const userText = input;
-    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, sender: "user", text: userText }]);
+    const userMsgId = `u-${Date.now()}`;
+    const aiMsgId = `a-${Date.now()}`;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: userMsgId, sender: "user", text: userText },
+      // 占位 AI 消息,用于流式更新 text + stages
+      { id: aiMsgId, sender: "ai", text: "", stages: [], streaming: true },
+    ]);
     setInput("");
     setLoading(true);
-    try {
-      const response = await request.post(
-        API_STUDENT_CHAT,
-        { message: userText, session_id: sessionId || undefined, new_thread: false },
-        { timeout: 90000 }
-      );
-      const data = response.data;
-      if (data.session_id) setSessionId(data.session_id);
-      setMessages((prev) => [
-        ...prev,
-        { id: `a-${Date.now()}`, sender: "ai", text: data.reply || "（无回复）" },
-      ]);
-      loadSessions();
-    } catch (error) {
-      console.error(error);
-      const isTimeout = error.code === "ECONNABORTED";
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `e-${Date.now()}`,
-          sender: "ai",
-          text: isTimeout ? "⚠️ AI 响应超时，请稍后重试。" : "⚠️ 连接失败，请确认后端已启动并已登录。",
+
+    let aiText = "";
+
+    const stop = streamChat(
+      API_STUDENT_CHAT_STREAM,
+      {
+        message: userText,
+        session_id: sessionId || undefined,
+        new_thread: false,
+      },
+      {
+        onMeta: (data) => {
+          if (data.session_id) setSessionId(data.session_id);
         },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+        onRagStart: () => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    stages: [
+                      ...(m.stages || []),
+                      {
+                        type: "rag",
+                        label: "检索知识库...",
+                        status: "running",
+                      },
+                    ],
+                  }
+                : m,
+            ),
+          );
+        },
+        onRagDone: (data) => {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== aiMsgId) return m;
+              const stages = [...(m.stages || [])];
+              const idx = stages.findIndex(
+                (s) => s.type === "rag" && s.status === "running",
+              );
+              if (idx >= 0) {
+                stages[idx] = {
+                  ...stages[idx],
+                  status: "done",
+                  summary: data.used
+                    ? `命中 ${data.sources_count} 条 (top=${data.top_score})`
+                    : "未命中,使用通用知识",
+                };
+              }
+              return { ...m, stages };
+            }),
+          );
+        },
+        onToolCallStart: (data) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    stages: [
+                      ...(m.stages || []),
+                      {
+                        type: "tool",
+                        label: `调用工具: ${data.display_name || data.name}`,
+                        status: "running",
+                        toolName: data.name,
+                      },
+                    ],
+                  }
+                : m,
+            ),
+          );
+        },
+        onToolCallDone: (data) => {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== aiMsgId) return m;
+              const stages = [...(m.stages || [])];
+              const idx = stages.findIndex(
+                (s) =>
+                  s.type === "tool" &&
+                  s.toolName === data.name &&
+                  s.status === "running",
+              );
+              if (idx >= 0) {
+                stages[idx] = {
+                  ...stages[idx],
+                  status: data.success ? "done" : "failed",
+                  summary: data.summary,
+                };
+              }
+              return { ...m, stages };
+            }),
+          );
+        },
+        onToken: (delta) => {
+          aiText += delta;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === aiMsgId ? { ...m, text: aiText } : m)),
+          );
+        },
+        onDone: () => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId ? { ...m, streaming: false } : m,
+            ),
+          );
+          setLoading(false);
+          loadSessions();
+        },
+        onError: (err) => {
+          console.error(err);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    text: aiText || "⚠️ 连接失败,请确认后端已启动并已登录。",
+                    streaming: false,
+                  }
+                : m,
+            ),
+          );
+          setLoading(false);
+        },
+      },
+    );
+
+    // 可选:用户取消按钮可调 stop()——本次先不加 UI
+    void stop;
   };
 
   const handleKbUpload = async (e) => {
@@ -216,7 +386,7 @@ const StudentHome = () => {
       await loadKbDocs();
     } catch (err) {
       setKbHint(
-        `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`
+        `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`,
       );
     } finally {
       setKbUploading(false);
@@ -245,7 +415,11 @@ const StudentHome = () => {
     try {
       await request.delete(`${API_STUDENT_CHAT_SESSION}/${deletedId}`);
       const r = await request.get(API_STUDENT_CHAT_SESSIONS);
-      const arr = Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [];
+      const arr = Array.isArray(r.data?.data)
+        ? r.data.data
+        : Array.isArray(r.data)
+          ? r.data
+          : [];
       setSessions(arr);
       if (sessionId === deletedId) {
         if (arr.length === 0) {
@@ -272,13 +446,22 @@ const StudentHome = () => {
   };
 
   const promptTemplates = [
-    { name: "德语发音", text: "请帮我分析这个德语句子的发音规则…[请输入德语句子]" },
+    {
+      name: "德语发音",
+      text: "请帮我分析这个德语句子的发音规则…[请输入德语句子]",
+    },
     { name: "德语语法", text: "请解析这个德语句子的语法结构…[请输入德语句子]" },
-    { name: "德语词汇", text: "请帮我扩展这个德语单词的同义词、反义词…[请输入德语单词]" },
+    {
+      name: "德语词汇",
+      text: "请帮我扩展这个德语单词的同义词、反义词…[请输入德语单词]",
+    },
   ];
   const currentSessionKey = sessionId ? `student:${sessionId}` : null;
   const currentSessionTempDocs = kbDocs.filter(
-    (d) => d.is_temporary && currentSessionKey && d.session_key === currentSessionKey
+    (d) =>
+      d.is_temporary &&
+      currentSessionKey &&
+      d.session_key === currentSessionKey,
   );
 
   return (
@@ -321,7 +504,9 @@ const StudentHome = () => {
               <div
                 key={s.id}
                 className={`flex items-stretch gap-0 rounded-lg overflow-hidden ${
-                  sessionId === s.id ? "bg-blue-100 dark:bg-blue-900/40" : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                  sessionId === s.id
+                    ? "bg-blue-100 dark:bg-blue-900/40"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
               >
                 <button
@@ -356,7 +541,9 @@ const StudentHome = () => {
               </div>
             ))}
             {sessions.length === 0 && (
-              <p className="text-xs text-gray-500 p-2">暂无记录，点右上角 + 开始</p>
+              <p className="text-xs text-gray-500 p-2">
+                暂无记录，点右上角 + 开始
+              </p>
             )}
           </div>
           <button
@@ -378,7 +565,9 @@ const StudentHome = () => {
             >
               <MessageSquare size={18} />
             </button>
-            <span className="font-medium text-gray-800 dark:text-gray-100">智能对话</span>
+            <span className="font-medium text-gray-800 dark:text-gray-100">
+              智能对话
+            </span>
             <button
               type="button"
               onClick={handleNewChat}
@@ -443,14 +632,25 @@ const StudentHome = () => {
                       {msg.sender === "user" ? (
                         <span className="whitespace-pre-wrap">{msg.text}</span>
                       ) : (
-                        <MarkdownContent content={msg.text} />
+                        <>
+                          {msg.stages && msg.stages.length > 0 && (
+                            <AgentProgress stages={msg.stages} />
+                          )}
+                          {msg.text ? (
+                            <MarkdownContent content={msg.text} />
+                          ) : msg.streaming ? (
+                            <span className="text-slate-400 text-xs italic">
+                              AI 正在准备回答...
+                            </span>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </div>
                 </div>
               ))
             )}
-            {loading && (
+            {/* {loading && (
               <div className="flex justify-start">
                 <div className="flex items-start gap-2">
                   <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
@@ -461,7 +661,7 @@ const StudentHome = () => {
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
             <div ref={messagesEndRef} />
           </div>
 
@@ -496,10 +696,14 @@ const StudentHome = () => {
               </a>
             </div>
             <div className="max-w-4xl mx-auto mb-2 space-y-1.5 text-xs">
-              <div className="text-slate-500 dark:text-slate-400">当前会话资料 {currentSessionTempDocs.length} 份</div>
+              <div className="text-slate-500 dark:text-slate-400">
+                当前会话资料 {currentSessionTempDocs.length} 份
+              </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {currentSessionTempDocs.length === 0 ? (
-                  <span className="text-slate-400 dark:text-slate-500">暂无</span>
+                  <span className="text-slate-400 dark:text-slate-500">
+                    暂无
+                  </span>
                 ) : (
                   currentSessionTempDocs.slice(0, 4).map((d) => (
                     <span
@@ -508,12 +712,16 @@ const StudentHome = () => {
                       title={`${d.source_name} · ${d.status}`}
                     >
                       {d.title}
-                      <span className="ml-1 text-[10px] opacity-70">本会话</span>
+                      <span className="ml-1 text-[10px] opacity-70">
+                        本会话
+                      </span>
                     </span>
                   ))
                 )}
                 {currentSessionTempDocs.length > 4 && (
-                  <span className="text-slate-500 dark:text-slate-400">+{currentSessionTempDocs.length - 4}</span>
+                  <span className="text-slate-500 dark:text-slate-400">
+                    +{currentSessionTempDocs.length - 4}
+                  </span>
                 )}
               </div>
             </div>
@@ -568,14 +776,22 @@ const StudentHome = () => {
                   disabled={loading || !sessionId}
                   className="p-2 rounded-lg bg-blue-600 text-white disabled:bg-gray-400"
                 >
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  {loading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Send size={18} />
+                  )}
                 </button>
               </div>
             </div>
             {!sessionId && (
-              <p className="text-center text-xs text-amber-600 mt-2">请先在左侧选一个会话，或点 + 新建对话</p>
+              <p className="text-center text-xs text-amber-600 mt-2">
+                请先在左侧选一个会话，或点 + 新建对话
+              </p>
             )}
-            <p className="text-center text-xs text-gray-400 mt-1">重要知识点请自行核对 · 历史均保留在左侧列表</p>
+            <p className="text-center text-xs text-gray-400 mt-1">
+              重要知识点请自行核对 · 历史均保留在左侧列表
+            </p>
           </div>
         </div>
       </div>
@@ -583,9 +799,12 @@ const StudentHome = () => {
       {deleteTargetId != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="student-panel rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">删除这条对话？</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              删除这条对话？
+            </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              将永久删除对话 <strong>#{deleteTargetId}</strong> 及其全部聊天记录，<strong>无法恢复</strong>。确定要继续吗？
+              将永久删除对话 <strong>#{deleteTargetId}</strong>{" "}
+              及其全部聊天记录，<strong>无法恢复</strong>。确定要继续吗？
             </p>
             <div className="flex gap-3 justify-end">
               <button

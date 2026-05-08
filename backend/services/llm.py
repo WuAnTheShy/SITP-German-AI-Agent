@@ -470,6 +470,232 @@ def generate_response_with_tools(
         trace.iterations_used = max_iterations
     return "(处理超过最大轮次,请简化问题后重试)", tool_calls_used
 
+
+def generate_response_with_tools_streaming(
+    messages: list[dict],
+    system_instruction: str | None = None,
+    context: dict | None = None,
+    max_iterations: int = 5,
+    toolset: str | None = None,
+    trace=None,
+):
+    """流式版的 Agent 主循环。
+    
+    yields 事件 dict,可被外层 endpoint 转为 SSE 推送给前端。
+    
+    yield 的事件类型:
+        {"event": "tool_call_start", "name": "...", "args": {...}, "iteration": N}
+        {"event": "tool_call_done", "name": "...", "success": bool, "summary": "..."}
+        {"event": "token", "delta": "..."}
+        {"event": "done", "reply": "...", "tool_calls_used": [...]}
+    """
+    if context is None:
+        context = {}
+    
+    msgs = []
+    if system_instruction:
+        msgs.append({"role": "system", "content": system_instruction})
+    msgs.extend(messages)
+    
+    if toolset:
+        tool_schemas = agent_registry.get_schemas_by_toolset(toolset)
+    else:
+        tool_schemas = agent_registry.get_schemas()
+    
+    tool_calls_used: list[dict] = []
+    final_reply = ""
+    
+    for iteration in range(max_iterations):
+        logger.info(f"[STREAM] Agent iteration {iteration + 1}/{max_iterations}, msgs={len(msgs)}")
+        
+        # 用 trace 包裹这次 LLM 调用
+        llm_span = None
+        if trace:
+            llm_span = trace.span("llm_call", f"qwen_iter_{iteration + 1}")
+            llm_span_cm = llm_span.__enter__()
+            llm_span_cm.set_input({
+                "iteration": iteration + 1,
+                "msgs_count": len(msgs),
+                "streaming": True,
+            })
+        
+        # 累积本轮 LLM 输出
+        iteration_content = ""
+        iteration_tool_calls = []
+        usage_info = {"input_tokens": 0, "output_tokens": 0}
+        finish_reason = ""
+        
+        try:
+            for event in _call_llm_with_tools_streaming(msgs, tool_schemas):
+                etype = event["type"]
+                
+                if etype == "token":
+                    iteration_content += event["delta"]
+                    yield {"event": "token", "delta": event["delta"]}
+                
+                elif etype == "tool_calls":
+                    iteration_tool_calls = event["calls"]
+                    if event.get("content"):
+                        # 部分模型在 tool_calls 前会先输出一段 content,这里累积但不重新 yield
+                        # token 事件已在 token 分支推过
+                        pass
+                
+                elif etype == "usage":
+                    usage_info["input_tokens"] = event["input_tokens"]
+                    usage_info["output_tokens"] = event["output_tokens"]
+                
+                elif etype == "done":
+                    finish_reason = event["finish_reason"]
+        
+        except Exception as e:
+            logger.error(f"[STREAM] LLM 调用失败: {type(e).__name__}: {e}", exc_info=True)
+            if llm_span:
+                llm_span_cm.mark_failed(f"{type(e).__name__}: {e}")
+                llm_span.__exit__(type(e), e, e.__traceback__)
+            yield {"event": "error", "message": f"AI 服务暂时无法响应: {type(e).__name__}"}
+            return
+        finally:
+            if llm_span:
+                llm_span_cm.set_tokens(
+                    input_tokens=usage_info["input_tokens"],
+                    output_tokens=usage_info["output_tokens"],
+                )
+                llm_span_cm.set_output({
+                    "finish_reason": finish_reason,
+                    "has_tool_calls": bool(iteration_tool_calls),
+                })
+                llm_span.__exit__(None, None, None)
+        
+        # 不调工具,流程结束
+        if not iteration_tool_calls:
+            final_reply = iteration_content
+            if trace:
+                trace.iterations_used = iteration + 1
+            yield {
+                "event": "done",
+                "reply": final_reply,
+                "tool_calls_used": tool_calls_used,
+            }
+            return
+        
+        # 要调工具——把当前 assistant message 加入 msgs(含 tool_calls)
+        msgs.append({
+            "role": "assistant",
+            "content": iteration_content if iteration_content else None,
+            "tool_calls": iteration_tool_calls,
+        })
+        
+        # 逐个调用工具
+        for tc in iteration_tool_calls:
+            tool_name = tc["function"]["name"]
+            try:
+                tool_args = json.loads(tc["function"]["arguments"])
+            except Exception:
+                tool_args = {}
+            
+            display_name = TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+            
+            tool_calls_used.append({
+                "name": tool_name,
+                "display_name": display_name,
+                "args": tool_args,
+                "iteration": iteration + 1,
+            })
+            
+            # 推送 tool_call_start 事件
+            yield {
+                "event": "tool_call_start",
+                "name": tool_name,
+                "display_name": display_name,
+                "args": tool_args,
+                "iteration": iteration + 1,
+            }
+            
+            # 用 trace 包工具调用
+            tool_span = None
+            if trace:
+                tool_span = trace.span("tool_call", tool_name)
+                tool_span_cm = tool_span.__enter__()
+                tool_span_cm.set_input({"args": tool_args, "iteration": iteration + 1})
+            
+            try:
+                result = agent_registry.call(tool_name, tool_args, context)
+            except Exception as e:
+                result = {"error": f"{type(e).__name__}: {e}"}
+            
+            # 生成简短摘要给前端展示(避免推 5KB JSON)
+            summary = _summarize_tool_result(result)
+            success = not (isinstance(result, dict) and "error" in result)
+            
+            if trace and tool_span:
+                tool_span_cm.set_output({
+                    "keys": list(result.keys()) if isinstance(result, dict) else [],
+                    "has_error": not success,
+                })
+                if not success:
+                    tool_span_cm.mark_failed(str(result.get("error", ""))[:200])
+                tool_span.__exit__(None, None, None)
+            
+            logger.info(f"[STREAM-TOOL] {tool_name}({tool_args}) -> {str(result)[:200]}")
+            
+            # 推送 tool_call_done 事件
+            yield {
+                "event": "tool_call_done",
+                "name": tool_name,
+                "success": success,
+                "summary": summary,
+            }
+            
+            # 把工具结果加入 msgs(供下一轮 LLM 调用)
+            msgs.append({
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": json.dumps(result, ensure_ascii=False),
+            })
+    
+    # max_iterations reached
+    logger.warning(f"[STREAM] Agent reached max_iterations={max_iterations}")
+    if trace:
+        trace.iterations_used = max_iterations
+    yield {
+        "event": "done",
+        "reply": "(处理超过最大轮次,请简化问题后重试)",
+        "tool_calls_used": tool_calls_used,
+    }
+
+
+def _summarize_tool_result(result: dict | str) -> str:
+    """生成工具结果的简短摘要(给前端展示用,不超过 100 字)。"""
+    if not isinstance(result, dict):
+        return str(result)[:100]
+    
+    if "error" in result:
+        return f"❌ {str(result['error'])[:80]}"
+    
+    # 各类型工具的友好摘要
+    if "exercises" in result:
+        return f"找到 {result.get('count', len(result.get('exercises', [])))} 道题"
+    if "listening" in result and "speaking" in result:
+        return f"听{result['listening']}/说{result['speaking']}/读{result['reading']}/写{result['writing']}"
+    if "homeworks" in result:
+        return f"作业 {result.get('total_count', 0)} 项,完成 {result.get('completed_count', 0)} 项"
+    if "total_classes" in result:
+        return f"{result['total_classes']} 个班级,{sum(c.get('student_count', 0) for c in result.get('classes', []))} 人"
+    if "struggling_students" in result:
+        return f"{len(result.get('struggling_students', []))} 位学生需要关注"
+    if "rag_chunks" in result or "results" in result:
+        return f"检索到 {len(result.get('results', result.get('rag_chunks', [])))} 条记录"
+    if "ambiguous" in result:
+        return f"姓名匹配多人,需追问"
+    if "name" in result and "uid" in result:
+        return f"{result['name']}({result['uid']})"
+    
+    # 通用 fallback:取前 3 个 key 的值
+    keys = list(result.keys())[:3]
+    return f"已获取 {', '.join(keys)} 等数据"
+
+
+
 def _call_llm_with_tools(messages: list[dict], tools: list[dict]) -> dict:
     """实际调用 LLM 接口的低层函数,返回原始 JSON。
 
@@ -493,3 +719,119 @@ def _call_llm_with_tools(messages: list[dict], tools: list[dict]) -> dict:
     resp = requests.post(API_URL, json=payload, headers=headers, timeout=LLM_TIMEOUT)
     resp.raise_for_status()
     return resp.json()
+
+
+def _call_llm_with_tools_streaming(messages: list[dict], tool_schemas: list[dict]):
+    """流式调用 LLM(返回 generator,逐 chunk yield)。
+    
+    yields:
+        {"type": "token", "delta": "..."}        - 输出 token
+        {"type": "tool_calls", "calls": [...]}   - 完整 tool_calls(LLM 决定调工具时)
+        {"type": "done", "finish_reason": "stop"} - 结束
+        {"type": "usage", "input_tokens": N, "output_tokens": M} - 用量(OpenAI 兼容协议返回)
+    
+    DashScope OpenAI 兼容协议的 streaming 行为:
+    - finish_reason="tool_calls" 时,arguments 是分多个 chunk 拼接的
+    - finish_reason="stop" 时,content 是逐 token 流出的
+    """
+    payload = {
+        "model": MODEL_ID,
+        "messages": messages,
+        "tools": tool_schemas if tool_schemas else None,
+        "max_tokens": 1024,
+        "temperature": 0.7,
+        "top_p": 0.95,
+        "stream": True,
+        "stream_options": {"include_usage": True},  # ← DashScope/OpenAI 都支持
+    }
+    if not tool_schemas:
+        payload.pop("tools")
+    
+    headers = {"Content-Type": "application/json"}
+    if API_KEY:
+        headers["Authorization"] = f"Bearer {API_KEY.strip()}"
+    
+    # 累积:tool_calls 是分 chunk 拼接的,需要在结束时返回完整对象
+    accumulated_tool_calls: dict[int, dict] = {}
+    accumulated_content = ""
+    
+    with requests.post(
+        API_URL,
+        json=payload,
+        headers=headers,
+        stream=True,
+        timeout=180,
+    ) as resp:
+        if resp.status_code != 200:
+            err_body = resp.text[:500]
+            raise RuntimeError(f"LLM HTTP {resp.status_code}: {err_body}")
+        
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            if not line.startswith("data: "):
+                continue
+            data_str = line[len("data: "):].strip()
+            if data_str == "[DONE]":
+                break
+            
+            try:
+                chunk = json.loads(data_str)
+            except json.JSONDecodeError:
+                logger.warning(f"streaming: 解析 chunk 失败: {data_str[:100]}")
+                continue
+            
+            # 处理 usage(最后一条 chunk 才会有)
+            if chunk.get("usage"):
+                u = chunk["usage"]
+                yield {
+                    "type": "usage",
+                    "input_tokens": u.get("prompt_tokens", 0),
+                    "output_tokens": u.get("completion_tokens", 0),
+                }
+            
+            choices = chunk.get("choices", [])
+            if not choices:
+                continue
+            
+            choice = choices[0]
+            delta = choice.get("delta", {})
+            finish_reason = choice.get("finish_reason")
+            
+            # token content delta
+            content_delta = delta.get("content")
+            if content_delta:
+                accumulated_content += content_delta
+                yield {"type": "token", "delta": content_delta}
+            
+            # tool_calls(分 chunk 拼接)
+            tc_chunks = delta.get("tool_calls", [])
+            for tc in tc_chunks:
+                idx = tc.get("index", 0)
+                if idx not in accumulated_tool_calls:
+                    accumulated_tool_calls[idx] = {
+                        "id": "",
+                        "type": "function",
+                        "function": {"name": "", "arguments": ""},
+                    }
+                
+                if tc.get("id"):
+                    accumulated_tool_calls[idx]["id"] = tc["id"]
+                
+                fn = tc.get("function", {})
+                if fn.get("name"):
+                    accumulated_tool_calls[idx]["function"]["name"] += fn["name"]
+                if fn.get("arguments") is not None:  # 可能是空字符串
+                    accumulated_tool_calls[idx]["function"]["arguments"] += fn["arguments"]
+            
+            # 流结束信号
+            if finish_reason:
+                # 把累积的 tool_calls 返回(如果有)
+                if accumulated_tool_calls:
+                    yield {
+                        "type": "tool_calls",
+                        "calls": [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls.keys())],
+                        "content": accumulated_content,
+                    }
+                yield {"type": "done", "finish_reason": finish_reason}
+                return
