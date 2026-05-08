@@ -345,6 +345,7 @@ TOOL_DISPLAY_NAMES = {
     "query_student_by_uid": "按学号查学生",
     "find_struggling_students": "查找薄弱学生",
     "recommend_exam_focus": "推荐考点",
+    "generate_daily_learning_plan": "生成学习计划",
 }
 
 
@@ -689,6 +690,8 @@ def _summarize_tool_result(result: dict | str) -> str:
         return f"姓名匹配多人,需追问"
     if "name" in result and "uid" in result:
         return f"{result['name']}({result['uid']})"
+    if "tasks" in result and "today_focus" in result:
+        return f"已规划 {len(result.get('tasks', []))} 个任务,共 {result.get('total_duration_minutes', 0)} 分钟" 
     
     # 通用 fallback:取前 3 个 key 的值
     keys = list(result.keys())[:3]

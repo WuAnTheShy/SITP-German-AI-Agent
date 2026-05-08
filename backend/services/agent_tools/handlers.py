@@ -9,7 +9,7 @@
 import logging
 import json
 from services.llm import ai_json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,date
 from typing import Any
 
 from sqlalchemy import select, func, desc, and_
@@ -38,6 +38,8 @@ from services.agent_tools.schemas import (
     GrammarError,
     VocabularySuggestion,
     RewriteDemo,
+    DailyLearningPlanResult,
+    LearningTask,
 )
 
 logger = logging.getLogger(__name__)
@@ -1488,6 +1490,194 @@ def evaluate_student_writing(args: dict[str, Any], context: dict[str, Any]) -> d
         logger.error(f"WritingEvaluationResult schema 校验失败: {e}")
         return {
             "error": "AI 评估结果格式异常",
+            "_internal": str(e)[:200],
+        }
+    
+    return validated.model_dump()
+
+
+
+def generate_daily_learning_plan(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """生成学生今日学习计划(Composite Tool:内部并行查询 + LLM 综合)。
+    
+    工具内部行为:
+    1. 并行查询学生 profile / abilities / recent_activity / homeworks
+    2. LLM 基于综合数据生成结构化日计划
+    3. Pydantic schema 严格校验
+    
+    args:
+        focus_dimension: str | None  可选,指定重点维度(覆盖 AI 自动判断)
+        target_minutes: int | None   可选,目标总时长(默认 60)
+    """
+    from services.prompts import render_prompt
+    
+    db: Session = context["db"]
+    student_id = context["student_id"]
+    
+    # ─── 1. 收集学生真实数据 ───
+    student = db.scalar(select(Student).where(Student.id == student_id))
+    if not student:
+        return {"error": "未找到学生"}
+    
+    # 班级
+    class_relation = db.scalar(
+        select(ClassStudentRelation).where(ClassStudentRelation.student_id == student_id)
+    )
+    class_name = "未分班"
+    if class_relation:
+        cls = db.scalar(select(Classroom).where(Classroom.id == class_relation.class_id))
+        if cls:
+            class_name = cls.class_name
+    
+    # 能力
+    ability = db.scalar(
+        select(StudentAbility).where(StudentAbility.student_id == student_id)
+    )
+    if not ability:
+        return {"error": "学生能力数据未生成,请先完成几次学习活动"}
+    
+    dims = {
+        "listening": ability.listening,
+        "speaking": ability.speaking,
+        "reading": ability.reading,
+        "writing": ability.writing,
+    }
+    
+    target_focus = args.get("focus_dimension")
+    if target_focus and target_focus in dims:
+        weak_dim = target_focus
+    else:
+        weak_dim = min(dims, key=dims.get)
+    weak_score = dims[weak_dim]
+    
+    strong_dim = max(dims, key=dims.get)
+    strong_score = dims[strong_dim]
+    
+    weak_dim_zh = {
+        "listening": "听力",
+        "speaking": "口语",
+        "reading": "阅读",
+        "writing": "写作",
+    }
+    
+    # 近 7 天活动
+    seven_days_ago = datetime.now() - timedelta(days=7)
+    recent_sessions = list(db.scalars(
+        select(LearningSession).where(
+            LearningSession.student_id == student_id,
+            LearningSession.session_date >= seven_days_ago,
+        )
+    ))
+    recent_total_min = sum(s.duration_minutes or 0 for s in recent_sessions)
+    
+    # 最常学习的模块(简单计数)
+    module_counter: dict[str, int] = {}
+    for s in recent_sessions:
+        mod = s.module or "未分类"
+        module_counter[mod] = module_counter.get(mod, 0) + 1
+    most_active_module = (
+        max(module_counter, key=module_counter.get)
+        if module_counter else "(近 7 天无活动)"
+    )
+    
+    # 作业
+    all_homeworks = list(db.scalars(
+        select(Homework).where(Homework.student_id == student_id)
+    ))
+    pending_homeworks = [h for h in all_homeworks if h.status != "已完成"]
+    completed_with_score = [
+        h for h in all_homeworks
+        if h.status == "已完成" and h.score is not None
+    ]
+    avg_score = (
+        sum(float(h.score) for h in completed_with_score) / len(completed_with_score)
+        if completed_with_score else None
+    )
+    
+    # ─── 2. 渲染 prompt + 调 LLM ───
+    prompt = render_prompt(
+        "gen_learning_plan",
+        student_name=student.name,
+        class_name=class_name,
+        listening=ability.listening,
+        speaking=ability.speaking,
+        reading=ability.reading,
+        writing=ability.writing,
+        weak_dim=weak_dim_zh[weak_dim],
+        weak_score=weak_score,
+        strong_dim=weak_dim_zh[strong_dim],
+        strong_score=strong_score,
+        weak_point=student.weak_point or "(未识别)",
+        recent_total_min=recent_total_min,
+        recent_activity_count=len(recent_sessions),
+        most_active_module=most_active_module,
+        total_homeworks=len(all_homeworks),
+        pending_homeworks=len(pending_homeworks),
+        avg_score=f"{avg_score:.1f}" if avg_score else "(无)",
+    )
+    
+    # 重试 3 次
+    last_error = None
+    result = None
+    for attempt in range(3):
+        try:
+            result = ai_json(prompt, max_tokens=2500)
+            if result and isinstance(result, dict) and "tasks" in result:
+                break
+            last_error = "AI 返回缺 tasks 字段"
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {e}"
+            logger.warning(f"generate_daily_learning_plan attempt {attempt + 1}/3 失败: {last_error}")
+            result = None
+    
+    if not result or not isinstance(result, dict):
+        return {"error": f"AI 生成学习计划失败(已重试 3 次): {last_error}"}
+    
+    # ─── 3. Pydantic 校验 ───
+    try:
+        # 清洗 tasks
+        raw_tasks = result.get("tasks", [])
+        valid_tasks = []
+        for t in raw_tasks:
+            if not isinstance(t, dict):
+                continue
+            try:
+                valid_tasks.append(LearningTask(
+                    order=int(t.get("order", len(valid_tasks) + 1)),
+                    module=str(t.get("module", "")).strip(),
+                    title=str(t.get("title", "")).strip(),
+                    duration_minutes=int(t.get("duration_minutes", 20)),
+                    action_steps=[str(s) for s in t.get("action_steps", [])][:5],
+                    rationale=str(t.get("rationale", "")).strip(),
+                ))
+            except Exception as e:
+                logger.warning(f"task 校验失败,跳过: {e}")
+                continue
+        
+        if len(valid_tasks) < 2:
+            return {"error": "AI 生成的有效任务少于 2 个,无法构成学习计划"}
+        
+        total_duration = sum(t.duration_minutes for t in valid_tasks)
+        
+        validated = DailyLearningPlanResult(
+            student_name=student.name,
+            plan_date=date.today().isoformat(),
+            today_focus=str(result.get("today_focus", "")).strip(),
+            weak_dimension=weak_dim_zh[weak_dim],
+            tasks=valid_tasks,
+            total_duration_minutes=total_duration,
+            encouragement=str(result.get("encouragement", "加油!")).strip(),
+            based_on={
+                "abilities": dims,
+                "weak_score": weak_score,
+                "recent_total_min": recent_total_min,
+                "pending_homeworks_count": len(pending_homeworks),
+            },
+        )
+    except Exception as e:
+        logger.error(f"DailyLearningPlanResult 校验失败: {e}")
+        return {
+            "error": "AI 生成的计划格式异常",
             "_internal": str(e)[:200],
         }
     

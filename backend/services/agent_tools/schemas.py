@@ -193,3 +193,39 @@ class WritingEvaluationResult(BaseModel):
     # 元数据
     text_length: int = Field(ge=0, description="作文字数(粗略统计)")
     level: str = Field(description="评估时使用的学生等级")
+
+
+
+# ─────────────────────────────────────────────
+# 学习计划 schemas
+# ─────────────────────────────────────────────
+
+class LearningTask(BaseModel):
+    """单个学习任务。"""
+    model_config = ConfigDict(extra="forbid")
+    
+    order: int = Field(ge=1, description="任务顺序号")
+    module: str = Field(description="所属模块,如'听力训练'/'语法练习'/'写作'")
+    title: str = Field(description="任务标题(简短)")
+    duration_minutes: int = Field(ge=5, le=120, description="预计耗时(分钟)")
+    action_steps: list[str] = Field(description="具体动作步骤(2-4 步)")
+    rationale: str = Field(description="为什么推荐这个任务(基于学生数据)")
+
+
+class DailyLearningPlanResult(BaseModel):
+    """日学习计划完整输出。"""
+    model_config = ConfigDict(extra="forbid")
+    
+    student_name: str
+    plan_date: str = Field(description="计划日期 ISO 字符串")
+    
+    today_focus: str = Field(description="今日学习重点(基于薄弱点的 1-2 句概括)")
+    weak_dimension: str = Field(description="重点改进的能力维度")
+    
+    tasks: list[LearningTask] = Field(min_length=2, max_length=6)
+    total_duration_minutes: int = Field(ge=15, le=240, description="计划总时长")
+    
+    encouragement: str = Field(description="鼓励语(1-2 句)")
+    
+    # 元数据(给上层 Agent 看)
+    based_on: dict = Field(description="基于的学生数据快照")

@@ -516,3 +516,35 @@ registry.register(
     handler=handlers.evaluate_student_writing,
     toolsets=["student"],
 )
+
+
+
+
+registry.register(
+    name="generate_daily_learning_plan",
+    description=(
+        "为学生生成今日个性化学习计划(基于真实学情数据综合规划)。"
+        "工具内部会自动收集学生的能力评估、近期学习活动、待完成作业等数据,"
+        "用 AI 综合分析后产出结构化日计划:今日重点、3-5 个具体任务(含模块/时长/动作步骤/推荐理由)、总时长、鼓励语。"
+        "适用场景:学生说'今天我该学什么'、'帮我安排今天的学习'、'给我个学习计划'、'我不知道从哪开始学'。"
+        "学生可选指定 focus_dimension(听力/口语/阅读/写作)覆盖 AI 自动判断的薄弱维度。"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "focus_dimension": {
+                "type": "string",
+                "description": "可选,指定重点改进的能力维度",
+                "enum": ["listening", "speaking", "reading", "writing"],
+            },
+            "target_minutes": {
+                "type": "integer",
+                "description": "可选,目标总学习时长(分钟),默认 60",
+                "default": 60,
+            },
+        },
+        "required": [],
+    },
+    handler=handlers.generate_daily_learning_plan,
+    toolsets=["student"],
+)
