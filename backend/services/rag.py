@@ -99,6 +99,7 @@ def search_knowledge(
     query: str,
     viewer_user_id: int | None = None,
     viewer_session_key: str | None = None,
+    trace=None,    # ← 新增
 ) -> list[dict]:
     """混合检索: embedding(语义) + keyword(BM25 风格) → RRF 融合 → rerank 精排。
     
@@ -110,6 +111,29 @@ def search_knowledge(
       - "_retrieval_sources": 命中来源 [0=向量, 1=关键词],可推断为何被检索到
     """
     logger.info(f"search_knowledge called: query={query!r}, hybrid={HYBRID_SEARCH_ENABLED}")
+    
+    if trace:
+        with trace.span("rag_retrieval", "hybrid_search") as span:
+            span.set_input({"query": query[:200], "hybrid": HYBRID_SEARCH_ENABLED})
+            result = _do_search_knowledge(db, query, viewer_user_id, viewer_session_key)
+            span.set_output({"chunk_count": len(result)})
+            if result:
+                span.set_rag_stats(
+                    recall_count=len(result),
+                    rerank_score=float(result[0].get("score", 0)),
+                )
+            return result
+    else:
+        return _do_search_knowledge(db, query, viewer_user_id, viewer_session_key)
+
+
+def _do_search_knowledge(
+    db: Session,
+    query: str,
+    viewer_user_id: int | None = None,
+    viewer_session_key: str | None = None,
+) -> list[dict]:
+    """实际检索逻辑"""
     
     if not RAG_ENABLED:
         logger.info("RAG_ENABLED=False, skip")
@@ -217,6 +241,7 @@ def search_knowledge(
             f"sources={sources_label} title={title} | {preview}"
         )
     return final
+    
 
 
 def build_rag_context(
@@ -224,12 +249,14 @@ def build_rag_context(
     query: str,
     viewer_user_id: int | None = None,
     viewer_session_key: str | None = None,
+    trace=None,
 ) -> tuple[str, list[str], float]:
     """构建 RAG 上下文。返回三元组:(context, sources_to_show, top_score)。"""
     rows = search_knowledge(
         db, query,
         viewer_user_id=viewer_user_id,
         viewer_session_key=viewer_session_key,
+        trace=trace, #透传
     )
     if not rows:
         return "", [], 0.0

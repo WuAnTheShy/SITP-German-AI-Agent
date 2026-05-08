@@ -8,8 +8,8 @@ Create Date: 2026-05-05 18:15:21.891056
 from alembic import op
 
 
-revision = '<保留 alembic 自动填的>'
-down_revision = '20260505_0001'
+revision = "20260506_0001"
+down_revision = "20260505_0001"
 branch_labels = None
 depends_on = None
 

@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Agent Trace Dashboard</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: #f5f7fa;
+        color: #2c3e50;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin-bottom: 20px;
+      }
+      .auth-bar {
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .auth-bar input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+      .auth-bar button {
+        padding: 8px 16px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .auth-bar button:hover {
+        background: #2980b9;
+      }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+      .stat-card {
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+      }
+      .stat-label {
+        color: #7f8c8d;
+        font-size: 12px;
+        margin-bottom: 5px;
+      }
+      .stat-value {
+        font-size: 24px;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+      .filter-bar {
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+      }
+      .filter-bar select,
+      .filter-bar button {
+        padding: 6px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .filter-bar button {
+        background: #ecf0f1;
+        cursor: pointer;
+      }
+      table {
+        width: 100%;
+        background: #fff;
+        border-collapse: collapse;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #ecf0f1;
+        font-size: 13px;
+      }
+      th {
+        background: #34495e;
+        color: white;
+        font-weight: 500;
+      }
+      tr:hover {
+        background: #f8f9fa;
+        cursor: pointer;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .badge-success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .badge-error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .badge-role-student {
+        background: #cfe2ff;
+        color: #084298;
+      }
+      .badge-role-teacher {
+        background: #fff3cd;
+        color: #664d03;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        padding: 30px;
+        overflow-y: auto;
+      }
+      .modal.show {
+        display: block;
+      }
+      .modal-content {
+        background: #fff;
+        max-width: 1200px;
+        margin: 0 auto;
+        border-radius: 8px;
+        padding: 30px;
+      }
+      .modal-close {
+        float: right;
+        cursor: pointer;
+        font-size: 24px;
+        color: #95a5a6;
+      }
+      .span-row {
+        display: grid;
+        grid-template-columns: 50px 130px 250px 80px 100px 100px 1fr;
+        gap: 12px;
+        padding: 8px 12px;
+        border-bottom: 1px solid #ecf0f1;
+        align-items: center;
+        font-size: 12px;
+      }
+      .span-row.header {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #34495e;
+      }
+      .span-bar {
+        background: #3498db;
+        height: 18px;
+        border-radius: 3px;
+        min-width: 4px;
+        position: relative;
+      }
+      .span-bar.error {
+        background: #e74c3c;
+      }
+      .span-bar.llm {
+        background: #9b59b6;
+      }
+      .span-bar.rag {
+        background: #f39c12;
+      }
+      .span-detail-toggle {
+        color: #3498db;
+        cursor: pointer;
+        font-size: 11px;
+        user-select: none;
+      }
+      .span-detail {
+        display: none;
+        padding: 8px;
+        background: #f8f9fa;
+        margin: 4px 0 8px 50px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 11px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .span-detail.show {
+        display: block;
+      }
+      .reply-text {
+        padding: 12px;
+        background: #ecf0f1;
+        border-radius: 4px;
+        margin: 12px 0;
+        max-height: 200px;
+        overflow-y: auto;
+        font-size: 13px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+      .empty {
+        text-align: center;
+        color: #95a5a6;
+        padding: 60px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔬 Agent Trace Dashboard</h1>
+
+      <div class="auth-bar">
+        <span>🔑 Admin Token:</span>
+        <input id="token-input" placeholder="粘贴 admin 登录后的 token" />
+        <button onclick="saveTokenAndLoad()">保存并加载</button>
+      </div>
+
+      <div class="summary" id="summary"></div>
+
+      <div class="filter-bar">
+        <select id="role-filter">
+          <option value="">全部角色</option>
+          <option value="student">学生</option>
+          <option value="teacher">教师</option>
+        </select>
+        <button onclick="loadTraces()">🔄 刷新</button>
+        <button onclick="loadToolStats()">📊 工具统计</button>
+      </div>
+
+      <table id="traces-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>角色</th>
+            <th>用户消息</th>
+            <th>状态</th>
+            <th>耗时</th>
+            <th>LLM</th>
+            <th>工具</th>
+            <th>Tokens</th>
+            <th>成本¥</th>
+            <th>RAG</th>
+          </tr>
+        </thead>
+        <tbody id="traces-tbody">
+          <tr>
+            <td colspan="10" class="empty">先粘贴 token 加载数据</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div
+      class="modal"
+      id="detail-modal"
+      onclick="if (event.target === this) closeModal();"
+    >
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <h2 id="detail-title"></h2>
+        <div id="detail-body"></div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = "";
+      let TOKEN = localStorage.getItem("admin_trace_token") || "";
+
+      document.getElementById("token-input").value = TOKEN;
+      if (TOKEN) loadTraces();
+
+      function saveTokenAndLoad() {
+        TOKEN = document.getElementById("token-input").value.trim();
+        localStorage.setItem("admin_trace_token", TOKEN);
+        loadTraces();
+      }
+
+      async function api(path) {
+        const resp = await fetch(API_BASE + path, {
+          headers: { Authorization: "Bearer " + TOKEN },
+        });
+        if (!resp.ok)
+          throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
+        return resp.json();
+      }
+
+      async function loadTraces() {
+        if (!TOKEN) {
+          alert("请先填 token");
+          return;
+        }
+        try {
+          const role = document.getElementById("role-filter").value;
+          const path = role
+            ? `/api/admin/traces?role=${role}&limit=100`
+            : "/api/admin/traces?limit=100";
+          const resp = await api(path);
+          const data = resp.data || resp;
+          renderSummary(data.summary, data.total);
+          renderTraces(data.traces);
+        } catch (e) {
+          alert("加载失败: " + e.message);
+        }
+      }
+
+      function renderSummary(s, total) {
+        if (!s) return;
+        const html = [
+          ["总 trace 数", total || 0],
+          [
+            "成功率",
+            s.total
+              ? ((s.success_count / s.total) * 100).toFixed(1) + "%"
+              : "N/A",
+          ],
+          ["平均耗时 (ms)", s.avg_duration_ms || 0],
+          ["平均 LLM 次数", s.avg_llm_calls || 0],
+          ["平均工具调用", s.avg_tool_calls || 0],
+          ["总 Input Tokens", (s.sum_input_tokens || 0).toLocaleString()],
+          ["总 Output Tokens", (s.sum_output_tokens || 0).toLocaleString()],
+          ["累计成本 ¥", s.sum_cost || 0],
+        ]
+          .map(
+            ([label, val]) => `
+    <div class="stat-card">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${val}</div>
+    </div>
+  `,
+          )
+          .join("");
+        document.getElementById("summary").innerHTML = html;
+      }
+
+      function renderTraces(traces) {
+        const tbody = document.getElementById("traces-tbody");
+        if (!traces || !traces.length) {
+          tbody.innerHTML =
+            '<tr><td colspan="10" class="empty">暂无数据</td></tr>';
+          return;
+        }
+        tbody.innerHTML = traces
+          .map(
+            (t) => `
+    <tr onclick="showDetail('${t.trace_id}')">
+      <td>${formatTime(t.created_at)}</td>
+      <td><span class="badge badge-role-${t.role}">${t.role}</span></td>
+      <td>${escapeHtml(t.user_message_preview)}</td>
+      <td>${t.success ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-error">' + (t.error_type || "ERR") + "</span>"}</td>
+      <td>${formatDuration(t.total_duration_ms)}</td>
+      <td>${t.total_llm_calls}</td>
+      <td>${t.total_tool_calls} ${(t.tools_called || []).length ? "(" + t.tools_called.join(",").slice(0, 30) + ")" : ""}</td>
+      <td>${(t.total_input_tokens || 0).toLocaleString()} / ${(t.total_output_tokens || 0).toLocaleString()}</td>
+      <td>${(t.estimated_cost_yuan || 0).toFixed(4)}</td>
+      <td>${t.rag_used ? "✓" : "—"}</td>
+    </tr>
+  `,
+          )
+          .join("");
+      }
+
+      async function showDetail(traceId) {
+        try {
+          const resp = await api(`/api/admin/traces/${traceId}`);
+          const data = resp.data || resp;
+          const t = data.trace;
+          const spans = data.spans || [];
+          const maxDuration = Math.max(1, ...spans.map((s) => s.duration_ms));
+
+          document.getElementById("detail-title").innerText =
+            `Trace ${traceId.slice(0, 16)}`;
+          document.getElementById("detail-body").innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div><strong>角色:</strong> ${t.role} (user_id=${t.user_id})</div>
+        <div><strong>session_id:</strong> ${t.session_id}</div>
+        <div><strong>耗时:</strong> ${formatDuration(t.total_duration_ms)}</div>
+        <div><strong>状态:</strong> ${t.success ? "OK" : t.error_type}</div>
+        <div><strong>LLM 调用:</strong> ${t.total_llm_calls}</div>
+        <div><strong>工具调用:</strong> ${t.total_tool_calls}</div>
+        <div><strong>Tokens:</strong> in=${t.total_input_tokens} out=${t.total_output_tokens}</div>
+        <div><strong>成本:</strong> ¥${parseFloat(t.estimated_cost_yuan).toFixed(4)}</div>
+        <div><strong>RAG:</strong> ${t.rag_used ? "✓ score=" + (t.rag_top_score || 0).toFixed(3) : "—"}</div>
+        <div><strong>迭代轮数:</strong> ${t.iterations_used}</div>
+      </div>
+      <h3>用户消息:</h3>
+      <div class="reply-text">${escapeHtml(t.user_message)}</div>
+      <h3>AI 回复:</h3>
+      <div class="reply-text">${escapeHtml(t.reply_text || "(无回复)")}</div>
+      <h3>Spans 时间轴 (共 ${spans.length} 个)</h3>
+      <div class="span-row header">
+        <div>#</div><div>类型</div><div>名称</div><div>耗时</div><div>Tokens</div><div>状态</div><div>耗时占比</div>
+      </div>
+      ${spans
+        .map(
+          (s, i) => `
+        <div class="span-row">
+          <div>${s.sequence}</div>
+          <div>${s.span_type}</div>
+          <div>${escapeHtml(s.span_name)}</div>
+          <div>${formatDuration(s.duration_ms)}</div>
+          <div>${s.input_tokens || s.output_tokens ? (s.input_tokens || 0) + "/" + (s.output_tokens || 0) : "—"}</div>
+          <div>${s.success ? "✓" : "✗"}</div>
+          <div><div class="span-bar ${spanBarClass(s)}" style="width:${((s.duration_ms / maxDuration) * 100).toFixed(1)}%"></div></div>
+        </div>
+        <div style="margin-left:50px;font-size:11px;">
+          <span class="span-detail-toggle" onclick="toggleSpan(${i})">▸ 详情</span>
+          <div class="span-detail" id="span-detail-${i}">${escapeHtml(JSON.stringify({ input: s.input_data, output: s.output_data, error: s.error_message }, null, 2))}</div>
+        </div>
+      `,
+        )
+        .join("")}
+    `;
+          document.getElementById("detail-modal").classList.add("show");
+        } catch (e) {
+          alert("加载详情失败: " + e.message);
+        }
+      }
+
+      function toggleSpan(i) {
+        document.getElementById("span-detail-" + i).classList.toggle("show");
+      }
+
+      function closeModal() {
+        document.getElementById("detail-modal").classList.remove("show");
+      }
+
+      async function loadToolStats() {
+        if (!TOKEN) {
+          alert("请先填 token");
+          return;
+        }
+        try {
+          const resp = await api("/api/admin/traces/stats/by_tool?days=7");
+          const data = resp.data || resp;
+          const tools = data.tools || [];
+          document.getElementById("detail-title").innerText =
+            `工具调用统计 (近 7 天)`;
+          document.getElementById("detail-body").innerHTML = `
+      <table style="width:100%;">
+        <tr><th>工具名</th><th>调用次数</th><th>成功率</th><th>平均耗时</th><th>最大耗时</th></tr>
+        ${tools
+          .map(
+            (t) => `
+          <tr>
+            <td>${escapeHtml(t.tool_name)}</td>
+            <td>${t.call_count}</td>
+            <td>${(t.success_rate * 100).toFixed(1)}%</td>
+            <td>${formatDuration(t.avg_duration_ms)}</td>
+            <td>${formatDuration(t.max_duration_ms)}</td>
+          </tr>
+        `,
+          )
+          .join("")}
+      </table>
+    `;
+          document.getElementById("detail-modal").classList.add("show");
+        } catch (e) {
+          alert("加载失败: " + e.message);
+        }
+      }
+
+      function spanBarClass(s) {
+        if (!s.success) return "error";
+        if (s.span_type === "llm_call") return "llm";
+        if (s.span_type === "rag_retrieval") return "rag";
+        return "";
+      }
+
+      function formatTime(iso) {
+        if (!iso) return "—";
+        const d = new Date(iso);
+        return d.toLocaleString("zh-CN", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+
+      function formatDuration(ms) {
+        if (!ms || ms < 1000) return ms + "ms";
+        return (ms / 1000).toFixed(2) + "s";
+      }
+
+      function escapeHtml(s) {
+        if (s == null) return "";
+        return String(s).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+    </script>
+  </body>
+</html>

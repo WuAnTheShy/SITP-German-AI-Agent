@@ -36,6 +36,8 @@ from services.llm import (
 from services.metrics import track_learning_activity, refresh_student_metrics
 from services.rag import build_rag_context
 from services.llm import generate_response_with_tools  # 关键:Agent 函数
+from services.prompts import load_prompt
+from services.observability import ExecutionTrace
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +115,6 @@ def get_scene_display(scene_name: str | None) -> dict[str, str]:
 
 # 回答用中文,语气专业不浮夸,适度使用表格/列表呈现数据。"""
 
-from services.prompts import load_prompt
 
 # Agent system prompts(从 markdown 加载)
 AGENT_SYSTEM_PROMPT = load_prompt("student_agent")
@@ -155,75 +156,6 @@ def _resolve_scene_single_thread(db: Session, student_id: int, scene_id: int, sc
     )
 
 
-# @router.post("/api/chat")
-# def chat_endpoint(
-#     bg: BackgroundTasks,
-#     req: Request,
-#     request: TeacherChatReq,
-#     db: Session = Depends(get_db),
-# ):
-#     """教师端 AI：跨天续接 + 长期摘要"""
-#     user = require_teacher(req, db)
-#     try:
-#         print(f"[教师AI] user_id={user.id} 消息长度: {len(request.message)}", flush=True)
-#     except Exception:
-#         print("[教师AI] 教师消息", flush=True)
-#     try:
-#         session = resolve_teacher_session(
-#             db, user.id, new_thread=request.new_thread, session_id=request.session_id
-#         )
-#         TeacherChatMessageCRUD.create(
-#             db, TeacherChatMessageCreate(session_id=session.id, role="user", content=request.message)
-#         )
-#         TeacherChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
-#         history = TeacherChatMessageCRUD.list_by_session(db, session.id)
-#         messages = []
-#         if getattr(user, "long_memory_summary", None):
-#             messages.append({"role": "user", "content": "[Teaching context]\n" + user.long_memory_summary})
-#         rag_context, rag_sources, rag_top_score = build_rag_context(
-#             db,
-#             request.message,
-#             viewer_user_id=user.id,
-#             viewer_session_key=f"teacher:{session.id}",
-#         )
-#         if rag_context:
-#             messages.append({"role": "user", "content": "[Knowledge Base]\n" + rag_context})
-#         messages.extend(history_to_messages(history, max_turns=14))
-#         reply_text = generate_response(messages, system_instruction=TEACHER_SYSTEM)
-#         if not (reply_text or "").strip():
-#             reply_text = "AI 服务暂不可用，请检查后端 LLM 环境变量配置后重试。"
-#         # 仅当 AI 实际引用知识库时才显示参考资料，避免"未命中却显示参考资料"的矛盾
-#         _kb_miss_markers = ("知识库未命中", "通用回答", "未命中")
-#         if rag_sources and not any(m in reply_text for m in _kb_miss_markers):
-#             reply_text = reply_text + "\n\n参考资料: " + "; ".join(rag_sources[:5])
-#         TeacherChatMessageCRUD.create(
-#             db, TeacherChatMessageCreate(session_id=session.id, role="assistant", content=reply_text)
-#         )
-#         TeacherChatSessionCRUD.touch(db, session.id)
-#         n = len(history) + 2
-#         if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
-#             bg.add_task(refresh_teacher_memory, user.id, session.id)
-#         return {"reply": reply_text, "session_id": session.id}
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         err_name = type(e).__name__
-#         err_msg = str(e).strip() or ""
-#         log_path = Path(__file__).resolve().parent.parent / "encoding_error.log"
-#         try:
-#             log_path.write_text(
-#                 traceback.format_exc() + "\n---\n",
-#                 encoding="utf-8",
-#                 errors="replace",
-#             )
-#         except Exception:
-#             pass
-#         try:
-#             print(f"[教师AI] AI调用失败: {err_name} {err_msg[:200]}", flush=True)
-#         except Exception:
-#             print("[教师AI] AI调用失败", flush=True)
-#         detail = f"{err_name}: {err_msg[:150]}" if err_msg else err_name
-#         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {detail}"}
 @router.post("/api/teacher/chat")
 def chat_endpoint(
     bg: BackgroundTasks,
@@ -231,12 +163,16 @@ def chat_endpoint(
     request: TeacherChatReq,
     db: Session = Depends(get_db),
 ):
-    """教师统一对话入口:轻量预 RAG + 教师工具集 Agent。
-    
-    与学生端架构对称,但用 teacher 工具集(class_overview/student_by_uid/...)
-    """
+    """教师统一对话入口:轻量预 RAG + 教师工具集 Agent + Trace。"""
     user = require_teacher(req, db)
     logger.info(f"教师统一对话: user_id={user.id}, msg_len={len(request.message)}")
+    
+    trace = ExecutionTrace(
+        role="teacher",
+        user_id=user.id,
+        session_id=None,
+        user_message=request.message,
+    )
     
     try:
         session = resolve_teacher_session(
@@ -244,6 +180,8 @@ def chat_endpoint(
             new_thread=request.new_thread,
             session_id=request.session_id,
         )
+        trace.session_id = session.id
+        
         TeacherChatMessageCRUD.create(
             db, TeacherChatMessageCreate(session_id=session.id, role="user", content=request.message)
         )
@@ -252,15 +190,14 @@ def chat_endpoint(
         
         messages: list[dict] = []
         
-        # 长期记忆
         if getattr(user, "long_memory_summary", None):
             messages.append({"role": "user", "content": "[Teaching context]\n" + user.long_memory_summary})
         
-        # 轻量预 RAG
         rag_context, rag_sources, rag_top_score = build_rag_context(
             db, request.message,
             viewer_user_id=user.id,
             viewer_session_key=f"teacher:{session.id}",
+            trace=trace,
         )
         if rag_context and rag_top_score >= 0.4:
             messages.append({
@@ -268,16 +205,18 @@ def chat_endpoint(
                 "content": "[Knowledge Base 预检索结果,可参考]\n" + rag_context,
             })
             logger.info(f"教师预 RAG 命中: top_score={rag_top_score:.3f}")
+            trace.rag_used = True
+            trace.rag_top_score = rag_top_score
         
         messages.extend(history_to_messages(history, max_turns=14))
         
-        # Agent(教师工具集)
         context = {"db": db, "teacher_user_id": user.id}
         reply_text, tool_calls_used = generate_response_with_tools(
             messages=messages,
             system_instruction=TEACHER_AGENT_SYSTEM_PROMPT,
             context=context,
             toolset="teacher",
+            trace=trace,
         )
         
         if not (reply_text or "").strip():
@@ -296,104 +235,43 @@ def chat_endpoint(
         if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
             bg.add_task(refresh_teacher_memory, user.id, session.id)
         
+        # Trace 完成
+        trace.finalize(reply_text=reply_text, success=True)
+        trace.persist(db)
+        
         return {
             "reply": reply_text,
             "session_id": session.id,
             "tool_calls_used": tool_calls_used,
-            "rag_used": rag_top_score >= 0.4,
+            "rag_used": trace.rag_used,
+            "trace_id": trace.trace_id,
         }
     except HTTPException:
+        trace.finalize(reply_text=None, success=False, error_type="HTTPException")
+        try:
+            trace.persist(db)
+        except Exception:
+            pass
         raise
     except Exception as e:
         logger.error(f"教师统一对话失败: {type(e).__name__}: {e}", exc_info=True)
-        return {"reply": f"教研助手调用失败: {type(e).__name__}", "session_id": None}
+        trace.finalize(
+            reply_text=None,
+            success=False,
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
+        try:
+            trace.persist(db)
+        except Exception:
+            pass
+        return {
+            "reply": f"教研助手调用失败: {type(e).__name__}",
+            "session_id": None,
+            "trace_id": trace.trace_id,
+        }
 
 
-
-# @router.post("/api/student/chat")
-# def student_chat_endpoint(
-#     bg: BackgroundTasks,
-#     req: Request,
-#     request: StudentChatReq,
-#     db: Session = Depends(get_db),
-# ):
-#     student = require_student(req, db)
-#     try:
-#         print(f"[学生AI] student_id={student.id} 消息长度: {len(request.message)}", flush=True)
-#     except Exception:
-#         print("[学生AI] 学生消息", flush=True)
-#     try:
-#         session = resolve_student_session(
-#             db,
-#             student.id,
-#             None,
-#             STUDENT_LOBBY_SCENE_NAME,
-#             new_thread=request.new_thread,
-#             session_id=request.session_id,
-#         )
-#         ChatMessageCRUD.create(
-#             db, ChatMessageCreate(session_id=session.id, role="user", content=request.message)
-#         )
-#         ChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
-#         history = ChatMessageCRUD.list_by_session(db, session.id)
-#         messages = []
-#         if getattr(student, "long_memory_summary", None):
-#             messages.append({"role": "user", "content": "[Learner profile]\n" + student.long_memory_summary})
-#         rag_context, rag_sources, rag_top_score = build_rag_context(
-#             db,
-#             request.message,
-#             viewer_user_id=student.user_id,
-#             viewer_session_key=f"student:{session.id}",
-#         )
-#         if rag_context:
-#             messages.append({"role": "user", "content": "[Knowledge Base]\n" + rag_context})
-#         messages.extend(history_to_messages(history, max_turns=14))
-#         reply_text = generate_response(messages, system_instruction=STUDENT_SYSTEM)
-#         if not (reply_text or "").strip():
-#             reply_text = "Entschuldigung, der KI-Dienst ist derzeit nicht verfugbar. (抱歉，AI 服务暂不可用。)"
-#         # 仅当 AI 实际引用知识库时才显示参考资料，避免"未命中却显示参考资料"的矛盾
-#         _kb_miss_markers = ("知识库未命中", "通用回答", "未命中")
-#         if rag_sources and not any(m in reply_text for m in _kb_miss_markers):
-#             reply_text = reply_text + "\n\n参考资料: " + "; ".join(rag_sources[:5])
-#         ChatMessageCRUD.create(
-#             db,
-#             ChatMessageCreate(session_id=session.id, role="assistant", content=reply_text, correction=None),
-#         )
-#         chat_minutes = max(1, min(8, len(request.message.strip()) // 60 + 1))
-#         track_learning_activity(
-#             db,
-#             student_id=student.id,
-#             module="情景对话",
-#             duration_minutes=chat_minutes,
-#             content="大厅AI对话",
-#         )
-#         refresh_student_metrics(db, student.id)
-#         ChatSessionCRUD.touch(db, session.id)
-#         n = len(history) + 2
-#         if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
-#             bg.add_task(refresh_student_memory, student.id, session.id)
-#         return {"reply": reply_text, "session_id": session.id}
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         err_name = type(e).__name__
-#         err_msg = str(e).strip() or ""
-#         log_path = Path(__file__).resolve().parent.parent / "encoding_error.log"
-#         try:
-#             log_path.write_text(
-#                 traceback.format_exc() + "\n---\n",
-#                 encoding="utf-8",
-#                 errors="replace",
-#             )
-#         except Exception:
-#             pass
-#         try:
-#             print(f"[学生AI] AI调用失败: {err_name} {err_msg[:200]}", flush=True)
-#         except Exception:
-#             print("[学生AI] AI调用失败", flush=True)
-#         detail = f"{err_name}: {err_msg[:150]}" if err_msg else err_name
-#         return {"reply": f"AI 暂时无法响应，请稍后重试。错误信息: {detail}"}
-    
 @router.post("/api/student/chat")
 def student_chat_endpoint(
     bg: BackgroundTasks,
@@ -401,17 +279,17 @@ def student_chat_endpoint(
     request: StudentChatReq,
     db: Session = Depends(get_db),
 ):
-    """学生统一对话入口:轻量预 RAG + 学生工具集 Agent。
-    
-    架构:
-      1. 预检索: build_rag_context 跑一次 RAG,如 top_score >= 0.4 注入 system
-      2. 长期记忆: 注入 student.long_memory_summary
-      3. Agent 循环: 用学生工具集执行 ReAct
-      4. 工具调用透明化: 返回 tool_calls_used 给前端
-      5. 学习活动跟踪 + 长期记忆刷新
-    """
+    """学生统一对话入口:轻量预 RAG + 学生工具集 Agent + Trace。"""
     student = require_student(req, db)
     logger.info(f"学生统一对话: student_id={student.id}, msg_len={len(request.message)}")
+    
+    # 创建 trace(在 session 解析之前就创建,session_id 后填)
+    trace = ExecutionTrace(
+        role="student",
+        user_id=student.id,
+        session_id=None,
+        user_message=request.message,
+    )
     
     try:
         session = resolve_student_session(
@@ -419,27 +297,29 @@ def student_chat_endpoint(
             new_thread=request.new_thread,
             session_id=request.session_id,
         )
+        trace.session_id = session.id  # 拿到后回填
+        
         ChatMessageCRUD.create(
             db, ChatMessageCreate(session_id=session.id, role="user", content=request.message)
         )
         ChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
         history = ChatMessageCRUD.list_by_session(db, session.id)
         
-        # ─── 构造 messages ───
         messages: list[dict] = []
         
-        # 1. 长期记忆
+        # 长期记忆
         if getattr(student, "long_memory_summary", None):
             messages.append({
                 "role": "user",
                 "content": "[Learner profile]\n" + student.long_memory_summary,
             })
         
-        # 2. 轻量预 RAG(只在强命中时注入)
+        # 轻量预 RAG(用 trace 包裹)
         rag_context, rag_sources, rag_top_score = build_rag_context(
             db, request.message,
             viewer_user_id=student.user_id,
             viewer_session_key=f"student:{session.id}",
+            trace=trace,    # ← 透传 trace
         )
         if rag_context and rag_top_score >= 0.4:
             messages.append({
@@ -447,35 +327,33 @@ def student_chat_endpoint(
                 "content": "[Knowledge Base 预检索结果,可参考]\n" + rag_context,
             })
             logger.info(f"学生预 RAG 命中: top_score={rag_top_score:.3f}")
-        # 弱命中或无命中:不注入,但 search_kb 工具仍可被 LLM 主动调
+            trace.rag_used = True
+            trace.rag_top_score = rag_top_score
         
-        # 3. 历史消息(最近 14 轮)
         messages.extend(history_to_messages(history, max_turns=14))
         
-        # ─── 调 Agent(学生工具集) ───
+        # Agent(传 trace)
         context = {"db": db, "student_id": student.id}
         reply_text, tool_calls_used = generate_response_with_tools(
             messages=messages,
             system_instruction=AGENT_SYSTEM_PROMPT,
             context=context,
             toolset="student",
+            trace=trace,    # ← 透传 trace
         )
         
         if not (reply_text or "").strip():
             reply_text = "抱歉,AI 助教暂时无法响应,请稍后再试。"
         
-        # 显示参考资料(仅当强命中且 LLM 用了)
         _kb_miss_markers = ("知识库未命中", "通用回答", "未命中")
         if rag_sources and rag_top_score >= 0.4 and not any(m in reply_text for m in _kb_miss_markers):
             reply_text = reply_text + "\n\n参考资料: " + "; ".join(rag_sources[:5])
         
-        # 写入 AI 回复
         ChatMessageCRUD.create(
             db,
             ChatMessageCreate(session_id=session.id, role="assistant", content=reply_text, correction=None),
         )
         
-        # 学习活动跟踪
         chat_minutes = max(1, min(8, len(request.message.strip()) // 60 + 1))
         track_learning_activity(
             db, student_id=student.id,
@@ -486,119 +364,46 @@ def student_chat_endpoint(
         refresh_student_metrics(db, student.id)
         ChatSessionCRUD.touch(db, session.id)
         
-        # 长期记忆刷新
         n = len(history) + 2
         if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
             bg.add_task(refresh_student_memory, student.id, session.id)
+        
+        # ─── Trace 完成 + 持久化 ───
+        trace.finalize(reply_text=reply_text, success=True)
+        trace.persist(db)
         
         return {
             "reply": reply_text,
             "session_id": session.id,
             "tool_calls_used": tool_calls_used,
-            "rag_used": rag_top_score >= 0.4,
+            "rag_used": trace.rag_used,
+            "trace_id": trace.trace_id,    # ← 新增
         }
     except HTTPException:
+        # HTTPException 直接抛出,但先记录 trace 失败
+        trace.finalize(reply_text=None, success=False, error_type="HTTPException")
+        try:
+            trace.persist(db)
+        except Exception:
+            pass
         raise
     except Exception as e:
         logger.error(f"学生统一对话失败: {type(e).__name__}: {e}", exc_info=True)
-        return {"reply": f"AI 调用失败: {type(e).__name__}", "session_id": None}
-
-
-# @router.post("/api/student/agent/chat")
-# def student_agent_chat(
-#     bg: BackgroundTasks,
-#     req: Request,
-#     request: StudentChatReq,
-#     db: Session = Depends(get_db),
-# ):
-#     """学生端 Agent 对话:支持工具调用的智能对话。
-    
-#     与 /api/student/chat 的区别:
-#     - chat: 单纯 LLM 对话 + RAG,适合开放式问题
-#     - agent/chat: 接入工具集,LLM 可主动查询学生学情数据(成绩/能力/作业等)
-    
-#     复用 chat_sessions 表,通过 scene_name='AI助教-Agent' 区分。
-#     保留长期记忆 + 历史消息,但不做 RAG(由工具替代)。
-#     """
-#     student = require_student(req, db)
-#     logger.info(f"学生 Agent 对话: student_id={student.id}, msg_len={len(request.message)}")
-    
-#     try:
-#         # 1. 解析会话(复用现有 resolve_student_session,scene_name 区分)
-#         session = resolve_student_session(
-#             db,
-#             student.id,
-#             None,
-#             "AI助教-Agent",          # 关键:scene_name 区分 Agent 会话
-#             new_thread=request.new_thread,
-#             session_id=request.session_id,
-#         )
-        
-#         # 2. 写入用户消息
-#         ChatMessageCRUD.create(
-#             db, ChatMessageCreate(session_id=session.id, role="user", content=request.message)
-#         )
-#         ChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
-        
-#         # 3. 取历史消息(转为 LLM messages 格式)
-#         history = ChatMessageCRUD.list_by_session(db, session.id)
-#         messages: list[dict] = []
-        
-#         # 4. 注入长期记忆(如有)
-#         if getattr(student, "long_memory_summary", None):
-#             messages.append({
-#                 "role": "user",
-#                 "content": "[Learner profile]\n" + student.long_memory_summary,
-#             })
-        
-#         # 5. 加历史消息(最近 14 轮,避免上下文过长)
-#         messages.extend(history_to_messages(history, max_turns=14))
-        
-#         # 6. 调 Agent(带工具)
-#         context = {"db": db, "student_id": student.id}
-#         reply_text, tool_calls_used = generate_response_with_tools(
-#             messages=messages,
-#             system_instruction=AGENT_SYSTEM_PROMPT,
-#             context=context,
-#         )
-        
-#         if not (reply_text or "").strip():
-#             reply_text = "抱歉,AI 助教暂时无法响应,请稍后再试。"
-        
-#         # 7. 写入 AI 回复
-#         ChatMessageCRUD.create(
-#             db,
-#             ChatMessageCreate(
-#                 session_id=session.id, role="assistant", content=reply_text, correction=None,
-#             ),
-#         )
-        
-#         # 8. 跟踪学习活动(Agent 对话也算学习)
-#         chat_minutes = max(1, min(8, len(request.message.strip()) // 60 + 1))
-#         track_learning_activity(
-#             db, student_id=student.id,
-#             module="AI助教",
-#             duration_minutes=chat_minutes,
-#             content="Agent 对话",
-#         )
-#         refresh_student_metrics(db, student.id)
-#         ChatSessionCRUD.touch(db, session.id)
-        
-#         # 9. 长期记忆刷新(后台任务)
-#         n = len(history) + 2
-#         if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0: #每隔固定轮数，就异步更新一次长期记忆摘要
-#             bg.add_task(refresh_student_memory, student.id, session.id)
-        
-#         return {
-#             "reply": reply_text,
-#             "session_id": session.id,
-#             "tool_calls_used": tool_calls_used,
-#         }
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"学生 Agent 对话失败: {type(e).__name__}: {e}", exc_info=True)
-#         return {"reply": f"AI 助教调用失败: {type(e).__name__}", "session_id": None}
+        trace.finalize(
+            reply_text=None,
+            success=False,
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
+        try:
+            trace.persist(db)
+        except Exception:
+            pass
+        return {
+            "reply": f"AI 调用失败: {type(e).__name__}",
+            "session_id": None,
+            "trace_id": trace.trace_id,
+        }
 
 
 @router.post("/api/student/chat/new-session")
@@ -663,86 +468,6 @@ def student_chat_delete_session(
         return fail("会话不存在或无权删除", 404)
     return ok(message="已删除")
 
-
-# @router.post("/api/teacher/agent/chat")
-# def teacher_agent_chat(
-#     bg: BackgroundTasks,
-#     req: Request,
-#     request: TeacherChatReq,
-#     db: Session = Depends(get_db),
-# ):
-#     """教师端 Agent 对话:支持工具调用的教研助手。
-    
-#     与 /api/teacher/chat 的区别:
-#     - chat: 单纯 LLM 对话 + RAG,适合开放式教学法问题
-#     - agent/chat: 接入工具集,可主动查询班级/学生/错题等业务数据
-    
-#     复用 teacher_chat_sessions 表(无 scene 区分,因为教师对话本身只有一类),
-#     通过会话 title 自动总结成"班级查询/学生分析/考点建议"等含义化标题。
-#     """
-#     user = require_teacher(req, db)
-#     logger.info(f"教师 Agent 对话: user_id={user.id}, msg_len={len(request.message)}")
-    
-#     try:
-#         # 1. 解析会话(复用现有 resolve_teacher_session)
-#         session = resolve_teacher_session(
-#             db, user.id,
-#             new_thread=request.new_thread,
-#             session_id=request.session_id,
-#         )
-        
-#         # 2. 写入用户消息
-#         TeacherChatMessageCRUD.create(
-#             db, TeacherChatMessageCreate(session_id=session.id, role="user", content=request.message)
-#         )
-#         TeacherChatSessionCRUD.set_title_if_empty(db, session.id, request.message)
-        
-#         # 3. 取历史消息
-#         history = TeacherChatMessageCRUD.list_by_session(db, session.id)
-#         messages: list[dict] = []
-        
-#         # 4. 注入长期记忆(教师有专属的 long_memory_summary)
-#         if getattr(user, "long_memory_summary", None):
-#             messages.append({
-#                 "role": "user",
-#                 "content": "[Teaching context]\n" + user.long_memory_summary,
-#             })
-        
-#         # 5. 加历史消息(最近 14 轮)
-#         messages.extend(history_to_messages(history, max_turns=14))
-        
-#         # 6. 调 Agent(带工具,context 用 teacher_user_id)
-#         context = {"db": db, "teacher_user_id": user.id}
-#         reply_text, tool_calls_used = generate_response_with_tools(
-#             messages=messages,
-#             system_instruction=AGENT_SYSTEM_PROMPT,
-#             context=context,
-#         )
-        
-#         if not (reply_text or "").strip():
-#             reply_text = "抱歉,教研助手暂时无法响应,请稍后再试。"
-        
-#         # 7. 写入 AI 回复
-#         TeacherChatMessageCRUD.create(
-#             db, TeacherChatMessageCreate(session_id=session.id, role="assistant", content=reply_text)
-#         )
-#         TeacherChatSessionCRUD.touch(db, session.id)
-        
-#         # 8. 长期记忆刷新(后台任务)
-#         n = len(history) + 2
-#         if n >= MEMORY_REFRESH_EVERY and n % MEMORY_REFRESH_EVERY == 0:
-#             bg.add_task(refresh_teacher_memory, user.id, session.id)
-        
-#         return {
-#             "reply": reply_text,
-#             "session_id": session.id,
-#             "tool_calls_used": tool_calls_used,
-#         }
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"教师 Agent 对话失败: {type(e).__name__}: {e}", exc_info=True)
-#         return {"reply": f"教研助手调用失败: {type(e).__name__}", "session_id": None}
 
 @router.post("/api/teacher/chat/new-session")
 def teacher_chat_new_session(req: Request, db: Session = Depends(get_db)):

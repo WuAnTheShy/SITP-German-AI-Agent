@@ -129,6 +129,21 @@ print(f"[AI] Provider={LLM_PROVIDER}, Model={MODEL_ID}")
 
 app = FastAPI()
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# 静态文件目录(用于 admin dashboard 等)
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+
+@app.get("/admin/observability")
+def serve_dashboard():
+    """Admin trace 可观测性 Dashboard(单文件 HTML)。"""
+    return FileResponse(os.path.join(_static_dir, "dashboard.html"))
+
 
 def _is_production() -> bool:
     env = (os.getenv("APP_ENV", "") or "").strip().lower()

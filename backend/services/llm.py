@@ -353,33 +353,18 @@ def generate_response_with_tools(
     system_instruction: str | None = None,
     context: dict | None = None,
     max_iterations: int = 5,
-    toolset: str | None = None,    # ← 新增
+    toolset: str | None = None,
+    trace=None,    # ← 新增:接收 ExecutionTrace 对象(可选)
 ) -> tuple[str, list[dict]]:
     """带工具调用的多轮 LLM 调用循环(Agent 主流程)。
-
-    工作流程:
-      1. 把 messages + tools schema 发给 Qwen
-      2. 如果 Qwen 返回 tool_calls,执行工具,把结果作为 tool message 加进 messages
-      3. 重新发送给 Qwen,继续直到 Qwen 不再调工具或达到 max_iterations
-
+    
     Args:
-        messages: 标准 OpenAI 格式 [{role, content}]
-        system_instruction: 可选的系统提示
-        context: 给工具用的上下文 {db, student_id, ...}
-        max_iterations: 最多调几轮工具(防止无限循环)
-        toolset: 限定工具集,可选 "student" / "teacher" / "common"
-                 不指定则暴露所有工具(向后兼容)
-
-    Returns:
-        (reply_text, tool_calls_used) 二元组:
-          - reply_text: 最终的 assistant 回答文本
-          - tool_calls_used: 本次对话中使用过的工具列表,
-            每项 {name, args, iteration},供前端展示工具调用轨迹
+        ...原有参数...
+        trace: 可选的 ExecutionTrace 对象,传入则自动记录每次 LLM/工具调用 span
     """
     if context is None:
         context = {}
 
-    # 拼 system message
     msgs = []
     if system_instruction:
         msgs.append({"role": "system", "content": system_instruction})
@@ -389,34 +374,62 @@ def generate_response_with_tools(
         tool_schemas = agent_registry.get_schemas_by_toolset(toolset)
     else:
         tool_schemas = agent_registry.get_schemas()
-    tool_calls_used: list[dict] = []  # 记录工具调用轨迹
+    
+    tool_calls_used: list[dict] = []
 
     for iteration in range(max_iterations):
         logger.info(f"Agent iteration {iteration + 1}/{max_iterations}, msgs={len(msgs)}")
 
-        # 调用 Qwen
-        try:
-            data = _call_llm_with_tools(msgs, tool_schemas)
-        except Exception as e:
-            logger.error(f"Agent LLM 调用失败: {type(e).__name__}: {e}")
-            return "抱歉,AI 服务暂时无法响应。", tool_calls_used
-
-        choice = data["choices"][0]
-        msg = choice["message"]
-        finish_reason = choice.get("finish_reason", "")
-
-        # Qwen 不再调工具,返回最终回答
+        # ─── LLM 调用(用 trace span 包裹) ───
+        if trace:
+            with trace.span("llm_call", f"qwen_iter_{iteration + 1}") as span:
+                span.set_input({
+                    "iteration": iteration + 1,
+                    "msgs_count": len(msgs),
+                    "tool_count": len(tool_schemas),
+                })
+                try:
+                    data = _call_llm_with_tools(msgs, tool_schemas)
+                except Exception as e:
+                    logger.error(f"Agent LLM 调用失败: {type(e).__name__}: {e}")
+                    span.mark_failed(f"{type(e).__name__}: {e}")
+                    return "抱歉,AI 服务暂时无法响应。", tool_calls_used
+                
+                # 记录 token 用量(如果 API 返回了)
+                usage = data.get("usage", {})
+                span.set_tokens(
+                    input_tokens=usage.get("prompt_tokens", 0),
+                    output_tokens=usage.get("completion_tokens", 0),
+                )
+                choice = data["choices"][0]
+                msg = choice["message"]
+                finish_reason = choice.get("finish_reason", "")
+                span.set_output({
+                    "finish_reason": finish_reason,
+                    "has_tool_calls": bool(msg.get("tool_calls")),
+                })
+        else:
+            try:
+                data = _call_llm_with_tools(msgs, tool_schemas)
+            except Exception as e:
+                logger.error(f"Agent LLM 调用失败: {type(e).__name__}: {e}")
+                return "抱歉,AI 服务暂时无法响应。", tool_calls_used
+            choice = data["choices"][0]
+            msg = choice["message"]
+            finish_reason = choice.get("finish_reason", "")
+        
+        # 不再调工具,返回最终回答
         if not msg.get("tool_calls"):
             logger.info(f"Agent done, finish_reason={finish_reason}")
+            if trace:
+                trace.iterations_used = iteration + 1
             return (msg.get("content", "") or ""), tool_calls_used
 
-        # Qwen 要求调工具
+        # 要调工具
         logger.info(f"Agent tool_calls: {[tc['function']['name'] for tc in msg['tool_calls']]}")
-
-        # 把 assistant 的 tool_calls 消息加进 msgs
         msgs.append(msg)
 
-        # 依次执行每个工具调用
+        # ─── 执行每个工具调用(用 trace span 包裹) ───
         for tc in msg["tool_calls"]:
             tool_name = tc["function"]["name"]
             try:
@@ -424,7 +437,6 @@ def generate_response_with_tools(
             except Exception:
                 tool_args = {}
 
-            # 记录工具调用轨迹(给前端展示用)
             tool_calls_used.append({
                 "name": tool_name,
                 "display_name": TOOL_DISPLAY_NAMES.get(tool_name, tool_name),
@@ -432,7 +444,19 @@ def generate_response_with_tools(
                 "iteration": iteration + 1,
             })
 
-            result = agent_registry.call(tool_name, tool_args, context)
+            if trace:
+                with trace.span("tool_call", tool_name) as span:
+                    span.set_input({"args": tool_args, "iteration": iteration + 1})
+                    result = agent_registry.call(tool_name, tool_args, context)
+                    span.set_output({
+                        "keys": list(result.keys()) if isinstance(result, dict) else [],
+                        "has_error": isinstance(result, dict) and "error" in result,
+                    })
+                    if isinstance(result, dict) and "error" in result:
+                        span.mark_failed(str(result.get("error", ""))[:200])
+            else:
+                result = agent_registry.call(tool_name, tool_args, context)
+            
             logger.info(f"[AGENT-TOOL] {tool_name}({tool_args}) -> {str(result)[:200]}")
 
             msgs.append({
@@ -441,10 +465,10 @@ def generate_response_with_tools(
                 "content": _json_for_agent.dumps(result, ensure_ascii=False),
             })
 
-    # 达到迭代上限
     logger.warning(f"Agent reached max_iterations={max_iterations}")
+    if trace:
+        trace.iterations_used = max_iterations
     return "(处理超过最大轮次,请简化问题后重试)", tool_calls_used
-
 
 def _call_llm_with_tools(messages: list[dict], tools: list[dict]) -> dict:
     """实际调用 LLM 接口的低层函数,返回原始 JSON。

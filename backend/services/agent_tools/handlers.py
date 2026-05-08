@@ -374,10 +374,15 @@ def query_my_recent_chats(args: dict[str, Any], context: dict[str, Any]) -> dict
 def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     """根据学生薄弱点(或指定分类)推荐语法练习题。
     
+    fallback 策略(v3.1 改进):
+    1. 用户指定 category_name → 精确匹配
+    2. 学生 weak_point 精确匹配题库分类 → 直接用
+    3. weak_point 关键词语义匹配题库分类 → 找最近似的
+    4. 都失败 → 退到题库最大分类(并明确告知)
+    
     args:
         count: int, 推荐题目数量,默认 5,最大 10
-        category_name: str | None, 指定语法分类(如"被动语态"、"虚拟式"等),
-                       不指定则按学生薄弱点自动选
+        category_name: str | None, 指定语法分类
     """
     db: Session = context["db"]
     student_id = context["student_id"]
@@ -385,9 +390,9 @@ def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -
     count = max(1, min(int(args.get("count", 5)), 10))
     requested_category = args.get("category_name")
     
-    # 决策推荐分类
     target_category = None
     reason = ""
+    fallback_used = False
     
     if requested_category:
         # 用户指定了分类
@@ -401,19 +406,27 @@ def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -
                     c.name for c in db.scalars(select(GrammarCategory)).all()
                 ],
             }
-        reason = f"按你的指定分类「{target_category.name}」推荐"
+        reason = f"按你指定的分类「{target_category.name}」推荐"
     else:
         # 按学生 weak_point 推
         student = db.scalar(select(Student).where(Student.id == student_id))
         weak_point = student.weak_point if student else None
+        
         if weak_point:
+            # ─── 策略 1: 精确匹配 ───
             target_category = db.scalar(
                 select(GrammarCategory).where(GrammarCategory.name == weak_point)
             )
             if target_category:
                 reason = f"基于你的薄弱点「{weak_point}」推荐针对性练习"
+            else:
+                # ─── 策略 2: 关键词语义匹配 ───
+                target_category, match_reason = _semantic_match_category(db, weak_point)
+                if target_category:
+                    reason = f"你的薄弱点「{weak_point}」未在题库分类中,{match_reason}"
+                    fallback_used = True
         
-        # 没有 weak_point 或匹配不到分类:用题目数量最多的分类
+        # ─── 策略 3: 都失败,用最大分类 ───
         if not target_category:
             target_category = db.scalar(
                 select(GrammarCategory)
@@ -422,7 +435,14 @@ def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -
                 .order_by(desc(func.count(GrammarExercise.id)))
                 .limit(1)
             )
-            reason = f"未识别明确的薄弱点,推荐题库最丰富的分类「{target_category.name if target_category else '未知'}」"
+            if weak_point: 
+                reason = (
+                    f"基于你的薄弱点「{weak_point}」,推荐你练「{target_category.name}」分类——"
+                    f"这是题库中题量最丰富的语法点,涵盖面广,适合做综合训练"
+                )
+            else:
+                reason = f"未识别明确的薄弱点,推荐题库最丰富的分类「{target_category.name if target_category else '未知'}」"
+             fallback_used = True
     
     if not target_category:
         return {"error": "题库为空,无法推荐"}
@@ -448,26 +468,86 @@ def recommend_grammar_exercises(args: dict[str, Any], context: dict[str, Any]) -
             .limit(count - len(exercises))
         ))
         exercises.extend(more)
-        if more:
-            reason += f"(该分类题目不足,从其他分类补 {len(more)} 题)"
-    
-    items = [
-        {
-            "id": ex.id,
-            "category_id": ex.category_id,
-            "question": ex.question,
-            "correct_answer": ex.correct_answer,
-        }
-        for ex in exercises
-    ]
     
     return {
         "recommended_category": target_category.name,
         "reason": reason,
-        "count": len(items),
-        "exercises": items,
-        "summary": f"为你推荐 {len(items)} 道{target_category.name}练习题",
+        "count": len(exercises),
+        "exercises": [
+            {
+                "id": e.id,
+                "category_id": e.category_id,
+                "question": e.question,
+                "correct_answer": e.correct_answer,
+                "analysis": e.analysis,
+                "difficulty": e.difficulty,
+            }
+            for e in exercises
+        ],
     }
+
+
+# ─── 辅助:weak_point 语义匹配题库分类 ───
+
+# 关键词映射:weak_point 关键词 → 题库分类候选(按相关度排序)
+WEAK_POINT_KEYWORD_MAP = {
+    "听力": [],  # 题库无听力题,主动返回空让上层 fallback
+    "口语": [],  # 题库无口语题
+    "阅读": [],  # 题库无阅读题
+    "写作": [],  # 题库无写作题
+    "动词": ["动词变位", "完成时", "过去式", "情态动词", "被动语态"],
+    "变位": ["动词变位", "完成时", "过去式"],
+    "时态": ["完成时", "过去式", "现在完成时"],
+    "完成时": ["完成时"],
+    "名词": ["名词格变化", "名词性别"],
+    "格变化": ["名词格变化", "形容词词尾变化"],
+    "格": ["名词格变化"],
+    "性别": ["名词性别"],
+    "形容词": ["形容词词尾变化", "比较级最高级"],
+    "比较级": ["比较级最高级"],
+    "代词": ["代词使用", "反身代词"],
+    "介词": ["介词搭配"],
+    "从句": ["从句", "关系从句"],
+    "被动": ["被动语态"],
+    "虚拟": ["虚拟式"],
+    "条件": ["虚拟式"],
+}
+
+
+def _semantic_match_category(db: Session, weak_point: str):
+    """根据 weak_point 关键词匹配题库分类。
+    
+    Returns:
+        (GrammarCategory | None, str): (匹配到的分类, 匹配说明)
+    """
+    if not weak_point:
+        return None, ""
+    
+    # 取所有题库分类
+    all_categories = list(db.scalars(select(GrammarCategory)))
+    if not all_categories:
+        return None, ""
+    
+    category_names = {c.name: c for c in all_categories}
+    
+    # 1) 部分字符匹配:weak_point 包含分类名,或分类名包含 weak_point
+    for cat_name, cat in category_names.items():
+        if cat_name in weak_point or weak_point in cat_name:
+            return cat, f"匹配到近似分类「{cat_name}」(基于关键词重叠)"
+    
+    # 2) 关键词映射查找
+    for keyword, candidate_names in WEAK_POINT_KEYWORD_MAP.items():
+        if keyword in weak_point:
+            # 找第一个真实存在于题库的候选
+            for candidate in candidate_names:
+                if candidate in category_names:
+                    return category_names[candidate], (
+                        f"识别到关键词「{keyword}」,匹配到相关分类「{candidate}」"
+                    )
+            # 候选都不存在(如"听力"对应空列表),返回 None 让上层 fallback
+            return None, ""
+    
+    return None, ""
 
 
 def search_knowledge_base(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
