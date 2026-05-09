@@ -97,3 +97,15 @@ encoding_error.log
 Docker Compose 本地覆盖文件 (如果有)
 
 docker-compose.override.yml
+
+
+# --- 7. 项目运行时与调试输出 ---
+
+# 用户上传的资料库文件
+backend/storage/
+
+# 调试脚本输出（临时文件）
+inspect_result.txt
+pdf_inspect.txt
+backend/inspect_result.txt
+backend/pdf_inspect.txt

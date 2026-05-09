@@ -8,27 +8,29 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from crud.repositories import (
-    HomeworkCRUD, StudentCRUD, ClassroomCRUD,
-    ErrorBookCategoryCRUD, ErrorBookEntryCRUD
+    HomeworkCRUD, StudentCRUD, ClassroomCRUD
 )
-from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPush, ErrorBookEntry, ErrorBookCategory
+from models.entities import ExamAssignment, Exam, Homework, Scenario, ScenarioPush
 from schemas.entities import HomeworkCreate
 from core.responses import ok, fail
 from core.deps import current_student, require_student
 from services.metrics import track_learning_activity, refresh_student_metrics
 
+from services.exam_grader import ExamGrader
+from services.error_book_service import ErrorBookService
+
 router = APIRouter()
 
 
-def _ensure_default_error_category_id(db: Session) -> int | None:
-    """确保存在默认错题分类，避免错题写入依赖seed。"""
-    cat = db.scalar(select(ErrorBookCategory).where(ErrorBookCategory.name == "全部"))
-    if cat:
-        return cat.id
-    cat = ErrorBookCategory(name="全部")
-    db.add(cat)
-    db.flush()
-    return cat.id
+# def _ensure_default_error_category_id(db: Session) -> int | None:
+#     """确保存在默认错题分类，避免错题写入依赖seed。"""
+#     cat = db.scalar(select(ErrorBookCategory).where(ErrorBookCategory.name == "全部"))
+#     if cat:
+#         return cat.id
+#     cat = ErrorBookCategory(name="全部")
+#     db.add(cat)
+#     db.flush()
+#     return cat.id
 
 
 class JoinClassBody(BaseModel):
@@ -138,95 +140,158 @@ def get_exam_for_student(assignment_id: int, request: Request, db: Session = Dep
     })
 
 
+# @router.post("/api/student/exam/submit")
+# def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session = Depends(get_db)):
+#     """
+#     试卷提交接口
+#     1. 评分并保存答卷记录
+#     2. 答错的题目自动添加到错题本
+#     """
+#     try:
+#         student = current_student(request, db)
+#         if not student:
+#             return fail("未授权", 401)
+#         assignment = db.scalar(select(ExamAssignment).where(
+#             ExamAssignment.id == req.assignment_id, 
+#             ExamAssignment.student_id == student.id
+#         ))
+#         if not assignment:
+#             return fail("任务不存在")
+#         if assignment.status == "completed":
+#             return fail("该试卷已提交过")
+        
+#         exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
+#         content = assignment.personalized_content if assignment.personalized_content else exam.content
+#         if not content:
+#             content = []
+        
+#         # 获取错题分类信息 - 统一使用"全部"分类
+#         error_cats = {c.name: c.id for c in ErrorBookCategoryCRUD.list_all(db)}
+#         default_error_cat_id = error_cats.get("全部") or _ensure_default_error_category_id(db)
+        
+#         earned_score = 0
+#         ai_comment_lines = []
+        
+#         for idx, q_data in enumerate(content):
+#             q_score = q_data.get("score", 0)
+#             u_ans = req.answers.get(str(idx), "")
+            
+#             if q_data.get("type") == "grammar":
+#                 correct_ans = str(q_data.get("answer", ""))
+#                 is_correct = (
+#                     correct_ans and (
+#                         u_ans.startswith(correct_ans + '.') or 
+#                         u_ans.startswith(correct_ans + ' ') or 
+#                         u_ans == correct_ans or 
+#                         correct_ans.startswith(u_ans) or 
+#                         u_ans.startswith(correct_ans)
+#                     )
+#                 )
+                
+#                 if is_correct:
+#                     earned_score += q_score
+#                 else:
+#                     # 答错：添加到错题本
+#                     ai_comment_lines.append(f"第 {idx + 1} 题(语法): 答错了，你的答案 [{u_ans}]；正确答案 [{correct_ans}]")
+                    
+#                     if default_error_cat_id:
+#                         try:
+#                             question_text = q_data.get("q", f"第 {idx + 1} 题")
+#                             # 检查是否已存在该题目的错题记录
+#                             existing_error = db.scalar(
+#                                 select(ErrorBookEntry).where(
+#                                     (ErrorBookEntry.student_id == student.id) &
+#                                     (ErrorBookEntry.source == "试卷测验") &
+#                                     (ErrorBookEntry.question == question_text)
+#                                 )
+#                             )
+                            
+#                             if existing_error:
+#                                 # 更新现有错题
+#                                 existing_error.user_answer = u_ans
+#                                 existing_error.correct_answer = correct_ans
+#                                 existing_error.is_mastered = False
+#                                 db.merge(existing_error)
+#                             else:
+#                                 # 创建新的错题记录
+#                                 new_error = ErrorBookEntry(
+#                                     student_id=student.id,
+#                                     category_id=default_error_cat_id,
+#                                     source="试卷测验",
+#                                     question=question_text,
+#                                     user_answer=u_ans,
+#                                     correct_answer=correct_ans,
+#                                     analysis=f"来自试卷 [{exam.exam_code}]，请参考正确答案复习。",
+#                                 )
+#                                 db.add(new_error)
+#                         except Exception as e:
+#                             print(f"[Exam] 添加错题本失败: {e}", flush=True)
+#             else:
+#                 ai_comment_lines.append(f"第 {idx + 1} 题(写作): 已记录答案，待教师或AI后续评分。")
+        
+#         assignment.status = "completed"
+#         HomeworkCRUD.create(db, HomeworkCreate(
+#             student_id=student.id,
+#             title=f"[随堂测验] {exam.exam_code} 的答卷",
+#             status="已完成",
+#             submitted_at=datetime.now(),
+#             score=float(earned_score),
+#             file_type="json_exam",
+#             file_url=json.dumps(req.answers, ensure_ascii=False),
+#             ai_comment="\n".join(ai_comment_lines) if ai_comment_lines else "语法全对！大题待教师评分。",
+#             exam_assignment_id=assignment.id
+#         ))
+        
+#         # 提交测验后将学习行为计入统计，并实时刷新评测指标
+#         estimated_minutes = max(8, min(90, len(content) * 3))
+#         track_learning_activity(db, student.id, "综合测验", estimated_minutes, f"完成测验 {exam.exam_code}")
+        
+#         db.commit()  # 提交所有更改
+#         latest = refresh_student_metrics(db, student.id)
+#         return ok({"score": earned_score, "message": "提交成功", "metrics": latest})
+#     except Exception as e:
+#         db.rollback()
+#         import traceback
+#         traceback.print_exc()
+#         print(f"[Exam Submit] 错误: {e}", flush=True)
+#         return fail(f"Server error: {str(e)}", 500)
+
 @router.post("/api/student/exam/submit")
 def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session = Depends(get_db)):
-    """
-    试卷提交接口
-    1. 评分并保存答卷记录
-    2. 答错的题目自动添加到错题本
-    """
+    """试卷提交:评分 + 写错题本 + 创建作业 + 跟踪学习活动。"""
     try:
+        # 1. 鉴权
         student = current_student(request, db)
         if not student:
             return fail("未授权", 401)
+
+        # 2. 取数据
         assignment = db.scalar(select(ExamAssignment).where(
-            ExamAssignment.id == req.assignment_id, 
+            ExamAssignment.id == req.assignment_id,
             ExamAssignment.student_id == student.id
         ))
         if not assignment:
             return fail("任务不存在")
         if assignment.status == "completed":
             return fail("该试卷已提交过")
-        
+
         exam = db.scalar(select(Exam).where(Exam.id == assignment.exam_id))
-        content = assignment.personalized_content if assignment.personalized_content else exam.content
-        if not content:
-            content = []
-        
-        # 获取错题分类信息 - 统一使用"全部"分类
-        error_cats = {c.name: c.id for c in ErrorBookCategoryCRUD.list_all(db)}
-        default_error_cat_id = error_cats.get("全部") or _ensure_default_error_category_id(db)
-        
-        earned_score = 0
-        ai_comment_lines = []
-        
-        for idx, q_data in enumerate(content):
-            q_score = q_data.get("score", 0)
-            u_ans = req.answers.get(str(idx), "")
-            
-            if q_data.get("type") == "grammar":
-                correct_ans = str(q_data.get("answer", ""))
-                is_correct = (
-                    correct_ans and (
-                        u_ans.startswith(correct_ans + '.') or 
-                        u_ans.startswith(correct_ans + ' ') or 
-                        u_ans == correct_ans or 
-                        correct_ans.startswith(u_ans) or 
-                        u_ans.startswith(correct_ans)
-                    )
-                )
-                
-                if is_correct:
-                    earned_score += q_score
-                else:
-                    # 答错：添加到错题本
-                    ai_comment_lines.append(f"第 {idx + 1} 题(语法): 答错了，你的答案 [{u_ans}]；正确答案 [{correct_ans}]")
-                    
-                    if default_error_cat_id:
-                        try:
-                            question_text = q_data.get("q", f"第 {idx + 1} 题")
-                            # 检查是否已存在该题目的错题记录
-                            existing_error = db.scalar(
-                                select(ErrorBookEntry).where(
-                                    (ErrorBookEntry.student_id == student.id) &
-                                    (ErrorBookEntry.source == "试卷测验") &
-                                    (ErrorBookEntry.question == question_text)
-                                )
-                            )
-                            
-                            if existing_error:
-                                # 更新现有错题
-                                existing_error.user_answer = u_ans
-                                existing_error.correct_answer = correct_ans
-                                existing_error.is_mastered = False
-                                db.merge(existing_error)
-                            else:
-                                # 创建新的错题记录
-                                new_error = ErrorBookEntry(
-                                    student_id=student.id,
-                                    category_id=default_error_cat_id,
-                                    source="试卷测验",
-                                    question=question_text,
-                                    user_answer=u_ans,
-                                    correct_answer=correct_ans,
-                                    analysis=f"来自试卷 [{exam.exam_code}]，请参考正确答案复习。",
-                                )
-                                db.add(new_error)
-                        except Exception as e:
-                            print(f"[Exam] 添加错题本失败: {e}", flush=True)
-            else:
-                ai_comment_lines.append(f"第 {idx + 1} 题(写作): 已记录答案，待教师或AI后续评分。")
-        
+        content = assignment.personalized_content or exam.content or []
+
+        # 3. 评分(纯函数)
+        grade_result = ExamGrader.grade(content, req.answers)
+        earned_score = grade_result["earned_score"]
+        ai_comment = "\n".join(grade_result["comment_lines"]) or "语法全对!大题待教师评分。"
+
+        # 4. 写错题本
+        ErrorBookService.record_wrong_answers(
+            db, student.id,
+            source="试卷测验",
+            wrong_questions=grade_result["wrong_questions"],
+            analysis_template=f"来自试卷 [{exam.exam_code}],请参考正确答案复习。",
+        )
+
+        # 5. 创建作业记录 + 标记 assignment 为完成
         assignment.status = "completed"
         HomeworkCRUD.create(db, HomeworkCreate(
             student_id=student.id,
@@ -236,22 +301,23 @@ def submit_exam_answers(req: StudentExamSubmitReq, request: Request, db: Session
             score=float(earned_score),
             file_type="json_exam",
             file_url=json.dumps(req.answers, ensure_ascii=False),
-            ai_comment="\n".join(ai_comment_lines) if ai_comment_lines else "语法全对！大题待教师评分。",
-            exam_assignment_id=assignment.id
+            ai_comment=ai_comment,
+            exam_assignment_id=assignment.id,
         ))
-        
-        # 提交测验后将学习行为计入统计，并实时刷新评测指标
+
+        # 6. 跟踪学习活动
         estimated_minutes = max(8, min(90, len(content) * 3))
-        track_learning_activity(db, student.id, "综合测验", estimated_minutes, f"完成测验 {exam.exam_code}")
-        
-        db.commit()  # 提交所有更改
+        track_learning_activity(db, student.id, "综合测验", estimated_minutes,
+                                f"完成测验 {exam.exam_code}")
+
+        # 7. 提交
+        db.commit()
         latest = refresh_student_metrics(db, student.id)
         return ok({"score": earned_score, "message": "提交成功", "metrics": latest})
     except Exception as e:
         db.rollback()
         import traceback
         traceback.print_exc()
-        print(f"[Exam Submit] 错误: {e}", flush=True)
         return fail(f"Server error: {str(e)}", 500)
 
 

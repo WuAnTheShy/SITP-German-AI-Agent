@@ -48,9 +48,55 @@ def extract_text(path: Path, mime_type: str | None = None) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
+# 新增函数，用以识别pdf的索引页/页码列表
+def _looks_like_index_page(content: str) -> tuple[bool, dict]:
+    """检测一段文本是否像 PDF 的索引页/页码列表。
+    
+    判定特征（基于词典类 PDF 的真实数据）：
+      1. 短行密集（>= 70% 的行长度 < 40 字符）
+      2. 行尾大量是数字（>= 50% 的行以数字结尾）
+      3. 至少有 8 行可解析内容
+    
+    返回 (是否是索引页, 调试信息字典)
+    """
+    lines = [l.strip() for l in content.split("\n") if l.strip()]
+    
+    debug = {
+        "total_lines": len(lines),
+        "short_ratio": 0.0,
+        "ends_with_num_ratio": 0.0,
+    }
+    
+    # 行数太少不判定（避免误伤词条小段）
+    if len(lines) < 8:
+        return False, debug
+    
+    short_lines = sum(1 for l in lines if len(l) < 40)
+    debug["short_ratio"] = short_lines / len(lines)
+    
+    # 行尾是数字：取每行最后一个 token
+    ends_with_num = 0
+    for l in lines:
+        tokens = l.split()
+        if tokens and tokens[-1].rstrip(",.;:").isdigit():
+            ends_with_num += 1
+    debug["ends_with_num_ratio"] = ends_with_num / len(lines)
+    
+    is_index = (
+        debug["short_ratio"] > 0.7
+        and debug["ends_with_num_ratio"] > 0.5
+    )
+    return is_index, debug
+
+
+
 # 2.切块
 #   按 700字符 固定长度切，相邻 chunk 重叠 100 字符
 def chunk_text(text: str, chunk_size: int = 700, overlap: int = 100) -> list[dict]:
+    """将文本切成 chunks。
+    
+    在原始字符切分基础上，主动识别并丢弃索引页/页码列表噪音。
+    """
     cleaned = (text or "").replace("\r\n", "\n").strip()
     if not cleaned:
         return []
@@ -58,22 +104,45 @@ def chunk_text(text: str, chunk_size: int = 700, overlap: int = 100) -> list[dic
     start = 0
     idx = 0
     n = len(cleaned)
+    skipped_count = 0
+    
     while start < n:
         end = min(start + chunk_size, n)
         content = cleaned[start:end].strip()
         if content:
-            chunks.append(
-                {
-                    "chunk_index": idx,
-                    "content": content,
-                    "token_count": max(1, len(content) // 4),
-                    "metadata_json": json.dumps({"start": start, "end": end}, ensure_ascii=False),
-                }
-            )
-            idx += 1
+            # 检测是否是索引页噪音
+            is_index, debug = _looks_like_index_page(content)
+            if is_index:
+                skipped_count += 1
+                preview = content[:60].replace("\n", " ")
+                print(
+                    f"[INGEST] skip index page chunk: "
+                    f"lines={debug['total_lines']}, "
+                    f"short_ratio={debug['short_ratio']:.2f}, "
+                    f"num_ratio={debug['ends_with_num_ratio']:.2f} | {preview}",
+                    flush=True,
+                )
+            else:
+                chunks.append(
+                    {
+                        "chunk_index": idx,
+                        "content": content,
+                        "token_count": max(1, len(content) // 4),
+                        "metadata_json": json.dumps(
+                            {"start": start, "end": end}, ensure_ascii=False
+                        ),
+                    }
+                )
+                idx += 1
         if end >= n:
             break
         start = max(0, end - overlap)
+    
+    if skipped_count:
+        print(
+            f"[INGEST] chunked {idx} content chunks, skipped {skipped_count} index pages",
+            flush=True,
+        )
     return chunks
 
 

@@ -27,12 +27,15 @@
 
 - 环境变量：LLM_PROVIDER=qwen
 - 关键配置：QWEN_API_KEY
+- 可选配置：QWEN_API_URL、LLM_MODEL
 - 特点：部署简单，适合生产环境。
 
 ### 2.2 LM Studio 本地模式
 
 - 环境变量：LLM_PROVIDER=lmstudio
-- 关键配置：LMSTUDIO_BASE_URL、LMSTUDIO_MODEL
+- 关键配置：LMSTUDIO_BASE_URL
+- 模型配置：优先使用 LLM_MODEL，其次 LMSTUDIO_MODEL
+- 可选配置：LMSTUDIO_API_KEY
 - 特点：离线可用，适合本地开发与内网场景。
 
 Docker 场景中 LMSTUDIO_BASE_URL 建议使用 http://host.docker.internal:1234。
@@ -66,6 +69,7 @@ Docker 场景中 LMSTUDIO_BASE_URL 建议使用 http://host.docker.internal:1234
 
 - 普通对话通过会话表和消息表维持上下文。
 - 学生情景对话支持状态查询、清空重开、历史延续。
+- 学生与教师对话在固定轮数后刷新长期摘要（long_memory_summary）。
 
 ### 4.3 稳定性与安全
 

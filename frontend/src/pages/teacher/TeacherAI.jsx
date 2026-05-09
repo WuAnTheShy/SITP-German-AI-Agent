@@ -10,7 +10,10 @@ import {
   API_TEACHER_CHAT_SESSION,
   API_USER_KB_DOCS,
   API_USER_KB_UPLOAD_TEMP,
+  API_TEACHER_CHAT_STREAM,
 } from "../../api/config";
+import { streamChat } from "../../api/streamingChat";
+import AgentProgress from "../../components/AgentProgress";
 import {
   Send,
   Bot,
@@ -32,14 +35,14 @@ import MarkdownContent from "../../components/MarkdownContent";
 const WELCOME_AI =
   "您好，老师！我是您的 AI 教研助手。我可以帮您分析学情数据、制定教学计划或自动生成德语试卷，请问今天需要什么协助？";
 
-const welcomeMessages = () => [
-  { id: "w1", sender: "ai", text: WELCOME_AI },
-];
+const welcomeMessages = () => [{ id: "w1", sender: "ai", text: WELCOME_AI }];
 
 const TeacherAI = () => {
   const navigate = useNavigate();
   const userInfo = parseStoredUserInfo();
-  const myKbHref = userInfo.id ? `#/teacher/${userInfo.id}/my-kb` : "#/teacher/login";
+  const myKbHref = userInfo.id
+    ? `#/teacher/${userInfo.id}/my-kb`
+    : "#/teacher/login";
   const [messages, setMessages] = useState(welcomeMessages());
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -114,7 +117,7 @@ const TeacherAI = () => {
               id: m.id,
               sender: m.role === "user" ? "user" : "ai",
               text: m.content,
-            }))
+            })),
           );
         } else setMessages(welcomeMessages());
       }
@@ -148,7 +151,7 @@ const TeacherAI = () => {
           id: m.id,
           sender: m.role === "user" ? "user" : "ai",
           text: m.content,
-        }))
+        })),
       );
     } catch {
       setMessages(welcomeMessages());
@@ -171,48 +174,195 @@ const TeacherAI = () => {
     if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
+  // const handleSend = async () => {
+  //   if (!input.trim() || loading) return;
+  //   const userText = input;
+  //   setMessages((prev) => [
+  //     ...prev,
+  //     { id: `u-${Date.now()}`, sender: "user", text: userText },
+  //   ]);
+  //   setInput("");
+  //   setLoading(true);
+  //   try {
+  //     const response = await request.post(
+  //       API_CHAT,
+  //       {
+  //         message: userText,
+  //         session_id: sessionId || undefined,
+  //         new_thread: false,
+  //       },
+  //       { timeout: 90000 },
+  //     );
+  //     const data = response.data;
+  //     if (data.session_id) setSessionId(data.session_id);
+  //     setMessages((prev) => [
+  //       ...prev,
+  //       {
+  //         id: `a-${Date.now()}`,
+  //         sender: "ai",
+  //         text: data.reply || "（无回复）",
+  //       },
+  //     ]);
+  //     loadSessions();
+  //   } catch (error) {
+  //     console.error(error);
+  //     const isTimeout = error.code === "ECONNABORTED";
+  //     setMessages((prev) => [
+  //       ...prev,
+  //       {
+  //         id: `e-${Date.now()}`,
+  //         sender: "ai",
+  //         text: isTimeout
+  //           ? "⚠️ AI 响应超时，请稍后重试。"
+  //           : "⚠️ 连接失败，请确认后端已启动并已登录。",
+  //       },
+  //     ]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const userText = input;
+    const userMsgId = `u-${Date.now()}`;
+    const aiMsgId = `a-${Date.now()}`;
+
     setMessages((prev) => [
       ...prev,
-      { id: `u-${Date.now()}`, sender: "user", text: userText },
+      { id: userMsgId, sender: "user", text: userText },
+      { id: aiMsgId, sender: "ai", text: "", stages: [], streaming: true },
     ]);
     setInput("");
     setLoading(true);
-    try {
-      const response = await request.post(
-        API_CHAT,
-        {
-          message: userText,
-          session_id: sessionId || undefined,
-          new_thread: false,
+
+    let aiText = "";
+
+    streamChat(
+      API_TEACHER_CHAT_STREAM,
+      {
+        message: userText,
+        session_id: sessionId || undefined,
+        new_thread: false,
+      },
+      {
+        onMeta: (data) => {
+          if (data.session_id) setSessionId(data.session_id);
         },
-        { timeout: 90000 }
-      );
-      const data = response.data;
-      if (data.session_id) setSessionId(data.session_id);
-      setMessages((prev) => [
-        ...prev,
-        { id: `a-${Date.now()}`, sender: "ai", text: data.reply || "（无回复）" },
-      ]);
-      loadSessions();
-    } catch (error) {
-      console.error(error);
-      const isTimeout = error.code === "ECONNABORTED";
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `e-${Date.now()}`,
-          sender: "ai",
-          text: isTimeout
-            ? "⚠️ AI 响应超时，请稍后重试。"
-            : "⚠️ 连接失败，请确认后端已启动并已登录。",
+        onRagStart: () => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    stages: [
+                      ...(m.stages || []),
+                      {
+                        type: "rag",
+                        label: "检索知识库...",
+                        status: "running",
+                      },
+                    ],
+                  }
+                : m,
+            ),
+          );
         },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+        onRagDone: (data) => {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== aiMsgId) return m;
+              const stages = [...(m.stages || [])];
+              const idx = stages.findIndex(
+                (s) => s.type === "rag" && s.status === "running",
+              );
+              if (idx >= 0) {
+                stages[idx] = {
+                  ...stages[idx],
+                  status: "done",
+                  summary: data.used
+                    ? `命中 ${data.sources_count} 条 (top=${data.top_score})`
+                    : "未命中,使用通用知识",
+                };
+              }
+              return { ...m, stages };
+            }),
+          );
+        },
+        onToolCallStart: (data) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    stages: [
+                      ...(m.stages || []),
+                      {
+                        type: "tool",
+                        label: `调用工具: ${data.display_name || data.name}`,
+                        status: "running",
+                        toolName: data.name,
+                      },
+                    ],
+                  }
+                : m,
+            ),
+          );
+        },
+        onToolCallDone: (data) => {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== aiMsgId) return m;
+              const stages = [...(m.stages || [])];
+              const idx = stages.findIndex(
+                (s) =>
+                  s.type === "tool" &&
+                  s.toolName === data.name &&
+                  s.status === "running",
+              );
+              if (idx >= 0) {
+                stages[idx] = {
+                  ...stages[idx],
+                  status: data.success ? "done" : "failed",
+                  summary: data.summary,
+                };
+              }
+              return { ...m, stages };
+            }),
+          );
+        },
+        onToken: (delta) => {
+          aiText += delta;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === aiMsgId ? { ...m, text: aiText } : m)),
+          );
+        },
+        onDone: () => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId ? { ...m, streaming: false } : m,
+            ),
+          );
+          setLoading(false);
+          loadSessions();
+        },
+        onError: (err) => {
+          console.error(err);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    text: aiText || "⚠️ 连接失败,请确认后端已启动并已登录。",
+                    streaming: false,
+                  }
+                : m,
+            ),
+          );
+          setLoading(false);
+        },
+      },
+    );
   };
 
   const handleKbUpload = async (e) => {
@@ -236,7 +386,7 @@ const TeacherAI = () => {
       await loadKbDocs();
     } catch (err) {
       setKbHint(
-        `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`
+        `上传失败：${err.response?.data?.detail || err.message || "请稍后重试"}`,
       );
     } finally {
       setKbUploading(false);
@@ -314,11 +464,14 @@ const TeacherAI = () => {
   ];
   const currentSessionKey = sessionId ? `teacher:${sessionId}` : null;
   const currentSessionTempDocs = kbDocs.filter(
-    (d) => d.is_temporary && currentSessionKey && d.session_key === currentSessionKey
+    (d) =>
+      d.is_temporary &&
+      currentSessionKey &&
+      d.session_key === currentSessionKey,
   );
 
   return (
-    <div className="teacher-shell flex flex-col min-h-screen">
+    <div className="teacher-shell flex flex-col h-screen overflow-hidden">
       {/* 顶部：返回 + 标题 */}
       <div className="shrink-0 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 teacher-panel">
         <button
@@ -356,10 +509,7 @@ const TeacherAI = () => {
         >
           <div className="p-3 border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <MessageSquare
-                className="text-indigo-600 shrink-0"
-                size={20}
-              />
+              <MessageSquare className="text-indigo-600 shrink-0" size={20} />
               <span className="font-semibold text-gray-800 dark:text-gray-100 truncate text-sm">
                 对话历史
               </span>
@@ -425,7 +575,9 @@ const TeacherAI = () => {
               </div>
             ))}
             {sessions.length === 0 && (
-              <p className="text-xs text-gray-500 p-2">暂无记录，点右上角 + 开始</p>
+              <p className="text-xs text-gray-500 p-2">
+                暂无记录，点右上角 + 开始
+              </p>
             )}
           </div>
           <button
@@ -505,7 +657,10 @@ const TeacherAI = () => {
                       {msg.sender === "user" ? (
                         <User size={20} className="text-white" />
                       ) : (
-                        <Bot size={24} className="text-teal-700 dark:text-teal-300" />
+                        <Bot
+                          size={24}
+                          className="text-teal-700 dark:text-teal-300"
+                        />
                       )}
                     </div>
                     <div
@@ -518,18 +673,32 @@ const TeacherAI = () => {
                       {msg.sender === "user" ? (
                         <span className="whitespace-pre-wrap">{msg.text}</span>
                       ) : (
-                        <MarkdownContent content={msg.text} />
+                        <>
+                          {msg.stages && msg.stages.length > 0 && (
+                            <AgentProgress stages={msg.stages} />
+                          )}
+                          {msg.text ? (
+                            <MarkdownContent content={msg.text} />
+                          ) : msg.streaming ? (
+                            <span className="text-slate-400 text-xs italic">
+                              AI 正在准备回答...
+                            </span>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </div>
                 </div>
               ))
             )}
-            {loading && (
+            {/* {loading && (
               <div className="flex justify-start">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full teacher-panel border border-slate-200/80 dark:border-slate-700 flex items-center justify-center">
-                    <Bot size={24} className="text-teal-700 dark:text-teal-300" />
+                    <Bot
+                      size={24}
+                      className="text-teal-700 dark:text-teal-300"
+                    />
                   </div>
                   <div className="p-4 rounded-2xl rounded-tl-none teacher-panel border border-slate-200/80 dark:border-slate-700 flex items-center gap-2 text-slate-500 dark:text-slate-300">
                     <Loader2 className="animate-spin text-teal-600" size={18} />{" "}
@@ -537,7 +706,7 @@ const TeacherAI = () => {
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
             <div ref={messagesEndRef} />
           </div>
 
@@ -578,13 +747,19 @@ const TeacherAI = () => {
                   onChange={handleKbUpload}
                 />
               </label>
-              <span className="text-xs text-slate-500 dark:text-slate-400">仅上传当前会话临时资料</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                仅上传当前会话临时资料
+              </span>
             </div>
             <div className="max-w-4xl mx-auto mb-2 space-y-1.5 text-xs">
-              <div className="text-slate-500 dark:text-slate-400">当前会话资料 {currentSessionTempDocs.length} 份</div>
+              <div className="text-slate-500 dark:text-slate-400">
+                当前会话资料 {currentSessionTempDocs.length} 份
+              </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {currentSessionTempDocs.length === 0 ? (
-                  <span className="text-slate-400 dark:text-slate-500">暂无</span>
+                  <span className="text-slate-400 dark:text-slate-500">
+                    暂无
+                  </span>
                 ) : (
                   currentSessionTempDocs.slice(0, 4).map((d) => (
                     <span
@@ -593,7 +768,9 @@ const TeacherAI = () => {
                       title={`${d.source_name} · ${d.status}`}
                     >
                       {d.title}
-                      <span className="ml-1 text-[10px] opacity-70">本会话</span>
+                      <span className="ml-1 text-[10px] opacity-70">
+                        本会话
+                      </span>
                     </span>
                   ))
                 )}
@@ -664,7 +841,8 @@ const TeacherAI = () => {
               删除这条对话？
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              将永久删除对话 <strong>#{deleteTargetId}</strong> 及其全部聊天记录，<strong>无法恢复</strong>。确定要继续吗？
+              将永久删除对话 <strong>#{deleteTargetId}</strong>{" "}
+              及其全部聊天记录，<strong>无法恢复</strong>。确定要继续吗？
             </p>
             <div className="flex gap-3 justify-end">
               <button

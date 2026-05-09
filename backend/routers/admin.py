@@ -2,17 +2,17 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select
-
-from db.session import get_db
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from db.session import get_db
 from crud.repositories import UserCRUD, ClassroomCRUD, SystemSettingCRUD, StudentCRUD, KnowledgeBaseCRUD
 from models.entities import Student
 from schemas.entities import ClassroomCreate
 from core.deps import require_admin
+from core.responses import ok, fail
 from core.password import ensure_transport_hash, hash_password
 from services.metrics import refresh_student_metrics
 from services.kb_ingest import (
@@ -24,7 +24,6 @@ from services.kb_ingest import (
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 KB_STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage" / "kb"
-
 
 class ClassCreateBody(BaseModel):
     class_code: str
@@ -215,7 +214,6 @@ def list_students(db: Session = Depends(get_db), _admin=Depends(require_admin)):
                 "name": s.name,
                 "status": s.status,
                 "is_active": bool(user.is_active) if user else True,
-                "class_id": s.class_id,
                 "class_ids": class_ids,
                 "class_name": classroom.class_name if classroom else None,
                 "class_code": classroom.class_code if classroom else None,
@@ -285,7 +283,6 @@ def update_student(
         "name": student.name,
         "status": student.status,
         "is_active": bool(user.is_active) if user else True,
-        "class_id": student.class_id,
         "class_ids": final_class_ids,
         "class_name": classroom.class_name if classroom else None,
         "class_names": [c.class_name for c in class_objs],
@@ -523,3 +520,167 @@ def kb_delete_doc(doc_id: int, db: Session = Depends(get_db), _admin=Depends(req
         except OSError:
             pass
     return {"deleted": True}
+
+
+
+
+# ─────────────────────────────────────────────
+# Agent Trace 可观测性 endpoints(仅 admin)
+# ─────────────────────────────────────────────
+
+@router.get("/traces")
+def list_traces(
+    req: Request,
+    db: Session = Depends(get_db),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    role: str | None = Query(None, description="过滤 student/teacher"),
+):
+    """列出最近的 traces(管理员可见)。"""
+    require_admin(req, db)
+    
+    where_clause = ""
+    params: dict[str, object] = {"limit": limit, "offset": offset}
+    if role and role in ("student", "teacher"):
+        where_clause = "WHERE role = :role"
+        params["role"] = role
+    
+    rows = db.execute(text(f"""
+        SELECT 
+            trace_id, role, user_id, session_id,
+            user_message, reply_length, success, error_type,
+            total_duration_ms, total_llm_calls, total_tool_calls,
+            total_input_tokens, total_output_tokens, estimated_cost_yuan,
+            rag_used, iterations_used, tools_called,
+            created_at
+        FROM agent_traces
+        {where_clause}
+        ORDER BY created_at DESC
+        LIMIT :limit OFFSET :offset
+    """), params).mappings().all()
+    
+    # 聚合统计(基于过滤后的所有 trace,不只是当前页)
+    total_count = db.execute(text(f"""
+        SELECT COUNT(*) FROM agent_traces {where_clause}
+    """), {"role": params.get("role")} if "role" in params else {}).scalar() or 0
+    
+    summary_row = db.execute(text(f"""
+        SELECT 
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE success = TRUE) AS success_count,
+            AVG(total_duration_ms)::int AS avg_duration_ms,
+            AVG(total_llm_calls)::numeric(10,2) AS avg_llm_calls,
+            AVG(total_tool_calls)::numeric(10,2) AS avg_tool_calls,
+            SUM(total_input_tokens) AS sum_input_tokens,
+            SUM(total_output_tokens) AS sum_output_tokens,
+            SUM(estimated_cost_yuan)::numeric(10,4) AS sum_cost
+        FROM agent_traces
+        {where_clause}
+    """), {"role": params.get("role")} if "role" in params else {}).mappings().first()
+    
+    return ok({
+        "total": total_count,
+        "summary": dict(summary_row) if summary_row else {},
+        "traces": [
+            {
+                "trace_id": r["trace_id"],
+                "role": r["role"],
+                "user_id": r["user_id"],
+                "session_id": r["session_id"],
+                "user_message_preview": (r["user_message"] or "")[:80],
+                "reply_length": r["reply_length"],
+                "success": r["success"],
+                "error_type": r["error_type"],
+                "total_duration_ms": r["total_duration_ms"],
+                "total_llm_calls": r["total_llm_calls"],
+                "total_tool_calls": r["total_tool_calls"],
+                "total_input_tokens": r["total_input_tokens"],
+                "total_output_tokens": r["total_output_tokens"],
+                "estimated_cost_yuan": float(r["estimated_cost_yuan"]) if r["estimated_cost_yuan"] is not None else 0,
+                "rag_used": r["rag_used"],
+                "iterations_used": r["iterations_used"],
+                "tools_called": r["tools_called"] or [],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in rows
+        ],
+    })
+
+
+@router.get("/traces/{trace_id}")
+def get_trace_detail(
+    trace_id: str,
+    req: Request,
+    db: Session = Depends(get_db),
+):
+    """取单个 trace 的完整详情(包含所有 spans)。"""
+    require_admin(req, db)
+    
+    trace_row = db.execute(text("""
+        SELECT * FROM agent_traces WHERE trace_id = :trace_id
+    """), {"trace_id": trace_id}).mappings().first()
+    
+    if not trace_row:
+        return fail(f"Trace {trace_id} 不存在", 404)
+    
+    span_rows = db.execute(text("""
+        SELECT * FROM agent_spans 
+        WHERE trace_id = :trace_id 
+        ORDER BY sequence
+    """), {"trace_id": trace_id}).mappings().all()
+    
+    return ok({
+        "trace": {
+            **{k: v for k, v in dict(trace_row).items() if k != "id"},
+            "estimated_cost_yuan": float(trace_row["estimated_cost_yuan"]) if trace_row["estimated_cost_yuan"] is not None else 0,
+            "rag_top_score": float(trace_row["rag_top_score"]) if trace_row["rag_top_score"] is not None else None,
+            "created_at": trace_row["created_at"].isoformat() if trace_row["created_at"] else None,
+        },
+        "spans": [
+            {
+                **{k: v for k, v in dict(s).items() if k != "id"},
+                "rag_rerank_score": float(s["rag_rerank_score"]) if s["rag_rerank_score"] is not None else None,
+                "created_at": s["created_at"].isoformat() if s["created_at"] else None,
+            }
+            for s in span_rows
+        ],
+    })
+
+
+@router.get("/traces/stats/by_tool")
+def stats_by_tool(
+    req: Request,
+    db: Session = Depends(get_db),
+    days: int = Query(7, ge=1, le=90),
+):
+    """工具调用统计(按 span_type='tool_call' 聚合)。"""
+    require_admin(req, db)
+    
+    rows = db.execute(text("""
+        SELECT 
+            span_name AS tool_name,
+            COUNT(*) AS call_count,
+            COUNT(*) FILTER (WHERE success = TRUE) AS success_count,
+            AVG(duration_ms)::int AS avg_duration_ms,
+            MAX(duration_ms) AS max_duration_ms
+        FROM agent_spans
+        WHERE span_type = 'tool_call'
+          AND created_at >= NOW() - (:days || ' days')::interval
+        GROUP BY span_name
+        ORDER BY call_count DESC
+    """), {"days": days}).mappings().all()
+    
+    return ok({
+        "days": days,
+        "tools": [
+            {
+                "tool_name": r["tool_name"],
+                "call_count": r["call_count"],
+                "success_count": r["success_count"],
+                "success_rate": round(r["success_count"] / r["call_count"], 3) if r["call_count"] else 0,
+                "avg_duration_ms": r["avg_duration_ms"],
+                "max_duration_ms": r["max_duration_ms"],
+            }
+            for r in rows
+        ],
+    })

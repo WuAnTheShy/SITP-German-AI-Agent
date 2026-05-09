@@ -61,7 +61,6 @@ class SystemSettingRead(ORMBase):
 class StudentCreate(BaseModel):
     uid: str
     user_id: int
-    class_id: int | None = None
     name: str
     status: str = "approved"
     active_score: int = 0
@@ -73,7 +72,6 @@ class StudentRead(ORMBase):
     id: int
     uid: str
     user_id: int
-    class_id: int | None
     name: str
     status: str
     active_score: int
@@ -109,7 +107,7 @@ class HomeworkCreate(BaseModel):
     file_type: str | None = None
     file_url: str | None = None
     file_name: str | None = None
-    file_size: str | None = None
+    file_size: int | None = None
     ai_comment: str | None = None
     exam_assignment_id: int | None = None
 
@@ -124,7 +122,7 @@ class HomeworkRead(ORMBase):
     file_type: str | None = None
     file_url: str | None = None
     file_name: str | None = None
-    file_size: str | None = None
+    file_size: int | None = None
     ai_comment: str | None = None
     exam_assignment_id: int | None = None
 

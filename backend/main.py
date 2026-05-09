@@ -3,6 +3,7 @@ import os
 import sys
 import io
 import time
+import logging
 from datetime import date, datetime, timedelta, timezone
 from statistics import mean
 from uuid import uuid4
@@ -106,6 +107,17 @@ from routers.student_learning import router as student_learning_router
 from routers.user_kb import router as user_kb_router
 
 # ════════════════════ 1. 环境与 AI 配置 ════════════════════
+# 配置全局 logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+# 减少第三方库噪音
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 _proxy = os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
 if _proxy:
     print(f"代理已启用: {_proxy}")
@@ -116,6 +128,21 @@ if LLM_PROVIDER == "qwen" and not os.getenv("QWEN_API_KEY"):
 print(f"[AI] Provider={LLM_PROVIDER}, Model={MODEL_ID}")
 
 app = FastAPI()
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# 静态文件目录(用于 admin dashboard 等)
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+
+@app.get("/admin/observability")
+def serve_dashboard():
+    """Admin trace 可观测性 Dashboard(单文件 HTML)。"""
+    return FileResponse(os.path.join(_static_dir, "dashboard.html"))
 
 
 def _is_production() -> bool:

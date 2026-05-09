@@ -356,7 +356,7 @@ curl -X POST http://localhost/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"wrong_password"}'
 
-# 使用当前 .env 示例管理员口令验证登录（预期 code=0）
+# 使用当前 .env 示例管理员口令验证登录（预期 code=200）
 curl -X POST http://localhost/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
@@ -658,7 +658,7 @@ LMSTUDIO_API_KEY=
 
 ### 演示账号
 
-系统首次启动时会自动初始化以下演示账号（含多班级样例）。
+系统演示账号仅在 `ENABLE_DEMO_SEED=true` 时初始化（生产环境默认关闭）。
 账号名固定，但密码不再在后端硬编码：
 
 - 教师演示账号密码来自 `.env` 的 `DEMO_TEACHER_PASSWORD`
@@ -666,12 +666,18 @@ LMSTUDIO_API_KEY=
 - 管理员账号密码来自 `.env` 的 `INIT_ADMIN_PASSWORD`
 - 若未配置上述密码，系统会为“新建账号”生成随机强密码并输出到后端日志
 
-| 角色   | 用户名/学号 | 密码                | 班级                        | 备注   |
-| ------ | ----------- | ------------------- | --------------------------- | ------ |
-| 教师   | `t_zhang`   | `TeacherDemo@2026!` | 软件工程(四)班（SE-2026-4） | 张老师 |
-| 学生   | `2452001`   | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 李娜   |
-| 学生   | `2452002`   | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 王强   |
-| 管理员 | `admin`     | `admin123`          | -                           | 管理员 |
+| 角色   | 登录账号               | 密码                | 班级                        | 备注   |
+| ------ | ---------------------- | ------------------- | --------------------------- | ------ |
+| 教师   | `t_zhang`              | `TeacherDemo@2026!` | 软件工程(四)班（SE-2026-4） | 张老师 |
+| 教师   | `t_liu`                | `TeacherDemo@2026!` | 数据科学(一)班（DS-2026-1） | 刘老师 |
+| 教师   | `t_chen`               | `TeacherDemo@2026!` | 德语强化(二)班（FA-2025-2） | 陈老师 |
+| 学生   | `s_li` (uid=2452001)   | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 李娜   |
+| 学生   | `s_wang` (uid=2452002) | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 王强   |
+| 学生   | `s_zhao` (uid=2452003) | `StudentDemo@2026!` | 数据科学(一)班（DS-2026-1） | 赵敏   |
+| 学生   | `s_sun` (uid=2452004)  | `StudentDemo@2026!` | 数据科学(一)班（DS-2026-1） | 孙浩   |
+| 学生   | `s_qian` (uid=2452005) | `StudentDemo@2026!` | 德语强化(二)班（FA-2025-2） | 钱雨   |
+| 学生   | `s_he` (uid=2452006)   | `StudentDemo@2026!` | 德语强化(二)班（FA-2025-2） | 何宁   |
+| 管理员 | `admin`                | `admin123`          | -                           | 管理员 |
 
 > ⚠️ 教师端和学生端均已启用密码校验与权限隔离，学生账号无法访问教师端功能，反之亦然。
 
@@ -759,30 +765,29 @@ docker system df
 
 ## 📡 API 概览
 
-| 方法     | 端点                                  | 功能                     |
-| -------- | ------------------------------------- | ------------------------ |
-| `POST`   | `/api/auth/login`                     | 教师/管理员登录          |
-| `POST`   | `/api/auth/student-login`             | 学生登录                 |
-| `PUT`    | `/api/user/password`                  | 教师/学生自助修改密码    |
-| `GET`    | `/api/admin/teachers`                 | 管理员查看教师列表       |
-| `PUT`    | `/api/admin/teachers/{user_id}`       | 管理员更新教师状态与启停 |
-| `DELETE` | `/api/admin/teachers/{user_id}`       | 管理员删除教师账号       |
-| `GET`    | `/api/admin/students`                 | 管理员查看学生列表       |
-| `PUT`    | `/api/admin/students/{student_id}`    | 管理员更新学生信息       |
-| `DELETE` | `/api/admin/students/{student_id}`    | 管理员删除学生账号       |
-| `PUT`    | `/api/admin/users/{user_id}/password` | 管理员重置教师/学生密码  |
-| `GET`    | `/api/admin/classes`                  | 管理员查看班级列表       |
-| `POST`   | `/api/admin/classes`                  | 管理员创建班级           |
-| `PUT`    | `/api/admin/classes/{class_id}`       | 管理员编辑班级           |
-| `DELETE` | `/api/admin/classes/{class_id}`       | 管理员删除班级           |
-| `PUT`    | `/api/admin/system/settings`          | 管理员更新审核策略       |
-| `GET`    | `/api/teacher/dashboard`              | 教师教学仪表盘           |
-| `GET`    | `/api/teacher/students`               | 教师查看班内学生         |
-| `POST`   | `/api/scenario/publish`               | 教师发布情景任务         |
-| `POST`   | `/api/exam/generate`                  | 教师生成智能试卷         |
-| `GET`    | `/api/student/favorites/list`         | 学生查看收藏列表         |
-| `DELETE` | `/api/student/favorites/{fav_id}`     | 学生删除收藏             |
-| `GET`    | `/api/student/learning/progress`      | 学生学习进度总览         |
+| 方法     | 端点                                  | 功能                         |
+| -------- | ------------------------------------- | ---------------------------- |
+| `POST`   | `/api/auth/login`                     | 统一登录（学生/教师/管理员） |
+| `PUT`    | `/api/user/password`                  | 教师/学生自助修改密码        |
+| `GET`    | `/api/admin/teachers`                 | 管理员查看教师列表           |
+| `PUT`    | `/api/admin/teachers/{user_id}`       | 管理员更新教师状态与启停     |
+| `DELETE` | `/api/admin/teachers/{user_id}`       | 管理员删除教师账号           |
+| `GET`    | `/api/admin/students`                 | 管理员查看学生列表           |
+| `PUT`    | `/api/admin/students/{student_id}`    | 管理员更新学生信息           |
+| `DELETE` | `/api/admin/students/{student_id}`    | 管理员删除学生账号           |
+| `PUT`    | `/api/admin/users/{user_id}/password` | 管理员重置教师/学生密码      |
+| `GET`    | `/api/admin/classes`                  | 管理员查看班级列表           |
+| `POST`   | `/api/admin/classes`                  | 管理员创建班级               |
+| `PUT`    | `/api/admin/classes/{class_id}`       | 管理员编辑班级               |
+| `DELETE` | `/api/admin/classes/{class_id}`       | 管理员删除班级               |
+| `PUT`    | `/api/admin/system/settings`          | 管理员更新审核策略           |
+| `GET`    | `/api/teacher/dashboard`              | 教师教学仪表盘               |
+| `GET`    | `/api/teacher/students`               | 教师查看班内学生             |
+| `POST`   | `/api/scenario/publish`               | 教师发布情景任务             |
+| `POST`   | `/api/exam/generate`                  | 教师生成智能试卷             |
+| `GET`    | `/api/student/favorites/list`         | 学生查看收藏列表             |
+| `DELETE` | `/api/student/favorites/{fav_id}`     | 学生删除收藏                 |
+| `GET`    | `/api/student/learning/progress`      | 学生学习进度总览             |
 
 > 完整 API 文档（自动生成）：启动后端后访问 http://localhost:8000/docs
 
@@ -817,7 +822,7 @@ docker system df
 | -------------- | ------ | -------------------- | ------------------------------ |
 | **指导教师**   | 汤春艳 | 外国语学院           | 教学理论指导、资源支持         |
 | **项目负责人** | 魏世杰 | 计算机科学与技术学院 | 系统架构设计、服务器部署与维护 |
-| **核心成员**   | 洪超慧 | 中德工程学院         | 前端界面 — 学生端+收集资料              |
+| **核心成员**   | 洪超慧 | 中德工程学院         | 前端界面 — 学生端+收集资料     |
 | **核心成员**   | 童文景 | 计算机科学与技术学院 | 前端界面 — 教师端              |
 | **核心成员**   | 周雨晗 | 外国语学院           | 德语语料搜集、数据库输入       |
 | **核心成员**   | 王莹   | 计算机科学与技术学院 | AI 智能体搭建                  |

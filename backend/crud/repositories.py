@@ -181,11 +181,11 @@ class ClassroomCRUD:
             .where(ClassStudentRelation.student_id == student_id)
             .order_by(Classroom.id)
         ).all()
-        if not rows:
-            student = StudentCRUD.get_by_id(db, student_id)
-            if student and student.class_id is not None:
-                legacy_class = ClassroomCRUD.get_by_id(db, student.class_id)
-                return [legacy_class] if legacy_class else []
+        # if not rows:
+        #     student = StudentCRUD.get_by_id(db, student_id)
+        #     if student and student.class_id is not None:
+        #         legacy_class = ClassroomCRUD.get_by_id(db, student.class_id)
+        #         return [legacy_class] if legacy_class else []
         seen: set[int] = set()
         out: list[Classroom] = []
         for row in rows:
@@ -250,8 +250,8 @@ class StudentCRUD:
         db.add(obj)
         db.commit()
         db.refresh(obj)
-        if obj.class_id is not None:
-            StudentCRUD.set_classes(db, obj, [obj.class_id])
+        # if obj.class_id is not None:
+        #     StudentCRUD.set_classes(db, obj, [obj.class_id])
         return obj
 
     @staticmethod
@@ -259,16 +259,12 @@ class StudentCRUD:
         return db.scalar(select(Student).where(Student.uid == uid))
 
     @staticmethod
+    @staticmethod
     def list_by_class(db: Session, class_id: int) -> list[Student]:
         rows = db.scalars(
             select(Student)
-            .outerjoin(ClassStudentRelation, ClassStudentRelation.student_id == Student.id)
-            .where(
-                or_(
-                    ClassStudentRelation.class_id == class_id,
-                    Student.class_id == class_id,
-                )
-            )
+            .join(ClassStudentRelation, ClassStudentRelation.student_id == Student.id)
+            .where(ClassStudentRelation.class_id == class_id)
             .order_by(Student.id)
         ).all()
         seen: set[int] = set()
@@ -289,10 +285,7 @@ class StudentCRUD:
                 .order_by(ClassStudentRelation.class_id)
             )
         )
-        if rows:
-            return rows
-        student = StudentCRUD.get_by_id(db, student_id)
-        return [student.class_id] if student and student.class_id is not None else []
+        return rows
 
     @staticmethod
     def set_classes(db: Session, student: Student, class_ids: list[int]) -> None:
@@ -300,7 +293,6 @@ class StudentCRUD:
         db.execute(delete(ClassStudentRelation).where(ClassStudentRelation.student_id == student.id))
         for class_id in dedup_ids:
             db.add(ClassStudentRelation(class_id=class_id, student_id=student.id))
-        student.class_id = dedup_ids[0] if dedup_ids else None
         db.commit()
         db.refresh(student)
 
@@ -335,24 +327,14 @@ class StudentCRUD:
             .where(ClassTeacherRelation.teacher_user_id == teacher_user_id, Student.status == "pending")
             .order_by(Student.created_at.desc())
         ).all()
-        if rows:
-            seen: set[int] = set()
-            out: list[Student] = []
-            for row in rows:
-                if row.id in seen:
-                    continue
-                seen.add(row.id)
-                out.append(row)
-            return out
-
-        return list(
-            db.scalars(
-                select(Student)
-                .join(Classroom, Student.class_id == Classroom.id)
-                .where(Classroom.teacher_user_id == teacher_user_id, Student.status == "pending")
-                .order_by(Student.created_at.desc())
-            )
-        )
+        seen: set[int] = set()
+        out: list[Student] = []
+        for row in rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            out.append(row)
+        return out
 
     @staticmethod
     def update_status(db: Session, student_id: int, status: str) -> None:
@@ -657,14 +639,27 @@ class ChatSessionCRUD:
         db: Session,
         student_id: int,
         scene_id: int | None,
-        scene_name: str | None,
+        scene_name: str | list[str] | None,
         limit: int = 30,
     ) -> list[ChatSession]:
+        """按情景查会话列表。
+        
+        scene_name 支持:
+            - str: 单个情景(向后兼容)
+            - list[str]: 多个情景(用 IN 查询,例如同时返回大厅+Agent 会话)
+            - None: 不限情景
+        """
         q = select(ChatSession).where(ChatSession.student_id == student_id)
         if scene_id is not None:
             q = q.where(ChatSession.scene_id == scene_id)
         else:
-            q = q.where(ChatSession.scene_id.is_(None), ChatSession.scene_name == scene_name)
+            # scene_id is None 表示是大厅类会话
+            q = q.where(ChatSession.scene_id.is_(None))
+            if isinstance(scene_name, str):
+                q = q.where(ChatSession.scene_name == scene_name)
+            elif isinstance(scene_name, (list, tuple)) and scene_name:
+                q = q.where(ChatSession.scene_name.in_(scene_name))
+            # scene_name is None 时不过滤,返回所有大厅类
         q = q.order_by(ChatSession.updated_at.desc()).limit(limit)
         return list(db.scalars(q))
 
@@ -1389,6 +1384,59 @@ class KnowledgeBaseCRUD:
             ),
             {
                 "query_embedding": query_embedding_vector,
+                "top_k": top_k,
+                "score_threshold": score_threshold,
+                "viewer_user_id": viewer_user_id,
+                "viewer_session_key": viewer_session_key,
+            },
+        ).mappings().all()
+        return [dict(r) for r in rows]
+    
+    @staticmethod
+    def search_chunks_by_keyword(
+        db: Session,
+        query: str,
+        top_k: int = 20,
+        score_threshold: float = 0.01,
+        viewer_user_id: int | None = None,
+        viewer_session_key: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """基于 PostgreSQL 全文检索的关键词召回(BM25 风格)。
+        
+        与 search_chunks_by_embedding 互补:
+        - 向量检索擅长语义相似度(同义词/概念)
+        - 关键词检索擅长专有名词(Konjunktiv/Apfel/Schraubenzieher)
+        
+        使用 ts_rank_cd 排序,score 越高越相关。返回字段格式与
+        search_chunks_by_embedding 对齐,便于上层融合。
+        """
+        KnowledgeBaseCRUD._ensure_temp_columns(db)
+        rows = db.execute(
+            text(
+                "SELECT c.id, c.document_id, c.chunk_index, c.content, c.metadata, "
+                "d.title, d.source_name, d.owner_user_id, "
+                "ts_rank_cd("
+                "  to_tsvector('simple', c.content), "
+                "  websearch_to_tsquery('simple', :query)"
+                ") AS score "
+                "FROM kb_chunks c "
+                "JOIN kb_documents d ON d.id = c.document_id "
+                "WHERE d.status='ready' AND d.is_active=TRUE "
+                "AND ("
+                "d.scope='public' "
+                "OR (d.scope='private' AND d.owner_user_id=:viewer_user_id "
+                "    AND (COALESCE(d.is_temporary, FALSE)=FALSE OR d.session_key=:viewer_session_key))"
+                ") "
+                "AND to_tsvector('simple', c.content) @@ websearch_to_tsquery('simple', :query) "
+                "AND ts_rank_cd("
+                "  to_tsvector('simple', c.content), "
+                "  websearch_to_tsquery('simple', :query)"
+                ") >= :score_threshold "
+                "ORDER BY score DESC "
+                "LIMIT :top_k"
+            ),
+            {
+                "query": query,
                 "top_k": top_k,
                 "score_threshold": score_threshold,
                 "viewer_user_id": viewer_user_id,
