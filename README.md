@@ -356,7 +356,7 @@ curl -X POST http://localhost/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"wrong_password"}'
 
-# 使用当前 .env 示例管理员口令验证登录（预期 code=0）
+# 使用当前 .env 示例管理员口令验证登录（预期 code=200）
 curl -X POST http://localhost/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
@@ -658,7 +658,7 @@ LMSTUDIO_API_KEY=
 
 ### 演示账号
 
-系统首次启动时会自动初始化以下演示账号（含多班级样例）。
+系统演示账号仅在 `ENABLE_DEMO_SEED=true` 时初始化（生产环境默认关闭）。
 账号名固定，但密码不再在后端硬编码：
 
 - 教师演示账号密码来自 `.env` 的 `DEMO_TEACHER_PASSWORD`
@@ -666,12 +666,18 @@ LMSTUDIO_API_KEY=
 - 管理员账号密码来自 `.env` 的 `INIT_ADMIN_PASSWORD`
 - 若未配置上述密码，系统会为“新建账号”生成随机强密码并输出到后端日志
 
-| 角色   | 用户名/学号 | 密码                | 班级                        | 备注   |
-| ------ | ----------- | ------------------- | --------------------------- | ------ |
-| 教师   | `t_zhang`   | `TeacherDemo@2026!` | 软件工程(四)班（SE-2026-4） | 张老师 |
-| 学生   | `2452001`   | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 李娜   |
-| 学生   | `2452002`   | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 王强   |
-| 管理员 | `admin`     | `admin123`          | -                           | 管理员 |
+| 角色   | 登录账号             | 密码                | 班级                        | 备注   |
+| ------ | -------------------- | ------------------- | --------------------------- | ------ |
+| 教师   | `t_zhang`            | `TeacherDemo@2026!` | 软件工程(四)班（SE-2026-4） | 张老师 |
+| 教师   | `t_liu`              | `TeacherDemo@2026!` | 数据科学(一)班（DS-2026-1） | 刘老师 |
+| 教师   | `t_chen`             | `TeacherDemo@2026!` | 德语强化(二)班（FA-2025-2） | 陈老师 |
+| 学生   | `s_li` (uid=2452001) | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 李娜   |
+| 学生   | `s_wang` (uid=2452002) | `StudentDemo@2026!` | 软件工程(四)班（SE-2026-4） | 王强   |
+| 学生   | `s_zhao` (uid=2452003) | `StudentDemo@2026!` | 数据科学(一)班（DS-2026-1） | 赵敏   |
+| 学生   | `s_sun` (uid=2452004) | `StudentDemo@2026!` | 数据科学(一)班（DS-2026-1） | 孙浩   |
+| 学生   | `s_qian` (uid=2452005) | `StudentDemo@2026!` | 德语强化(二)班（FA-2025-2） | 钱雨   |
+| 学生   | `s_he` (uid=2452006) | `StudentDemo@2026!` | 德语强化(二)班（FA-2025-2） | 何宁   |
+| 管理员 | `admin`              | `admin123`          | -                           | 管理员 |
 
 > ⚠️ 教师端和学生端均已启用密码校验与权限隔离，学生账号无法访问教师端功能，反之亦然。
 
@@ -761,8 +767,7 @@ docker system df
 
 | 方法     | 端点                                  | 功能                     |
 | -------- | ------------------------------------- | ------------------------ |
-| `POST`   | `/api/auth/login`                     | 教师/管理员登录          |
-| `POST`   | `/api/auth/student-login`             | 学生登录                 |
+| `POST`   | `/api/auth/login`                     | 统一登录（学生/教师/管理员） |
 | `PUT`    | `/api/user/password`                  | 教师/学生自助修改密码    |
 | `GET`    | `/api/admin/teachers`                 | 管理员查看教师列表       |
 | `PUT`    | `/api/admin/teachers/{user_id}`       | 管理员更新教师状态与启停 |

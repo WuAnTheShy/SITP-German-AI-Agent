@@ -18,8 +18,7 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | /api/auth/login | 教师/管理员登录 |
-| POST | /api/auth/student-login | 学生登录 |
+| POST | /api/auth/login | 统一登录（学生/教师/管理员） |
 | POST | /api/auth/student-register | 学生注册 |
 | POST | /api/auth/teacher-register | 教师注册 |
 | PUT | /api/user/password | 当前登录用户修改密码 |
@@ -63,6 +62,23 @@
 | PUT | /api/admin/users/teachers/{user_id}/approve | 通过教师审核 |
 | PUT | /api/admin/users/teachers/{user_id}/reject | 拒绝教师审核 |
 | PUT | /api/admin/users/{user_id}/password | 管理员重置用户密码 |
+
+### 3.5 知识库管理
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/admin/kb/docs | 公共知识库文档列表 |
+| POST | /api/admin/kb/upload | 上传公共知识库文档 |
+| POST | /api/admin/kb/reindex/{doc_id} | 重新索引公共文档 |
+| DELETE | /api/admin/kb/docs/{doc_id} | 删除公共文档 |
+
+### 3.6 可观测性（Trace）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/admin/traces | Trace 列表 |
+| GET | /api/admin/traces/{trace_id} | Trace 详情 |
+| GET | /api/admin/traces/stats/by_tool | 工具调用统计 |
 
 ---
 
@@ -128,6 +144,7 @@
 | GET | /api/student/grammar/categories | 语法分类 |
 | GET | /api/student/grammar/exercises | 语法练习题 |
 | POST | /api/student/grammar/submit | 提交语法练习 |
+| POST | /api/student/grammar/generate | 生成语法练习 |
 
 ### 7.3 听说写
 
@@ -150,6 +167,7 @@
 | DELETE | /api/student/error-book/delete/{error_id} | 删除错题 |
 | GET | /api/student/favorites/categories | 收藏分类 |
 | GET | /api/student/favorites/list | 收藏列表 |
+| POST | /api/student/favorites/add | 新增收藏 |
 | DELETE | /api/student/favorites/{fav_id} | 删除收藏 |
 | POST | /api/student/favorites/ai-extend | 收藏扩展学习建议 |
 | GET | /api/student/learning/progress | 学习进度总览 |
@@ -162,7 +180,8 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | /api/chat | 教师 AI 对话 |
+| POST | /api/teacher/chat | 教师 AI 对话 |
+| POST | /api/teacher/chat/stream | 教师 AI 流式对话 |
 | POST | /api/teacher/chat/new-session | 新建会话 |
 | GET | /api/teacher/chat/sessions | 会话列表 |
 | GET | /api/teacher/chat/messages | 会话消息 |
@@ -173,6 +192,7 @@
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | POST | /api/student/chat | 学生自由对话 |
+| POST | /api/student/chat/stream | 学生流式对话 |
 | POST | /api/student/chat/new-session | 新建会话 |
 | GET | /api/student/chat/sessions | 会话列表 |
 | GET | /api/student/chat/messages | 会话消息 |
@@ -188,7 +208,17 @@
 
 ---
 
-## 9. 常见状态码
+## 9. 个人资料库（User KB）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /api/user/kb/docs | 私有资料列表 |
+| POST | /api/user/kb/upload | 上传私有资料 |
+| POST | /api/user/kb/upload-temporary | 上传临时资料（会话级） |
+| POST | /api/user/kb/reindex/{doc_id} | 重新索引资料 |
+| DELETE | /api/user/kb/docs/{doc_id} | 删除资料 |
+
+## 10. 常见状态码
 
 | 状态码 | 含义 |
 | --- | --- |
