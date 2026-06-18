@@ -2,7 +2,8 @@
 
 <p align="center">
   <strong>SITP-German-AI-Agent</strong><br/>
-  同济大学大学生创新训练项目 (SITP) · 上海市级项目
+  同济大学大学生创新训练项目 (SITP) · 上海市级项目<br/>
+  中国国际大学生创新大赛（2026）同济大学校内赛银奖
 </p>
 
 <p align="center">
