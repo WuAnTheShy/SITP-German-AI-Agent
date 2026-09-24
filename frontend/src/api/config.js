@@ -125,6 +125,8 @@ export const API_GRAMMAR_GENERATE = `${API_BASE}/api/student/grammar/generate`;
 export const API_LISTENING_MATERIALS = `${API_BASE}/api/student/listening/materials`;
 export const API_LISTENING_DETAIL = `${API_BASE}/api/student/listening/material/detail`;
 export const API_SPEAKING_EVALUATE = `${API_BASE}/api/student/speaking/evaluate`;
+export const API_SPEAKING_EVALUATE_AUDIO = `${API_BASE}/api/student/speaking/evaluate-audio`;
+export const API_SPEAKING_HISTORY = `${API_BASE}/api/student/speaking/history`;
 
 // ---- 学习进度 ----
 export const API_LEARNING_PROGRESS = `${API_BASE}/api/student/learning/progress`;

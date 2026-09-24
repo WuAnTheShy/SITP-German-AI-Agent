@@ -1,6 +1,9 @@
 from datetime import date, timedelta
+from pathlib import Path
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -34,10 +37,10 @@ from schemas.entities import (
 from core.responses import ok, fail
 from core.deps import require_student, current_student
 from services.llm import ai_text, ai_json
+from services.speaking_scoring import calculate_speaking_scores, fallback_feedback
 from services.metrics import (
     track_learning_activity,
     refresh_student_metrics,
-    parse_duration_minutes,
     compute_student_interaction_minutes,
 )
 from models.entities import ErrorBookCategory, ErrorBookEntry
@@ -117,6 +120,10 @@ class GrammarGenerateReq(BaseModel):
 class SpeakingEvalReq(BaseModel):
     materialId: int
     audioUrl: str | None = None
+    transcript: str = ""
+    durationSeconds: float = 0
+    pauseCount: int = 0
+    intonationVariation: float = 0
 
 
 class WritingReq(BaseModel):
@@ -610,12 +617,101 @@ def grammar_submit(req: GrammarSubmitReq, request: Request, db: Session = Depend
         logger.error(f"[Grammar Submit] 错误: {e}", exc_info=True)
         return fail(f"提交失败: {str(e)}")
 
+SPEAKING_STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage" / "speaking"
+MAX_SPEAKING_AUDIO_BYTES = 12 * 1024 * 1024
+_AUDIO_SUFFIX_BY_TYPE = {
+    "audio/webm": ".webm",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/mp4": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/aac": ".aac",
+    "audio/mpeg": ".mp3",
+}
+
+
+def _speaking_feedback(material, transcript: str, scores: dict) -> dict[str, str]:
+    fallback = fallback_feedback(scores)
+    prompt = (
+        "你是严谨、鼓励式的德语口语教练。请根据朗读原文、浏览器语音转写和客观指标，"
+        "用中文给出简洁反馈。不要改动或重新计算分数，不要声称听到了无法验证的音素。\n"
+        f"材料：{material.title}\n"
+        f"原文：{(material.script or '')[:3000]}\n"
+        f"转写：{transcript[:3000]}\n"
+        f"指标：{scores}\n"
+        '只返回 JSON：{"analysis":"2-3句具体分析","suggestion":"2-3条可执行建议"}'
+    )
+    feedback = ai_json(prompt, fallback)
+    if not isinstance(feedback, dict):
+        return fallback
+    return {
+        "analysis": str(feedback.get("analysis") or fallback["analysis"])[:1500],
+        "suggestion": str(feedback.get("suggestion") or fallback["suggestion"])[:1500],
+    }
+
+
+def _evaluate_speaking_attempt(
+    db: Session,
+    student,
+    material,
+    transcript: str,
+    duration_seconds: float,
+    pause_count: int,
+    intonation_variation: float,
+    audio_path: str | None,
+) -> dict:
+    scores = calculate_speaking_scores(
+        material.script or "",
+        transcript,
+        duration_seconds,
+        pause_count,
+        intonation_variation,
+    )
+    feedback = _speaking_feedback(material, transcript, scores)
+    result = {**scores, **feedback, "transcript": transcript.strip()}
+    evaluation = SpeakingEvaluationCRUD.create(
+        db,
+        SpeakingEvaluationCreate(
+            student_id=student.id,
+            material_id=material.id,
+            audio_url=audio_path,
+            total_score=result["totalScore"],
+            pronunciation_score=result["pronunciationScore"],
+            fluency_score=result["fluencyScore"],
+            intonation_score=result["intonationScore"],
+            analysis=result["analysis"],
+            suggestion=result["suggestion"],
+        ),
+    )
+    duration_minutes = max(1, round(max(duration_seconds, 1) / 60))
+    _track_and_refresh(
+        db,
+        student.id,
+        "听说训练",
+        duration_minutes,
+        f"口语评测: {material.title}",
+    )
+    result["evaluationId"] = evaluation.id
+    result["evaluatedAt"] = evaluation.evaluated_at.isoformat()
+    return result
+
+
 @router.get("/api/student/listening/materials")
-def listening_materials(db: Session = Depends(get_db)):
+def listening_materials(level: str | None = Query(None), db: Session = Depends(get_db)):
     try:
-        mats = ListeningMaterialCRUD.list_all(db)
+        normalized_level = (level or "").strip().upper() or None
+        if normalized_level and normalized_level not in {"A1", "A2", "B1", "B2", "C1", "C2"}:
+            return fail("无效的难度等级", 400)
+        mats = ListeningMaterialCRUD.list_all(db, normalized_level)
         return ok([
-            {"id": m.id, "title": m.title, "level": m.level, "duration": m.duration}
+            {
+                "id": m.id,
+                "title": m.title,
+                "level": m.level,
+                "duration": m.duration,
+                "hasScript": bool((m.script or "").strip()),
+            }
             for m in mats
         ])
     except Exception as e:
@@ -628,13 +724,21 @@ def listening_material_detail(materialId: int = Query(...), db: Session = Depend
         m = ListeningMaterialCRUD.get_by_id(db, materialId)
         if not m:
             return fail("材料不存在", 404)
-        return ok({"audioUrl": m.audio_url, "script": m.script or ""})
+        return ok({
+            "id": m.id,
+            "title": m.title,
+            "level": m.level,
+            "duration": m.duration,
+            "audioUrl": m.audio_url,
+            "script": m.script or "",
+        })
     except Exception as e:
         return fail(f"获取详情失败: {e}")
 
 
 @router.post("/api/student/speaking/evaluate")
 def speaking_evaluate(req: SpeakingEvalReq, request: Request, db: Session = Depends(get_db)):
+    """JSON compatibility endpoint for clients that already have a transcript."""
     try:
         student = current_student(request, db)
         if not student:
@@ -642,43 +746,131 @@ def speaking_evaluate(req: SpeakingEvalReq, request: Request, db: Session = Depe
         material = ListeningMaterialCRUD.get_by_id(db, req.materialId)
         if not material:
             return fail("听力材料不存在", 404)
-        prompt = (
-            f"你是德语口语评估助手。学生朗读了以下听力材料:\n"
-            f"标题: {material.title}\n原文: {material.script or '(无原文)'}\n"
-            f"请给出评分(0-100)和建议。返回JSON:\n"
-            f'{{"totalScore":85,"pronunciationScore":88,"fluencyScore":82,'
-            f'"intonationScore":85,"analysis":"分析","suggestion":"建议"}}'
-        )
-        result = ai_json(prompt, {
-            "totalScore": 78, "pronunciationScore": 80,
-            "fluencyScore": 76, "intonationScore": 78,
-            "analysis": "发音基本准确，需注意元音长短区分。",
-            "suggestion": "建议多听原文录音，模仿语调节奏。",
-        })
-        SpeakingEvaluationCRUD.create(
+        if not req.transcript.strip():
+            return fail("缺少语音转写文本，请重新录音或手动补充转写", 400)
+        result = _evaluate_speaking_attempt(
             db,
-            SpeakingEvaluationCreate(
-                student_id=student.id, material_id=req.materialId,
-                audio_url=req.audioUrl,
-                total_score=result.get("totalScore"),
-                pronunciation_score=result.get("pronunciationScore"),
-                fluency_score=result.get("fluencyScore"),
-                intonation_score=result.get("intonationScore"),
-                analysis=result.get("analysis"),
-                suggestion=result.get("suggestion"),
-            ),
-        )
-        duration_minutes = parse_duration_minutes(getattr(material, "duration", None))
-        _track_and_refresh(
-            db,
-            student.id,
-            "听说训练",
-            duration_minutes,
-            f"口语评测: {material.title}",
+            student,
+            material,
+            req.transcript,
+            req.durationSeconds,
+            req.pauseCount,
+            req.intonationVariation,
+            req.audioUrl,
         )
         return ok(result)
     except Exception as e:
+        db.rollback()
+        logger.error("[Speaking Evaluate] 评估失败: %s", e, exc_info=True)
         return fail(f"评估失败: {e}")
+
+
+@router.post("/api/student/speaking/evaluate-audio")
+def speaking_evaluate_audio(
+    request: Request,
+    materialId: int = Form(...),
+    transcript: str = Form(...),
+    durationSeconds: float = Form(0),
+    pauseCount: int = Form(0),
+    intonationVariation: float = Form(0),
+    audio: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Persist a real browser recording and evaluate its transcript/metrics."""
+    saved_path: Path | None = None
+    try:
+        student = current_student(request, db)
+        if not student:
+            return fail("未找到学生信息", 401)
+        material = ListeningMaterialCRUD.get_by_id(db, materialId)
+        if not material:
+            return fail("听力材料不存在", 404)
+        if not transcript.strip():
+            return fail("未识别到德语内容，请手动校正转写文本后重试", 400)
+
+        content_type = (audio.content_type or "").split(";", 1)[0].lower()
+        if content_type not in _AUDIO_SUFFIX_BY_TYPE:
+            return fail("不支持的录音格式，请使用 WebM、Ogg、WAV、M4A 或 MP3", 400)
+        content = audio.file.read(MAX_SPEAKING_AUDIO_BYTES + 1)
+        if len(content) > MAX_SPEAKING_AUDIO_BYTES:
+            return fail("录音文件不能超过 12 MB", 400)
+        if len(content) < 512:
+            return fail("录音内容为空或过短", 400)
+
+        student_dir = SPEAKING_STORAGE_DIR / str(student.id)
+        student_dir.mkdir(parents=True, exist_ok=True)
+        saved_path = student_dir / f"{uuid4().hex}{_AUDIO_SUFFIX_BY_TYPE[content_type]}"
+        saved_path.write_bytes(content)
+
+        result = _evaluate_speaking_attempt(
+            db,
+            student,
+            material,
+            transcript,
+            durationSeconds,
+            pauseCount,
+            intonationVariation,
+            str(saved_path),
+        )
+        return ok(result)
+    except Exception as e:
+        db.rollback()
+        if saved_path and saved_path.exists():
+            saved_path.unlink(missing_ok=True)
+        logger.error("[Speaking Audio Evaluate] 评估失败: %s", e, exc_info=True)
+        return fail(f"评估失败: {e}")
+    finally:
+        audio.file.close()
+
+
+@router.get("/api/student/speaking/history")
+def speaking_history(
+    request: Request,
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    student = current_student(request, db)
+    if not student:
+        return fail("未找到学生信息", 401)
+    evaluations = SpeakingEvaluationCRUD.list_by_student(db, student.id)[:limit]
+    rows = []
+    for evaluation in evaluations:
+        material = ListeningMaterialCRUD.get_by_id(db, evaluation.material_id)
+        rows.append({
+            "id": evaluation.id,
+            "materialId": evaluation.material_id,
+            "materialTitle": material.title if material else "已删除材料",
+            "level": material.level if material else "-",
+            "totalScore": float(evaluation.total_score or 0),
+            "pronunciationScore": float(evaluation.pronunciation_score or 0),
+            "fluencyScore": float(evaluation.fluency_score or 0),
+            "intonationScore": float(evaluation.intonation_score or 0),
+            "analysis": evaluation.analysis or "",
+            "suggestion": evaluation.suggestion or "",
+            "hasRecording": bool(evaluation.audio_url),
+            "recordingUrl": f"/api/student/speaking/history/{evaluation.id}/audio" if evaluation.audio_url else None,
+            "evaluatedAt": evaluation.evaluated_at.isoformat(),
+        })
+    return ok(rows)
+
+
+@router.get("/api/student/speaking/history/{evaluation_id}/audio")
+def speaking_history_audio(
+    evaluation_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    student = current_student(request, db)
+    if not student:
+        raise HTTPException(status_code=401, detail="未找到学生信息")
+    evaluation = SpeakingEvaluationCRUD.get_by_id(db, evaluation_id)
+    if not evaluation or evaluation.student_id != student.id or not evaluation.audio_url:
+        raise HTTPException(status_code=404, detail="录音不存在")
+    base_dir = SPEAKING_STORAGE_DIR.resolve()
+    audio_path = Path(evaluation.audio_url).resolve()
+    if not audio_path.is_relative_to(base_dir) or not audio_path.is_file():
+        raise HTTPException(status_code=404, detail="录音不存在")
+    return FileResponse(audio_path, filename=f"speaking-{evaluation.id}{audio_path.suffix}")
 
 
 @router.post("/api/student/writing/check")

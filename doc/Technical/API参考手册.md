@@ -152,7 +152,10 @@
 | ---- | -------------------------------------- | ------------ |
 | GET  | /api/student/listening/materials       | 听力素材列表 |
 | GET  | /api/student/listening/material/detail | 听力素材详情 |
-| POST | /api/student/speaking/evaluate         | 口语评估     |
+| POST | /api/student/speaking/evaluate         | 文本兼容口语评估 |
+| POST | /api/student/speaking/evaluate-audio   | 上传录音并完成口语评估 |
+| GET  | /api/student/speaking/history          | 当前学生的口语评测记录 |
+| GET  | /api/student/speaking/history/{id}/audio | 获取本人历史录音 |
 | POST | /api/student/writing/check             | 写作纠错     |
 | POST | /api/student/writing/generate-sample   | AI 范文生成  |
 

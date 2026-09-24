@@ -1012,6 +1012,12 @@ class SpeakingEvaluationCRUD:
             select(SpeakingEvaluation).where(SpeakingEvaluation.student_id == student_id).order_by(SpeakingEvaluation.evaluated_at.desc())
         ))
 
+    @staticmethod
+    def get_by_id(db: Session, evaluation_id: int) -> SpeakingEvaluation | None:
+        return db.scalar(
+            select(SpeakingEvaluation).where(SpeakingEvaluation.id == evaluation_id)
+        )
+
 
 class WritingSessionCRUD:
     @staticmethod

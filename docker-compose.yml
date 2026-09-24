@@ -42,6 +42,9 @@ services:
       - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-sitp_german_ai_agent}
     depends_on:
       - db # 确保数据库先启动
+    volumes:
+      # 持久化用户上传的知识库文件与口语训练录音，避免重建镜像后丢失
+      - backend_storage:/app/storage
     restart: always
 
   frontend:
@@ -58,3 +61,4 @@ services:
 # 声明持久化卷
 volumes:
   pg_data:
+  backend_storage:
