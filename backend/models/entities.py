@@ -11,8 +11,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    user_no: Mapped[str | None] = mapped_column(String(8), unique=True, nullable=True, index=True,
-    comment="对外业务编号：学生学号7位/教师工号5位/管理员0000000；统一身份"
+    user_no: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True, index=True,
+    comment="对外业务编号：学生学号/教师工号/管理员编号；统一身份"
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)

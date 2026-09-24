@@ -19,13 +19,16 @@ def upgrade():
     # ─── Step 1: users 表加 user_no 字段 ───
     op.add_column(
         'users',
-        sa.Column('user_no', sa.String(length=8), nullable=True,
-                  comment='对外业务编号：学生学号7位/教师工号5位/管理员0000000')
+        # students.uid has historically allowed up to 32 characters.  Keep the
+        # unified login identifier equally wide so existing student accounts
+        # can be copied without truncation during an upgrade.
+        sa.Column('user_no', sa.String(length=32), nullable=True,
+                  comment='对外业务编号：学生学号/教师工号/管理员编号')
     )
     op.create_index('ix_users_user_no', 'users', ['user_no'], unique=True)
     
     # ─── Step 2: 数据回填 ───
-    # 学生：user_no = students.uid（学号 7 位）
+    # 学生：user_no = students.uid（兼容历史的非 7 位学号）
     op.execute("""
         UPDATE users 
         SET user_no = s.uid
