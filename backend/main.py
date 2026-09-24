@@ -95,7 +95,7 @@ from schemas.entities import (
     WritingSessionCreate,
 )
 from core.responses import ok, fail, to_float
-from core.deps import require_teacher, require_student, current_student
+from core.deps import require_teacher, require_student, current_student, require_admin
 from services.llm import ai_text, ai_json, MODEL_ID, LLM_PROVIDER
 from routers.auth import router as auth_router
 from routers.admin import router as admin_router
@@ -140,8 +140,8 @@ if os.path.isdir(_static_dir):
 
 
 @app.get("/admin/observability")
-def serve_dashboard():
-    """Admin trace 可观测性 Dashboard(单文件 HTML)。"""
+def serve_dashboard(_admin=Depends(require_admin)):
+    """Admin trace 可观测性 Dashboard(单文件 HTML)。仅管理员可访问。"""
     return FileResponse(os.path.join(_static_dir, "dashboard.html"))
 
 
